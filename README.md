@@ -1,358 +1,488 @@
 # 🐝 PollySort
 
-> _Developed by Akinara_
+> **A learning, console-based document archivist.** Point it at a folder full of loose
+> files, type **`sort`** — and it files them into clean category folders, getting smarter
+> with every correction.
+>
+> _Developed by **Akinara** · **public beta** · Fair-Code_
 
-Ein lernender Dokumenten-Archivar für die Konsole. Du zeigst auf einen Ordner voller loser
-Dateien, tippst **`sortiere`** — und das Tool räumt sie in saubere Kategorie-Ordner ein.
-Es lernt mit jeder Korrektur dazu.
+PollySort watches a folder, reads each document, figures out **what it is** and **what it's
+for**, assigns it to a **learning category**, and moves it into a visible category folder
+("comb"). Unsure cases are collected into a quick batch review. **Nothing is ever deleted or
+overwritten — only moved, with undo.** Everything the tool generates (index, memory, logs,
+entries, quarantine) lives in **one hidden folder, `.honig/`**, so your directory stays clean —
+only the category folders appear.
 
-**Aufgeräumt by design:** Alles, was das Tool generiert (Datenbank, Logs, Gedächtnis,
-Einträge, Quarantäne), liegt in **einem einzigen versteckten Ordner `.honig`**. Dein
-Verzeichnis bleibt sauber — sichtbar entstehen nur die Kategorie-Ordner.
+> ⚠️ **Beta.** The core is well-tested and stable, but APIs, command names and file layout may
+> still change before 1.0. Your files are safe by design (move-only, never delete), but treat
+> this as pre-release software.
+
+> 🌍 **Language.** The interface ships in **German** with a full set of **English command
+> aliases** and an English UI mode (`language en`). This README uses the English aliases; the
+> original German names are shown in parentheses.
+
+---
+
+## Table of contents
+
+- [Why PollySort](#why-pollysort)
+- [Key features](#key-features)
+- [Installation](#installation)
+- [First run](#first-run)
+- [Everyday workflow](#everyday-workflow)
+- [Command reference](#command-reference)
+- [How it works](#how-it-works)
+- [What lives where](#what-lives-where)
+- [AI modes: offline · ollama · openrouter](#ai-modes)
+- [Learning: the Wachstafel (meta-learning)](#learning-the-wachstafel)
+- [Stage 2: projects, deadlines & notifications](#stage-2-projects)
+- [Licensing (Fair-Code)](#licensing-fair-code)
+- [Privacy & security](#privacy--security)
+- [Development & testing](#development--testing)
+- [Roadmap](#roadmap)
+- [FAQ](#faq)
+
+---
+
+## Why PollySort
+
+Most "auto-sorters" force a rigid folder scheme on you and break the moment your documents
+don't fit. PollySort is different:
+
+- **It adapts to you, not the other way around.** Categories are not fixed — a vector memory
+  grows with every document, and the tool learns your habits from the corrections you make.
+- **It respects what you already have.** During setup it looks at your loose files *and* your
+  existing subfolders and proposes a structure that extends what you started, instead of
+  starting from zero.
+- **It is safe by construction.** There is no code path that deletes or overwrites a user
+  file. Name clashes get a unique suffix; deletion only ever happens through an explicit,
+  confirmed quarantine step.
+- **It works without the cloud.** A free offline heuristic sorts without any network or API
+  key. Add a local **Ollama** model or an **OpenRouter** key for higher quality — your choice,
+  per project.
+- **It stays out of your way.** One hidden `.honig/` folder holds everything generated; your
+  working directory only ever shows the clean category folders.
+
+---
+
+## Key features
+
+| | Feature |
+|---|---|
+| 🗂️ | **Content-aware sorting** — title, summary, keywords, function and category per document |
+| 🧠 | **Learning memory (Hive Mind)** — kNN vector memory + a living taxonomy that grows with use |
+| ❓ | **Confidence & batch review** — sure files are filed automatically, unsure ones are queued |
+| 👁️ | **Real-time watch** — a `watchdog` observer sorts/announces new files the instant they land |
+| 👀 | **Preview & apply** — dry-run first, then apply from cache with **no second AI calls** |
+| ⚡ | **Ultra Swarm** — parallel AI analysis for large batches (licensed feature) |
+| 📁 | **Dynamic subfolders** — e.g. file invoices into `Invoices/{year}/{month}` automatically |
+| 🔁 | **Learns from manual moves** — drag a file between folders, `scan` turns it into a rule |
+| 🧹 | **Duplicate detection** — SHA-256 dedupe; a second run makes **zero** new AI calls |
+| ↩️ | **Undo & quarantine** — move-only, unique-suffix collisions, reversible, never auto-deletes |
+| 🐝 | **Stage 2 project management** — turn a category into a project with charter & deadlines |
+| 🔔 | **Notifications** — optional Discord / e-mail alerts for due deadlines; `.ics` calendar sync |
+| 🔌 | **Three AI modes** — offline heuristic · local Ollama · OpenRouter, switchable per project |
+| 🩺 | **`doctor` health-check**, 🌍 **DE/EN UI**, 🎨 **dark/light themes**, 🛟 **abort any prompt** |
+| 🔒 | **Fair-Code** — free for personal/internal use up to 5 projects |
 
 ---
 
 ## Installation
 
-Voraussetzung: **Python 3.12+**. PollySort ist ein reines Konsolen-Tool. Empfohlen wird eine
-isolierte Installation mit [`pipx`](https://pipx.pypa.io) oder
-[`uv`](https://docs.astral.sh/uv/) — das legt den Befehl **`bumble`** in deinen PATH, ohne dass
-du dich um virtuelle Umgebungen kümmern musst (Windows, macOS und Linux gleichermaßen).
+**Requirement: Python 3.12+.** PollySort is a pure console tool. An isolated install via
+[`pipx`](https://pipx.pypa.io) or [`uv`](https://docs.astral.sh/uv/) is recommended — it puts
+the **`bumble`** command on your PATH on Windows, macOS and Linux without you having to manage
+virtual environments.
 
-### Am einfachsten: das Installer-Skript
+> 💡 **Note on the command name.** During the beta the executable is still called **`bumble`**
+> (and the scripting CLI **`bumble-cli`**). The product is *PollySort*; the command will be
+> renamed in a later release.
 
-Das Projekt bringt ein Installer-Skript mit, das **die Voraussetzungen prüft** (Projektdateien
-vorhanden, Python 3.12+), automatisch das beste verfügbare Werkzeug wählt (`uv` → `pipx` → `pip`)
-und PollySort inklusive Text-Extraktion (`[extract]`) installiert:
+### Easiest: the installer script
 
-- **Windows:** Doppelklick auf **`install.bat`** — oder im Terminal `install.bat`.
-- **Linux / macOS / Git-Bash:** **`bash install.sh`**  (ggf. vorher `chmod +x install.sh`).
+The repo ships an installer that **checks prerequisites** (project files present, Python 3.12+),
+picks the best available tool (`uv` → `pipx` → `pip`) and installs PollySort including the
+text-extraction extra:
 
-Am Ende meldet das Skript, ob der Befehl `bumble` bereit ist. Kommt der Hinweis, dass `bumble`
-noch nicht im PATH liegt, hilft ein Neustart des Terminals bzw. `pipx ensurepath`.
+- **Windows:** double-click **`install.bat`** — or run `install.bat` in a terminal.
+- **Linux / macOS / Git-Bash:** **`bash install.sh`** (run `chmod +x install.sh` first if needed).
 
-### Manuell (oder wenn das Skript nicht passt)
+At the end the script reports whether the `bumble` command is ready. If it says `bumble` isn't
+on your PATH yet, restart the terminal or run `pipx ensurepath`.
 
-**Schnellstart (während der Beta wird aus dem Repo installiert):**
+### Manual install
 
 ```bash
-# 1) Code holen
-git clone <repo-url> pollysort      # alternativ: ZIP herunterladen und entpacken
+# 1) Get the code
+git clone https://github.com/Akinara-Lab/PollySort.git pollysort
 cd pollysort
 
-# 2) Installieren (empfohlen: mit besserer Text-Extraktion)
-pipx install ".[extract]"           # oder:  uv tool install ".[extract]"
+# 2) Install (recommended: with better text extraction)
+pipx install ".[extract]"      # or:  uv tool install ".[extract]"
 
-# 3) Prüfen & starten
-bumble doctor                       # Health-Check: Python, KI-Provider, DB, Lizenz
-bumble                              # öffnet die interaktive Konsole
+# 3) Verify & launch
+bumble doctor                  # health-check: Python, AI provider, DB, license
+bumble                         # open the interactive console
 ```
 
-Das Extra `[extract]` (DOCX/CSV/HTML → Markdown, MIME-Erkennung via libmagic) ist **optional** —
-bewusst nicht im Kern, damit die Installation überall problemlos durchläuft. Nur der Kern genügt:
+The **`[extract]`** extra (DOCX/CSV/HTML → Markdown, MIME detection via libmagic) is
+**optional** — deliberately not in the core so installs succeed everywhere. Core only:
 
 ```bash
-pipx install .                      # oder:  uv tool install .
+pipx install .                 # or:  uv tool install .
 ```
 
-> Ohne `[extract]` fällt das Tool auf `mimetypes` + rohes Textlesen zurück — es funktioniert,
-> erkennt Dateitypen/Office-Formate aber etwas gröber. PDFs liest der Kern immer selbst
-> (`pypdf`) — wichtig für die **lokale KI (Ollama)**, die keine Datei-Anhänge kennt.
+> Without `[extract]` the tool falls back to `mimetypes` + raw text reading — it still works,
+> just recognizes file types / Office formats more coarsely. PDFs are always read by the core
+> (`pypdf`), which matters for **local AI (Ollama)** since it can't take file attachments.
 
-> **🦙 Robuste lokale KI:** Stürzt Ollamas GPU-Backend ab (Treiberprobleme), wechselt PollySort
-> automatisch auf CPU-Inferenz (`num_gpu: 0`) — langsamer, aber es läuft weiter.
+> 🦙 **Robust local AI:** if Ollama's GPU backend crashes (driver issues), PollySort
+> automatically falls back to CPU inference (`num_gpu: 0`) — slower, but it keeps working.
 
-**Aktualisieren** (nach `git pull`): `pipx install --force ".[extract]"` bzw.
-`uv tool install --force ".[extract]"`. **Deinstallieren:** `pipx uninstall pollysort`.
+**Update** (after `git pull`): `pipx install --force ".[extract]"` (or `uv tool install --force`).
+**Uninstall:** `pipx uninstall pollysort`.
 
-**Entwicklung (aus dem geklonten Repo, editierbar + Test-/Lint-Tools):**
+### Run without installing
 
-```bash
-uv pip install -e ".[extract,dev]"   # oder: python -m venv .venv && pip install -e ".[extract,dev]"
-```
-
-> **Ohne Installation** geht aus dem Repo weiterhin `python Beehive.py [pfad]` — läuft das
-> versehentlich unter einem alten Python, wechselt es automatisch in die projekteigene `.venv`.
+From the cloned repo you can always run `python Beehive.py [path]`. If it's launched under an
+old Python by mistake, it re-launches itself into the project's own `.venv`.
 
 ---
 
-## Starten
-
-Nach der Installation:
+## First run
 
 ```bash
-bumble                    # öffnet das zuletzt genutzte Projekt (interaktive Konsole)
-bumble "C:\Pfad"          # öffnet/erstellt ein Projekt an diesem Pfad
+bumble                    # opens the most recently used project
+bumble "C:\path\to\dir"   # opens/creates a project at this path
 ```
 
-Aus dem Repo ohne Installation geht weiterhin `python Beehive.py [pfad]` — läuft das
-versehentlich unter altem Python, wechselt es automatisch in die projekteigene `.venv`.
-Für Skripting/Automatisierung gibt es zusätzlich das Zweit-Kommando **`bumble-cli`**
-(z. B. `bumble-cli scan --mode move`).
+A **project** is just a folder whose documents get sorted; the loose files in it are your
+inbox. PollySort does **not** assume the current directory — it remembers your projects.
 
-Das öffnet eine interaktive Konsole. Ein **Projekt** ist ein Ordner, dessen Dokumente sortiert
-werden; die losen Dateien darin sind dein Posteingang. Das Tool geht **nicht** vom aktuellen
-Verzeichnis aus — es merkt sich deine Projekte.
+On the **very first launch** a one-time setup clarifies the AI backend (it detects a local
+**Ollama** and offers to store an **OpenRouter** key), then a short **3-step tutorial** appears
+(**pick a folder → `preview` → `sort`**), and the wizard walks you through the project setup.
 
-**Beim allerersten Start** klärt eine einmalige Grundeinrichtung das KI-Backend: Es erkennt ein
-lokales **Ollama** und fragt, ob ein **OpenRouter-Key** hinterlegt werden soll. Danach fragt der
-Assistent **zuerst nach dem Ordner-Pfad** und führt durch die Projekt-Einrichtung. Zum Warmwerden
-zeigt das Tool ein kurzes **3-Schritt-Tutorial** — **Ordner wählen → `vorschau` → `sortiere`** —
-damit du den ersten Schwung Dateien sofort einräumen kannst.
-
-Reihenfolge: **Name → KI-Modus → Kategorien → Überwachung.** Bei den Kategorien gibt es einen
-**Vorschlags-Modus** — er schaut sich sowohl die losen Dateien **als auch die bereits bestehende
-Ordnerstruktur** an (vorhandene Unterordner = schon gelebte Kategorien, adaptiv statt starr) und
-schlägt daraus eine Struktur vor. Im Online-Modus analysiert die **KI** die Dokumente inhaltlich,
-offline heuristisch. Jedes Projekt speichert seine Config in `.honig/hive.toml`; so laufen
-**mehrere Projekte unabhängig nebeneinander** (`neu`, `wechsel <nr>`).
+**Setup order: Name → AI mode → Categories → Subfolders → Watch.** For categories there's a
+**proposal mode** that looks at both your loose files *and* your existing folder structure
+(existing subfolders count as categories you already use — adaptive, not rigid) and suggests a
+structure. Online, the **AI** analyzes the documents; offline, a heuristic does. Each project
+stores its config in `.honig/hive.toml`, so **multiple projects run independently** side by side.
 
 ```text
 🐝  PollySort
-──────── Erste Einrichtung ────────
-🦙  Lokales Ollama erkannt — KI kann kostenlos & privat lokal laufen.
-🔑  OpenRouter-API-Key hinterlegen? [j/N]: n
+──────── First-time setup ────────
+🦙  Local Ollama detected — AI can run for free & privately on your machine.
+🔑  Store an OpenRouter API key? [y/N]: n
 
-🐝  Willkommen! Noch kein Projekt vorhanden.
-  📂 Pfad zum Projekt-Ordner: C:\Users\ich\Documents\test hive
-──────── Projekt einrichten ────────
-  1) Projektname [test hive]: Kanzlei
-  2) KI-Modus — womit sollen Dokumente eingeordnet werden?
-       [1] Offline — Heuristik, kostenlos, ohne Internet
-       [2] Lokale KI (Ollama) — gratis & privat
-     Wahl [2]: 2
-  3) Kategorien — wie soll einsortiert werden?
-       [1] Vorschlag — Dateien & bestehende Ordner anschauen (die KI schaut sie an)  (empfohlen)
-       [2] Standard  ·  [3] Eigene
-     Wahl [1]: 1
-  📁  14 Datei(en) angeschaut (KI-Analyse, davon 2 vorhandene Ordner) — Vorschlag:
-       Steuer 2023  ██████████ 4 · vorhanden
-       Rechnungen   ███████ 3
-       Fotos        █████ 2 · vorhanden
-       Vertraege    █████ 2
+🐝  Welcome! No project yet.
+  📂 Path to the project folder: C:\Users\me\Documents\office
+──────── Set up project ────────
+  1) Project name [office]: Law firm
+  2) AI mode — how should documents be classified?
+       [1] Offline — heuristic, free, no internet
+       [2] Local AI (Ollama) — free & private
+     Choice [2]: 2
+  3) Categories — how should filing work?
+       [1] Proposal — look at files & existing folders (the AI reads them)  (recommended)
+       [2] Standard  ·  [3] Custom
+     Choice [1]: 1
+  📁  14 file(s) examined (AI analysis, 2 of them existing folders) — proposal:
+       Tax 2023     ██████████ 4 · existing
+       Invoices     ███████ 3
+       Photos       █████ 2 · existing
+       Contracts    █████ 2
        …
-     Übernehmen? [J/n]: j
-  4) Neue Dateien im Eingang (alle ~10 s prüfen)?
-       [1] aus  ·  [2] nur melden  ·  [3] sofort sortieren
-     Wahl [1]: 3
-✅  'Kanzlei' · 6 Kategorien · Modus ollama · Eingang: auto-sortieren
+     Accept? [Y/n]: y
+  4) New files in the inbox (check every ~10 s)?
+       [1] off  ·  [2] announce only  ·  [3] sort immediately
+     Choice [1]: 3
+✅  'Law firm' · 6 categories · mode ollama · inbox: auto-sort
 
-🐝 test hive ▸ sortiere
-🍯  10 Datei(en) sortiert: 3 → Rechnungen, 2 → Vertraege, 2 → Bilder, …
-🎉  Sauber sortiert — nichts bleibt liegen!
+🐝 office ▸ sort
+🍯  10 file(s) sorted: 3 → Invoices, 2 → Contracts, 2 → Photos, …
+🎉  Cleanly sorted — nothing left behind!
 ```
 
-Beim nächsten Öffnen desselben Ordners wird die Config geladen (kein Assistent mehr).
-`setup` richtet neu ein, `projekte` zeigt alle Projekte, `ordner <pfad>` wechselt.
+Re-opening the same folder loads the config (no wizard). `setup` reconfigures, `projects` lists
+all projects, `switch <n>` changes project.
+
+> 🛟 **Abort anytime.** Any interactive prompt (setup, review, …) can be left cleanly by typing
+> `abort` / `bye` / `exit` (German: `abbruch`) or pressing **Ctrl-C** — the action is **not**
+> executed and nothing is lost.
 
 ---
 
-## Befehle
+## Everyday workflow
 
-**Loslegen**
-
-| Befehl | Wirkung |
-|---|---|
-| `home` · `start` | Zurück zum **Start-/Zuhause-Bildschirm** (Banner + Name), dann aktuelles Projekt (Modus, Eingang, offene Rückfragen, fällige Deadlines) + Liste aller Projekte — funktioniert aus jeder Ebene, wie direkt nach dem Öffnen |
-| `sortiere` · `s` | Lose Dateien hier in Kategorie-Ordner einräumen |
-| `sortiere turbo [N]` | „Ultra Swarm": KI-Analysen laufen parallel (Standard 10 Bienen, `turbo N` setzt die Anzahl) — deutlich schneller bei vielen Dateien, gleiches Ergebnis (lizenzpflichtig) |
-| `scan` · `sweep` | Ganzen Ordner auf manuelle Änderungen prüfen (verschoben/geändert/neu/verschwunden) und aus Hand-Verschiebungen lernen — kostenfrei (kein KI-Call) |
-| `wache` | Eingang in **Echtzeit** überwachen (watchdog) — neue Dateien sofort erkennen und melden bzw. sortieren; Strg-C beendet |
-| `rueckfragen` · `r` | Unsichere Fälle schnell selbst zuordnen |
-| `status` | Was liegt hier, was ist schon sortiert? |
-
-**⚡ Ultra Swarm (`sortiere turbo`).** Bei vielen Dateien lässt du die Königin die KI-Analysen
-**parallel** durch mehrere Bienen fliegen (Standard 10, `turbo N` setzt die Anzahl) — das Einlagern
-selbst bleibt sicher **einthreadig**, das Ergebnis ist identisch, nur schneller. Ultra Swarm ist ein
-**lizenzpflichtiges** Feature: ohne Lizenz sortiert das Tool ganz normal weiter (mit kurzem Hinweis).
-
-**🧹 Nachträglich aufräumen & lernen (`scan` / `sweep`).** `scan` schaut den ganzen Ordner durch und
-erkennt, was du **von Hand** geändert hast (verschoben/geändert/neu/verschwunden). Ziehst du eine
-Datei selbst von **Wabe A nach Wabe B**, zieht Bumble das als Korrektur an und lässt die Königin
-daraus **Wachstafel-Regeln** ableiten — kostenfrei, ganz ohne KI-Anfrage.
-
-**👁️ Echtzeit-Wache (`wache`).** Der Wachdienst überwacht den Eingang jetzt live per **watchdog**
-statt nur zu pollen — neue Dateien werden sofort erkannt. Fällt watchdog aus, greift automatisch das
-Polling als Rückfallebene; **Strg-C** beendet den Dienst.
-
-**Finden**
-
-| Befehl | Wirkung |
-|---|---|
-| `liste [kategorie]` | Sortierte Einträge auflisten |
-| `suche <wort>` | Nach Stichwort suchen |
-
-**Projekt**
-
-| Befehl | Wirkung |
-|---|---|
-| `neu [pfad]` | Neues Projekt anlegen (fragt nach dem Ordner) |
-| `wechsel [nr]` | Zu einem anderen Projekt wechseln |
-| `projekte` | Alle Projekte anzeigen (nummeriert) |
-| `setup` | Aktuelles Projekt neu einrichten |
-| `modus <offline\|ollama\|online>` | KI-Backend für dieses Projekt wählen |
-| `modell [name\|liste]` | OpenRouter-Modell im Betrieb wechseln (Nektar-Sorte) |
-| `schluessel [test\|setzen\|entfernen]` | OpenRouter-Schlüssel prüfen / erneuern / entfernen |
-| `lizenz [aktivieren <KEY>\|entfernen]` | Fair-Code-Lizenzstatus zeigen / verwalten (Aktivierung auch als `bumble-cli activate <KEY>`) |
-| `doctor` | Health-Check: Interpreter, KI-Provider-Erreichbarkeit, Datenbank, Extraktions-Extras, Lizenzstatus (auch als `bumble-cli doctor`) |
-
-> **🔒 Wachssiegel:** Dein Lizenzschlüssel wird **nur maskiert lokal** gespeichert — nie im Klartext,
-> nie in Logs oder KI-Prompts. Mehr zum Modell im Abschnitt [Lizenz (Fair-Code)](#lizenz-fair-code).
-
-**Schwarm & Projektmanagement (Stufe 2)**
-
-Der Schwarm besteht aus der **Königin** (Orchestrator) und spezialisierten Bienen:
-**Spurbienen** (sortieren), **Baubienen** (Projekte/Charter), **Sammelbienen** (lernen
-Ablage-Gewohnheiten) und **Wächterbienen** (Eingang & Deadlines).
-
-| Befehl | Wirkung |
-|---|---|
-| `wabenbau [kategorie]` | Aus einer sortierten Wabe ein Projekt bauen — erzeugt `Bienenstock.md` (Charter), fragt fehlende Infos bei den Stakeholdern ab, setzt Deadlines |
-| `schwarm` | Überblick: Königin & Bienen (Waben, offene Fälle, Projekte, Deadlines) |
-| `kalender [melden]` | Deadlines zeigen · `melden` schickt fällige Erinnerungen über die Flugrouten |
-| `flugrouten [setup\|test\|aus]` | Discord/E-Mail-Benachrichtigungen der Wächterbienen (opt-in) |
-| `reflektiere` | Königin leitet aus deinen Korrekturen Regeln ab (Wachstafel) |
-| `wachstafel [leeren]` | Gelernte Projekt-Regeln zeigen (oder verwerfen) |
-
-**Die lernende Wachstafel (Meta-Learning).** Korrigierst du eine Zuordnung (`zuordnen <id> <kat>`),
-studiert die Königin die Korrekturen und **ritzt Regeln in natürlicher Sprache** in
-`.honig/wachstafel.md` (z. B. „**telekom** → Wabe **internet_2026**"). Beim nächsten `sortiere`
-beachten die Spurbienen diese Regeln — online als „Gelernte Projekt-Regeln" im LLM-Prompt, offline
-direkt. So passt sich jeder Bienenstock hochspezifisch an dich an.
-
-> **🔒 Sicher & projektgebunden:** Es wird **niemals Code** generiert — gelernt wird ausschließlich
-> über die Textdatei `wachstafel.md`. Die Regeln gelten **nur für ihr Projekt** und sprechen nie
-> in ein anderes über. `wachstafel` zeigt sie, `wachstafel leeren` verwirft sie.
-
-> **Stufe 1 → Stufe 2:** `sortiere` bringt lose Dateien in Waben (Kategorie-Ordner);
-> `wabenbau` macht aus einer Wabe ein Projekt mit Charter, Aufgaben und Terminen.
-
-**Flugrouten (Benachrichtigungen, opt-in).** Über `flugrouten setup` (auch im Erststart-Onboarding)
-weist du den Wächterbienen **Discord** (Bot-Token + Channel, echter API-Post) und/oder **E-Mail**
-(SMTP-Presets für Gmail/Outlook oder benutzerdefiniert) als Flugrouten aus. Bei fälligen Deadlines
-fliegen sie dann echt aus (`kalender melden` bzw. automatisch im `wache`-Dienst; Anti-Spam inklusive).
-
-**Pollen-Uhr (Kalender-Sync via `.ics`).** Bei `wabenbau` schreiben die Baubienen die Projekt-Deadlines
-zusätzlich als echte iCalendar-Datei nach `<projekt>/.honig/kalender.ics` (RFC 5545). Diese Datei
-kannst du in **Apple Kalender, Outlook oder Google** abonnieren — bei jedem Wabenbau wird sie mit dem
-aktuellen Stand überschrieben.
-
-> **🔒 Wachssiegel (harte Regel):** Zugangsdaten liegen **nur lokal** in `~/.beehive/flugrouten.toml`
-> (chmod 600, Env-Override möglich), **nie** im Projekt und **niemals** in einem LLM-Prompt.
-> API-Calls (Discord/SMTP) laufen völlig unabhängig von der KI; in `log.jsonl` werden sensible
-> Felder maskiert. Kein Auto-Versand ohne deine Konfiguration.
-
-**Mehr**
-
-| Befehl | Wirkung |
-|---|---|
-| `vorschau` · `v` | Sortier-Plan zeigen und direkt fragen „Änderungen jetzt anwenden? [J/n]" — beim Anwenden fallen dank Zwischenspeicher **keine zweiten KI-Anfragen** an |
-| `unterordner <kategorie> <muster\|aus>` | Dynamische Unterordner je Kategorie mit Platzhaltern `{jahr}/{monat}/{tag}` (z. B. `unterordner rechnung {jahr}/{monat}`) — `aus` schaltet sie wieder ab |
-| `importiere <ordner>` | Dateien aus einem anderen Ordner hierher sortieren |
-| `zuordnen <id> <kat>` | Zuordnung korrigieren (Gedächtnis lernt dazu) |
-| `person <name> <kat,..>` | Zuständigkeit im Hintergrund setzen |
-| `gedaechtnis` | Gelernte Kategorien + Vorschläge (`gedaechtnis approve <slug>`) |
-| `empfehlung [para\|johnny\|dewey]` | Ablage-Strategie + dynamische Hinweise |
-| `papierkorb <id>` / `leeren` | In Quarantäne / endgültig löschen (mit Rückfrage) |
-| `zurueckholen <id>` | Aus der Quarantäne zurückholen (zurück in ihre Wabe) |
-| `dubletten [aufraeumen]` | Erkannte Dubletten zeigen · `aufraeumen` legt sie in die Quarantäne |
-| `rueckflug` | Letzte Verschiebung rückgängig machen |
-| `thema [dunkel\|hell\|auto]` | Dark-/Light-Mode; `auto` = tagsüber dunkel, abends hell |
-| `ansicht [statisch\|log]` | Statische, sich selbst neu zeichnende Ansicht (kein Scrolling) oder klassisches Log |
-| `sprache <de\|en>` · `language` · `lang` | UI-Sprache umschalten (Deutsch/Englisch) |
-| `hilfe` / `exit` | Hilfe / Konsole verlassen |
-
-**📁 Dynamische Unterordner (`unterordner`).** Je Kategorie legst du ein Ablage-Muster mit den
-Platzhaltern `{jahr}`, `{monat}` und `{tag}` fest — `unterordner rechnung {jahr}/{monat}` legt
-Rechnungen z. B. nach Jahr und Monat ab. Das Datum kommt aus **Titel/Dateiname**, sonst aus dem
-**Katalog-Zeitpunkt**. `unterordner <kategorie> aus` schaltet das Muster wieder ab.
-
-**🌍 Sprache & englische Aliase.** Mit `sprache en` schaltest du die Oberfläche auf Englisch (zurück
-mit `sprache de`). Alle Befehle verstehen zusätzlich **englische Aliase** — z. B. `sort`, `preview`,
-`list`, `review`, `watch`, `scan`, `new`, `switch`, `trash`, `restore`, `duplicates`, `subfolder`.
-
-**🛟 Abbrechen.** Jede interaktive Abfrage (Setup, Rückfragen …) verlässt du sauber, indem du
-`abbruch` (auch `bye`, `exit`, `zurück`) tippst oder **Strg-C** drückst — die Aktion wird dann
-**nicht** ausgeführt, nichts geht verloren.
-
-**❓ Hilfe in drei Ebenen.** `hilfe` gliedert die Befehle in **🐝 Täglich benötigt**,
-**🎯 Für bestimmte Anwendungsfälle** und **🛠️ Für Profis** — so findest du dich schnell zurecht.
-
-**Ansicht & Thema.** Standardmäßig läuft die Konsole in einer **statischen Ansicht**: Statt endlos
-nach oben zu scrollen, leert sie vor jeder Ausgabe Bildschirm **und Scrollback** und zeichnet eine
-feste Kopfzeile (Projekt · Modus · Eingang · Thema) neu — die Konsole aktualisiert sich also selbst.
-Mit `ansicht log` schaltest du auf klassisches Scrolling zurück (bei Pipes/CI automatisch aktiv).
-
-Über `thema dunkel`/`thema hell` wechselst du den **Dark-/Light-Mode**: Dabei wird der **gesamte
-Terminal-Hintergrund** schwarz bzw. weiß eingefärbt (per OSC-Sequenz, nicht nur die Fläche hinter
-dem Text), während **der Text gelb bleibt** und die Emojis unverändert sind. Beim Verlassen werden
-die Standardfarben des Terminals wiederhergestellt. Beides wird global gemerkt.
-
-Mit `thema auto` läuft die Konsole **automatisch nach Tageszeit**: tagsüber (07–19 Uhr) im
-Dunkel-Modus, abends/nachts im Hell-Modus. Der Wechsel greift beim nächsten Befehl, sobald die
-Uhrzeit die Grenze überschreitet.
-
-> In modernen Terminals (Windows Terminal, iTerm2, GNOME Terminal, kitty …) färbt sich das ganze
-> Fenster. Terminals ohne OSC-10/11-Unterstützung ignorieren die Sequenz — dann bleibt der Text
-> gelb, nur der Hintergrund richtet sich nach der Terminal-Einstellung.
-
-**Grundprinzip:** Es wird **nie** automatisch gelöscht oder überschrieben — nur verschoben.
-Namenskollisionen bekommen ein eindeutiges Suffix. Löschen läuft ausschließlich über
-`papierkorb` → `leeren` (mit Rückbestätigung).
+1. **Drop** loose files into your project folder.
+2. **`preview`** (`v`) to see where they'd go, then confirm **"apply? [Y/n]"** — applying costs
+   no extra AI calls.
+3. Or **`sort`** (`s`) directly. Sure files move into category folders; unsure ones stay put.
+4. **`review`** (`r`) to quickly assign the unsure ones — each answer trains the memory.
+5. **`watch`** to keep the inbox monitored in real time.
+6. Correct a mistake with **`assign <id> <category>`** — PollySort learns a rule from it.
 
 ---
 
-## Was liegt wo?
+## Command reference
 
-```
-<dein Ordner>/
-├── Rechnungen/        ← sichtbare Kategorie-Ordner (das Ergebnis)
-├── Vertraege/
-├── Protokolle/
-├── notiz.txt          ← lose Dateien, die noch deine Freigabe brauchen ('rueckfragen')
-└── .honig/            ← EIN versteckter Ordner mit allem Generierten:
-    ├── katalog.db         · durchsuchbarer Index
-    ├── eintraege/         · pro Datei ein Markdown- + JSON-Eintrag (PKM-ready)
-    ├── gedaechtnis.db     · das lernende Kategorie-Gedächtnis
-    ├── taxonomie.toml     · gelernte Kategorien + Zuständigkeiten
-    ├── korrekturen.jsonl  · Feedback aus deinen Zuordnungen
-    ├── papierkorb/        · Quarantäne (nie automatisch geleert)
-    ├── journal.md         · was wann passiert ist
-    └── log.jsonl          · strukturiertes Log (nur Metadaten, nie Inhalte)
-```
+`help` groups commands into three tiers: **🐝 Daily**, **🎯 Situational**, **🛠️ Pro**. Commands
+below list the **English alias** first and the original **German** name in parentheses.
 
-Die Markdown-Einträge beginnen mit YAML-Frontmatter und lassen sich direkt in
-Obsidian, Logseq oder Notion öffnen.
+### 🐝 Daily
+
+| Command | What it does |
+|---|---|
+| `home` (`start`) | Back to the **home screen** (banner + overview): current project (mode, inbox, open reviews, due deadlines) + all projects. Works from anywhere. |
+| `sort` (`sortiere`, `s`) | File the loose documents into category folders |
+| `preview` (`vorschau`, `v`) | Show the plan, then **"apply now? [Y/n]"** — applying reuses the cache, **no second AI calls** |
+| `review` (`rueckfragen`, `r`) | Assign the unsure cases quickly yourself |
+| `status` | What's here, what's already sorted? |
+| `list [category]` (`liste`) | List sorted entries |
+| `find <word>` (`suche`) | Search titles / keywords / summaries |
+
+### 🎯 Situational
+
+| Command | What it does |
+|---|---|
+| `watch` (`wache`) | Monitor the inbox in **real time** (watchdog); announce or sort new files instantly. Ctrl-C stops. |
+| `sort turbo [N]` | **Ultra Swarm**: analyze many files in parallel (default 10 workers) — same result, much faster (licensed) |
+| `scan` (`sweep`) | Check the whole folder for manual changes (moved/changed/new/gone) and **learn from hand-moves** — free, no AI call |
+| `import <folder>` (`importiere`) | Sort files from another folder into here |
+| `assign <id> <cat>` (`zuordnen`) | Correct an assignment (memory learns) |
+| `subfolder <cat> <pattern\|off>` (`unterordner`) | Dynamic subfolders per category, e.g. `{jahr}/{monat}` (year/month) |
+| `duplicates [cleanup]` (`dubletten [aufraeumen]`) | Show detected duplicates · move them to quarantine |
+| `trash <id>` / `empty` (`papierkorb` / `leeren`) | Quarantine / permanently delete (with confirmation) |
+| `restore <id>` (`zurueckholen`) | Bring a file back from quarantine (into its category) |
+| `undo` (`rueckflug`) | Reverse the last move |
+| `wabenbau [category]` | Turn a category into a **project**: charter, stakeholders, deadlines |
+| `calendar [notify]` (`kalender [melden]`) | Show deadlines · send due reminders via the notification routes |
+| `swarm` (`schwarm`) | Overview: Queen & bees (combs, open cases, projects, deadlines) |
+| `recommend [para\|johnny\|dewey]` (`empfehlung`) | Filing-strategy suggestions + dynamic hints |
+
+### 🛠️ Pro
+
+| Command | What it does |
+|---|---|
+| `new [path]` (`neu`) · `switch [n]` (`wechsel`) | Create a project · switch to another |
+| `projects` (`projekte`) · `setup` | List all projects · reconfigure the current one |
+| `mode <offline\|ollama\|online>` (`modus`) | Choose the AI backend for this project |
+| `model [name\|list]` (`modell`) | Switch the OpenRouter model at runtime |
+| `key [test\|set\|remove]` (`schluessel`) | Check / renew / remove the OpenRouter key |
+| `routes [setup\|test]` (`flugrouten`) | Discord / e-mail notifications (opt-in) |
+| `reflect` (`reflektiere`) · `rules [clear]` (`wachstafel [leeren]`) | Derive rules from your corrections · show/clear them |
+| `memory [approve]` (`gedaechtnis`) | Learned categories + merge/new proposals |
+| `person <name> <cat,..>` | Set responsibility in the background |
+| `doctor` · `license [activate <KEY>]` (`lizenz`) | Health-check · Fair-Code license status |
+| `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
+| `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
+| `help` (`hilfe`) / `exit` | This help / leave the console |
 
 ---
 
-## Tests & Lint
+## How it works
+
+### The sorting pipeline (per file, isolated — one bad file never aborts a run)
+
+1. **Scout / Guard** — landing check, MIME, size limit, **SHA-256**; duplicate & crash-recovery
+   via the hash. The `.honig/` and category folders are **not** re-scanned. A second run over
+   the same set makes **zero** new AI calls.
+2. **Extractor** — a multimodal LLM call (or the offline heuristic) returns title, summary,
+   keywords, function and a category. The prompt requires the model to pick **exactly one of the
+   known categories**; a returned label is then **snapped** onto the known set
+   (`snap_category`). Broken JSON → repair-retry → fallback model → otherwise a metadata-only
+   entry flagged for review.
+3. **Assign + Inspector (confidence)** — the memory (kNN) confirms or contradicts the label.
+   **Confidence ≥ threshold (0.75)** → filed automatically; below → **review**.
+4. **Persist & move** — the entry is written **first** (crash-recovery), then **only surely
+   assigned** files move into `<Category>/[{year}/{month}/…]` (collision-safe, logged for undo).
+   Unsure and error cases **stay put**, so the only loose files left are the ones needing you.
+5. **Memory** — every successful assignment is embedded; category centroids grow over time.
+
+If the AI fails repeatedly mid-run (≥ 3 in a row), the run **falls back to the offline
+heuristic** for the rest instead of producing a pile of errors.
+
+### Preview → apply
+
+`preview` runs a dry-run that **fills an analysis cache** (no persisting, no moving), then asks
+**"apply? [Y/n]"**. Answering yes runs the real pass **from the cache** — so applying costs
+**no second AI calls**, and the preview stays side-effect-free until you confirm.
+
+### Ultra Swarm
+
+`sort turbo [N]` warms the expensive AI analyses **in parallel** into that same cache; the
+actual filing (DB, move, memory) stays **single-threaded**, so there are no race conditions and
+the result is identical to a sequential run — just much faster for big batches. (Licensed
+feature; without a license the tool simply sorts normally and tells you.)
+
+---
+
+## What lives where
+
+```
+<your folder>/
+├── Invoices/          ← visible category folders (the result)
+├── Contracts/
+├── Minutes/
+├── note.txt           ← loose files still awaiting your go-ahead ('review')
+└── .honig/            ← ONE hidden folder with everything generated:
+    ├── katalog.db         · searchable index
+    ├── eintraege/         · one Markdown + JSON entry per file (PKM-ready)
+    ├── gedaechtnis.db     · the learning category memory
+    ├── taxonomie.toml     · learned categories + responsibilities
+    ├── korrekturen.jsonl  · feedback from your assignments
+    ├── wachstafel.md      · learned, human-readable project rules
+    ├── papierkorb/        · quarantine (never auto-emptied)
+    ├── journal.md         · what happened when
+    └── log.jsonl          · structured log (metadata only, never contents)
+```
+
+The Markdown entries start with YAML front-matter and open straight in Obsidian, Logseq or
+Notion. Global settings (last project, credentials, project registry) live under `~/.beehive/`,
+outside your working folders (relocatable via `BEEHIVE_HOME`).
+
+> The hidden folder is named `.honig` ("honey") and categories are internally called "combs"
+> (`Waben`) — part of the tool's bee theme. You never need to touch these names.
+
+---
+
+## AI modes
+
+One provider interface, three backends — chosen per project (`mode <…>`):
+
+- **offline** — a free heuristic from filename, text start, file type and category names
+  (self-named/discovered categories work without hard-coded rules). No network, no cost.
+- **ollama** — local AI (free & private) when an Ollama server is reachable; automatic CPU
+  fallback if the GPU backend crashes.
+- **openrouter** — a multimodal model (best quality); the key is stored globally.
+
+Switching is config, not code. If the key is missing online, the client degrades cleanly to
+offline.
+
+---
+
+## Learning: the Wachstafel
+
+When you correct an assignment (`assign <id> <category>`) — or when `scan` notices you moved a
+file **from one category folder to another by hand** — the Queen studies the corrections and
+**inscribes rules in plain language** into `.honig/wachstafel.md` (e.g. *"telekom → Invoices"*).
+`reflect` shows the derived rules and only writes them after you confirm.
+
+On the next `sort`, those rules are applied — online they're injected into the LLM prompt as
+"learned project rules", offline they're applied directly. So each project adapts specifically
+to you.
+
+> 🔒 **Safe & project-scoped:** **no code is ever generated** — learning happens purely through
+> the `wachstafel.md` text file. Rules apply **only** within their project and never leak into
+> another. `rules` shows them, `rules clear` discards them.
+
+---
+
+## Stage 2: projects
+
+`sort` brings loose files into combs (categories). **`wabenbau`** turns a comb into a real
+project:
+
+- Generates a **charter** (`Bienenstock.md`) in the category folder: goal, status, stakeholders,
+  contents, open tasks and deadlines; missing info is asked for interactively.
+- Records deadlines in the swarm calendar and writes a real **`.ics` file** you can subscribe to
+  in Apple Calendar, Outlook or Google.
+- **Notification routes (opt-in):** via `routes setup` you can give the guard bees **Discord**
+  (bot token + channel) and/or **e-mail** (SMTP presets for Gmail/Outlook or custom). When a
+  deadline is due they actually notify you (`calendar notify`, or automatically in the `watch`
+  service; anti-spam included).
+
+> 🔒 **Credential seal:** notification credentials live **only** locally in
+> `~/.beehive/flugrouten.toml` (chmod 600, env override possible), **never** in the project and
+> **never** in an LLM prompt. Discord/SMTP calls run completely independently of the AI;
+> sensitive fields are masked in `log.jsonl`. No notifications are sent without your setup.
+
+---
+
+## Licensing (Fair-Code)
+
+PollySort is **Fair-Code**: the source is open to read, and it stays generously free for
+individuals.
+
+- 🐝 **Free for personal & internal use** — your own data, up to **5 projects**.
+- 🍯 **From the 6th project**, or for **paid client work**, a yearly license applies.
+- ⚡ **Ultra Swarm** (`sort turbo`) is a **licensed** performance feature.
+
+When a license expires, already-sorted data and the core functions for existing projects keep
+working — Fair-Code never locks your data away. Check and manage status with `license`; the full
+model is in **[`LICENSE-KONZEPT.md`](LICENSE-KONZEPT.md)** (pricing lives on the product page,
+not in this repo).
+
+> 🔒 Your license key is stored **masked, locally** — never in plain text, never in logs or AI
+> prompts.
+
+---
+
+## Privacy & security
+
+- **offline / ollama:** no document content ever leaves your machine.
+- **openrouter:** document content is sent for analysis (shown at onboarding) — exclude
+  confidential files via `.beeignore`/`exclude` or use offline mode.
+- **No document content is ever logged** (`log.jsonl` holds metadata only).
+- **Move-only guarantee:** no code path deletes or overwrites a user file; deletion happens only
+  through the confirmed `trash` → `empty` flow.
+- Keys/passwords/license are stored locally only and never enter an AI prompt.
+
+---
+
+## Development & testing
 
 ```bash
-pip install pytest ruff
+# editable install with test & lint tools
+uv pip install -e ".[extract,dev]"    # or: python -m venv .venv && pip install -e ".[extract,dev]"
+
 pytest -q
-ruff check src Beehive.py
+ruff check src Beehive.py tests
 ```
 
+Stack: Python ≥ 3.12 · `cmd` REPL + `pyreadline3` · `rich` output · `pydantic v2` models ·
+`SQLAlchemy 2 Core`/SQLite index · `httpx` (OpenRouter/Ollama) · `watchdog` · `pypdf` (core) +
+`markitdown` (extra) · `pytest` + `ruff`.
+
+For contributors and AI assistants, `bumble_beebliothek_projektbrief.md` is an onboarding brief
+(architecture, process order, design intentions), `TODO.md` is the roadmap, and `CHANGELOG.md`
+tracks releases.
+
 ---
 
-## Datenschutz
+## Roadmap
 
-Offline verlässt kein Inhalt deinen Rechner. Online (OpenRouter) werden Dokumentinhalte zur
-Analyse übertragen — vertrauliche Dateien vorher aussortieren oder Offline-Modus nutzen.
+Planned for upcoming releases (see `TODO.md`):
+
+- **Wabenbau contacts & milestones** — enter one or more e-mail addresses when building a
+  project so the guard bees mail deadline/milestone reminders (multiple milestones per project).
+- **Project from the parent folder** — create a project directly from the top-level files
+  (two levels: an overarching project + category sub-projects), not only from a sorted category.
+- **Full English UI** — English command names shown in help and all runtime messages in EN mode
+  (English aliases already work today).
+- **Real license activation** against a Merchant of Record + signed offline certificate.
+- **Release workflow**, and the renaming of the `bumble` command to `pollysort`.
 
 ---
 
-## Lizenz (Fair-Code)
+## FAQ
 
-PollySort ist **Fair-Code**: Der Quellcode ist öffentlich einsehbar, und für dich als
-Privatperson bleibt der Schwarm großzügig kostenlos.
+**Why is the command `bumble` and not `pollysort`?**
+The project was renamed to PollySort during the beta; the executable is still `bumble` for now
+and will be renamed in a later release.
 
-- 🐝 **Privat & intern kostenlos** — für deine eigenen Daten, bis zu **5 Projekte**.
-- 🍯 **Ab dem 6. Projekt** oder für **zahlende Kundenprojekte** braucht es eine **Jahreslizenz**.
-- ⚡ **Ultra Swarm** (`sortiere turbo`) ist ein **lizenzpflichtiges** Leistungs-Feature.
+**Does it delete my files?**
+No. It only moves them, with collision-safe names and undo. Deletion is a separate, confirmed
+quarantine step.
 
-Läuft eine Lizenz aus, bleiben bereits sortierte Bestände und die Kernfunktionen nutzbar —
-Fair-Code sperrt keine Daten weg. Den Status zeigst und verwaltest du mit `lizenz`; alle Details
-zum Modell stehen in **[`LICENSE-KONZEPT.md`](LICENSE-KONZEPT.md)** (Preise findest du auf der
-Produktseite, nicht hier im Repo).
+**Do I need an API key or the internet?**
+No — the offline heuristic works with no key and no network. Ollama (local) or OpenRouter
+(online) are optional upgrades for higher quality.
+
+**What's the bee theme about (`.honig`, "combs", "the Queen")?**
+Flavor. Internally the tool uses a beehive metaphor; it doesn't affect how you use it.
+
+---
+
+_PollySort — Developed by Akinara · Fair-Code · public beta. Feedback and issues welcome._
