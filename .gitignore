@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Bumble runtime / lokale Stöcke
+/beehive/
+*.db
+*.db-wal
+*.db-shm
+.queen.lock
+~/.beehive/
+credentials
+
+# Interne Arbeits-/Planungsdokumente — nicht ins (Beta-)Repo.
+# (LICENSE-KONZEPT.md bleibt bewusst getrackt: die README verlinkt darauf.)
+/Pollysort_projektbrief.md
+/TODO.md
+/report.txt
+# LICENSE.md vorerst lokal halten (Proprietary-Platzhalter). Die Lizenz-Metadaten kommen
+# solange aus pyproject.toml (license = { text = "Proprietary" }), damit der Build ohne die
+# Datei durchläuft. Wenn eine finale LICENSE.md rein soll: hier rausnehmen + pyproject zurück
+# auf license = { file = "LICENSE.md" }.
+/LICENSE.md
+
+# OS
+.DS_Store
+Thumbs.db

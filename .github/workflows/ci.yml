@@ -1,0 +1,43 @@
+name: CI
+
+# Läuft bei Push und Pull-Request auf den Default-Branch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    # Alle Kombinationen laufen, auch wenn eine fehlschlägt.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        python-version: ["3.12", "3.13"]
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # uv installieren und die Python-Version der Matrix bereitstellen.
+      - name: uv installieren
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Venv anlegen und das Paket editierbar mit dem dev-Extra (pytest + ruff) installieren.
+      - name: Abhängigkeiten installieren
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install -e ".[dev]"
+
+      # Linting.
+      - name: Ruff
+        run: uv run ruff check src Beehive.py tests
+
+      # Tests.
+      - name: Pytest
+        run: uv run pytest -q

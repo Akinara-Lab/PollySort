@@ -1,0 +1,65 @@
+[project]
+name = "pollysort"
+version = "0.4.0b1"
+description = "PollySort — lernender, konsolenbasierter Dokumenten-Archivar (Developed by Akinara)."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Akinara" }]
+license = { text = "Proprietary" }   # LICENSE.md liegt lokal (gitignored), daher Text-Form
+# Kern — bewusst schlank gehalten, damit `pipx install` / `uv tool install` auf
+# jedem OS ohne Kompilier-/Wheel-Probleme durchläuft. Alles Optionale steht in
+# [optional-dependencies] und wird per Extra dazugeholt (siehe README).
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.6",
+    "sqlalchemy>=2.0",
+    "httpx>=0.27",
+    "watchdog>=4.0",
+    "pyreadline3; sys_platform == 'win32'",
+    # pure-Python, überall installierbar — nötig, damit die LOKALE KI (Ollama) PDFs
+    # lesen kann: die kennt keine Datei-Anhänge, der Text wird lokal extrahiert.
+    "pypdf>=4.0",
+]
+
+[project.optional-dependencies]
+# Bessere Text-Extraktion (DOCX/CSV/HTML → Markdown) und MIME-Erkennung via libmagic.
+# python-magic-bin ist auf Windows nötig, aber unmaintained → daher NICHT im Kern.
+# Ohne dieses Extra fällt das Tool auf `mimetypes` + rohes Textlesen zurück (funktioniert).
+extract = [
+    "markitdown>=0.0.1a2",
+    "python-magic; sys_platform != 'win32'",
+    "python-magic-bin; sys_platform == 'win32'",
+]
+# Schneller Vektor-Store (noch nicht verdrahtet, s. TODO) — hinter demselben HiveMind-Interface.
+vec = ["sqlite-vec>=0.1.1"]
+# Alles Optionale auf einmal.
+full = ["pollysort[extract]"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+bumble = "bumble.repl:main"          # interaktive Konsole (primär)
+bumble-cli = "bumble.cli:app"        # Scripting-/Skript-CLI (sekundär)
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bumble"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# E402: cli.py muss stdout vor den Imports auf UTF-8 stellen (Windows-Konsole).
+# B904: `raise typer.Exit(...)` in except-Blöcken ist das idiomatische CLI-Muster.
+# B905: zip() über gleich lange Vektoren (Länge vorher geprüft).
+# UP042: str+Enum ist bewusst gewählt (JSON-/DB-Serialisierung der Werte).
+ignore = ["E402", "B904", "B905", "UP042"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
