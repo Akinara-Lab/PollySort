@@ -98,9 +98,10 @@ def pruefe(ordner: Path, erwartung: dict, *, modus: str, stichprobe: int) -> tup
     cfg = config.load_config()
     cfg.llm_provider = modus
     api_key = config.load_credentials() if modus == "openrouter" else None
-    analyse = None
-    if modus != "offline":
-        analyse = _Analyse(build_client(cfg, api_key, [], []))
+    # Für JEDEN Modus über den Client — genau wie die REPL es tut. Mit `categories=None`,
+    # denn beim Vorschlag gibt es die Projekt-Kategorien noch nicht; eine leere Liste
+    # würde dagegen „keine Kategorie erlaubt" bedeuten.
+    analyse = _Analyse(build_client(cfg, api_key, None, []))
 
     start = time.time()
     vorschlaege, gescannt, ki, _vorhanden, protokoll = propose_structure(

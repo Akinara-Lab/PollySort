@@ -31,10 +31,21 @@ sichtbar ist der Produktname PollySort.
 - Scheitert eine Einbettung (Provider weg, Embedding-Modell nicht gezogen), wird sie
   übersprungen: Vorwärmen ist eine Verbesserung, kein Muss, und darf die Einrichtung nie
   abbrechen.
-- **Gemessen mit `qwen3.5:9b`**, dieselben 6 Dokumente in 3 Kategorien: vorher 3 von 6 in
-  der Rückfrage (zwei davon mit 0,55, eines als `_unassigned` mit 0,26), nachher **keine
-  einzige** — alle zwischen 0,80 und 0,88. Im Gedächtnis liegen danach 6 Vektoren, nicht 11:
-  die Saat wurde von den echten Einträgen überschrieben.
+- **Gilt auch offline.** Dafür läuft der Struktur-Vorschlag jetzt für **jeden** Provider
+  über den Client statt über eine abgekürzte Heuristik. Nur so entstehen vollwertige
+  Analysen (Titel, Aufgabe, Summary, Keywords) — aus Label und Stichworten allein gebaute
+  Vektoren lägen in einem anderen Textraum als die späteren echten Einträge und wären als
+  Nachbarn wertlos. Der `OfflineClient` versteht dafür jetzt `categories=None` als „alle
+  Regeln"; eine **leere Liste** bedeutet weiterhin „keine Kategorie erlaubt" und hätte für
+  jedes Dokument `_unassigned` geliefert — genau daran scheiterte der erste Anlauf.
+- **Gemessen mit `qwen3.5:9b`**, 6 Dokumente in 3 Kategorien: vorher 3 von 6 in der
+  Rückfrage (zwei mit 0,55, eines als `_unassigned` mit 0,26), nachher **keine einzige** —
+  alle zwischen 0,80 und 0,88. **Offline** dieselben Dokumente: alle 6 einsortiert mit
+  0,90–0,93. Im Gedächtnis liegen danach jeweils 6 Vektoren, nicht 11: die Saat wurde von
+  den echten Einträgen überschrieben.
+- Zwei irreführende Meldungen dabei behoben: Der Vorschlag meldete offline „die KI
+  begutachtet Dokumente" und hätte das Ergebnis als „KI-Analyse" ausgewiesen, obwohl offline
+  keine KI rechnet.
 
 ### Hinzugefügt — Deinstallation
 - **`uninstall.sh`, `uninstall.ps1`, `uninstall.bat`** (neu). Standardmäßig wird nur die
@@ -186,7 +197,7 @@ sichtbar ist der Produktname PollySort.
   für die Sitzung gemerkt.
 
 ### Qualität
-- **198 Tests grün** (vorher 124), `ruff` clean. Neu: `test_vorwaermen.py` (15), `test_taxonomie.py` (15),
+- **201 Tests grün** (vorher 124), `ruff` clean. Neu: `test_vorwaermen.py` (18), `test_taxonomie.py` (15),
   `test_spiel.py` (15), `test_firstrun.py` (20),
   `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate) und
   `test_rename_migration.py` (9 — vor allem: die alte Ablage wird kopiert, nicht verschoben).

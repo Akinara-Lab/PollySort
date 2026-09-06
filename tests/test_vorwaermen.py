@@ -156,3 +156,48 @@ def test_leerer_vektor_wird_nicht_gespeichert():
 def test_ohne_proben_passiert_nichts(proben):
     mind = FakeMind()
     assert vorwaermen(proben, ["rechnungen"], mind=mind, embed=lambda _t: [1.0]) == {}
+
+
+# --------------------------------------------------------------------------- #
+#  Offline: warum der Vorschlag über den Client laufen muss
+# --------------------------------------------------------------------------- #
+def test_offline_client_ohne_kategorien_nutzt_alle_regeln():
+    """`None` heißt „alle Regeln", eine LEERE Liste heißt „keine Kategorie erlaubt".
+
+    Genau daran scheiterte das Offline-Vorwärmen zuerst: Der Struktur-Vorschlag baute den
+    Client mit `categories=[]`, und `classify(allowed=[])` liefert für jedes Dokument
+    `_unassigned` — es gäbe also nichts zu säen.
+    """
+    from pollysort.llm.client import OfflineClient
+
+    text = ("RECHNUNG Nr. R-4711\nRechnungsdatum: 2026-03-01\n"
+            "Rechnungsbetrag 119,00 EUR\nZahlbar ohne Abzug bis 2026-03-15.")
+    assert OfflineClient(None).analyze(text=text, file_path="dok.txt").kategorie == "rechnungen"
+    assert OfflineClient([]).analyze(text=text, file_path="dok.txt").kategorie == "_unassigned"
+
+
+def test_offline_analyse_liefert_die_felder_fuer_den_vektor():
+    """Ohne Titel/Summary läge die Saat in einem anderen Textraum als die echten Einträge."""
+    from pollysort.llm.client import OfflineClient
+    from pollysort.models import embedding_text_for
+
+    a = OfflineClient(None).analyze(text="Kontoauszug Nr. 3\nKontostand 1.200 EUR",
+                                    file_path="auszug_maerz.txt")
+    text = embedding_text_for(a)
+    assert a.title and a.summary and a.keywords
+    assert "Auszug" in text or "auszug" in text.lower()
+
+
+def test_offline_embedding_stellt_aehnliche_dokumente_nebeneinander():
+    """Das Offline-Embedding ist ein Hash-Bag-of-Words — aber kein Rauschen.
+
+    Nur wenn verwandte Texte tatsächlich näher beieinanderliegen, hilft die Saat dem kNN.
+    """
+    from pollysort.hive_mind.memory import _cosine
+    from pollysort.llm.client import OfflineClient
+
+    c = OfflineClient(None)
+    rechnung_a = c.embed("Rechnung Betrag Umsatzsteuer zahlbar Rechnungsnummer")
+    rechnung_b = c.embed("Rechnung Rechnungsbetrag Umsatzsteuer zahlbar Frist")
+    protokoll = c.embed("Protokoll Sitzung Teilnehmende Beschluss Tagesordnung")
+    assert _cosine(rechnung_a, rechnung_b) > _cosine(rechnung_a, protokoll)

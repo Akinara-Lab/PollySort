@@ -415,7 +415,7 @@ class OllamaClient(OpenRouterClient):
     #: nur ``reasoning_effort``.
     EXTRA_PAYLOAD = {"reasoning_effort": "none"}
 
-    def __init__(self, endpoint: str, categories: list[str],
+    def __init__(self, endpoint: str, categories: list[str] | None,
                  few_shots: list[dict] | None = None, wachstafel: str = ""):
         super().__init__(api_key="ollama", model=OLLAMA_MODEL, embed_model=OLLAMA_EMBED_MODEL,
                          categories=categories, few_shots=few_shots, wachstafel=wachstafel)
@@ -503,8 +503,11 @@ class OfflineClient:
     # Kennung des Offline-Pseudo-Embeddings (Hash, feste Dimension) — s. embed().
     embed_model = "offline:hash-2048"
 
-    def __init__(self, categories: list[str], wachstafel: str = ""):
+    def __init__(self, categories: list[str] | None, wachstafel: str = ""):
         from ..wachstafel import parse_rules
+        # ``None`` heißt bewusst „alle Regeln" (so klassifiziert der Struktur-Vorschlag,
+        # bei dem es noch keine Projekt-Kategorien gibt). Eine LEERE Liste dagegen heißt
+        # „keine Kategorie erlaubt" — damit käme für jedes Dokument `_unassigned` heraus.
         self._categories = categories
         self._rules = parse_rules(wachstafel)     # gelernte Regeln (ACE) schlagen die Heuristik
         self.usage = Usage()
@@ -558,7 +561,7 @@ class OfflineClient:
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
-def build_client(cfg, api_key: str | None, categories: list[str],
+def build_client(cfg, api_key: str | None, categories: list[str] | None,
                  few_shots: list[dict] | None = None, wachstafel: str = "") -> LLMClient:
     """Wählt das Backend anhand der Config (§15). Ohne Key → Offline-Fallback.
 

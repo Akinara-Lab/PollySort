@@ -1639,7 +1639,7 @@ class BeehiveShell(cmd.Cmd):
         Läuft nur, wenn der Vorschlag tatsächlich mit KI lief (offline gibt es keine
         vergleichbaren Analysen). Ein Fehler hier darf die Einrichtung nie abbrechen.
         """
-        if not self._proben or provider == "offline":
+        if not self._proben:
             return
         from pollysort import vorwaermen as vw
         from pollysort.hive_mind import HiveMind
@@ -1716,14 +1716,16 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.config import pretty_category
         from pollysort.onboarding import propose_structure
 
-        ai_analyze = self._ai_analyzer(provider) if provider != "offline" else None
+        ai_analyze = self._ai_analyzer(provider)
         self._proben = []
-        self.con.bloom(i18n.t("su.scout.ai") if ai_analyze else i18n.t("su.scout.offline"), "🐝")
+        # Offline laeuft zwar derselbe Client-Pfad, aber eben keine KI.
+        self.con.bloom(i18n.t("su.scout.ai") if provider != "offline"
+                       else i18n.t("su.scout.offline"), "🐝")
         proposals, total, used_ai, existing, protokoll = propose_structure(
             hive, ai_analyze=ai_analyze)
         # Ehrlich bleiben (BUG-6): Wenn die KI (teilweise) ausgefallen ist, das laut sagen,
         # statt einen Heuristik-Notvorschlag als „KI-Analyse" zu verkaufen.
-        if ai_analyze is not None and ai_analyze.errors:
+        if ai_analyze is not None and ai_analyze.errors and provider != "offline":
             if not ai_analyze.ok:
                 self.con.error(i18n.t(
                     "su.scout.failed", n=ai_analyze.errors,
@@ -1735,7 +1737,9 @@ class BeehiveShell(cmd.Cmd):
         if not proposals:
             self.con.info(i18n.t("su.scout.nothing"), "🐝")
             return list(DEFAULT_CATEGORIES)
-        tag = i18n.t("su.scout.tag_ai") if used_ai else i18n.t("su.scout.tag_heur")
+        # Der Weg ist derselbe, die Sache nicht: Offline rechnet keine KI.
+        ki_genutzt = used_ai and provider != "offline"
+        tag = i18n.t("su.scout.tag_ai") if ki_genutzt else i18n.t("su.scout.tag_heur")
         note = i18n.t("su.scout.note", n=len(existing)) if existing else ""
         self.con.honey(i18n.t("su.scout.header", total=total, tag=tag, note=note), "🍯")
         maxn = max(n for _, n in proposals) or 1
@@ -1755,12 +1759,22 @@ class BeehiveShell(cmd.Cmd):
         return self._parse_cats(ans) or chosen
 
     def _ai_analyzer(self, provider: str) -> _AiProbe:
-        """Baut eine zählende Analyse-Funktion (Datei → (kategorie, keywords)) für den
-        KI-Vorschlag. Fehlgeschlagene Analysen werden gezählt statt verschluckt (BUG-6)."""
+        """Analyse-Funktion (Datei → (kategorie, keywords)) für den Struktur-Vorschlag.
+
+        Läuft für **jeden** Provider, auch offline: Nur so entstehen vollwertige Analysen
+        (Titel, Aufgabe, Summary, Keywords), aus denen sich anschließend das Gedächtnis
+        vorwärmen lässt. Der frühere Sonderweg über die reine Heuristik lieferte nur
+        Label und Stichworte — daraus gebaute Vektoren lägen in einem anderen Textraum
+        als die späteren echten Einträge und wären als Nachbarn wertlos.
+
+        ``categories=None`` heißt „alle Regeln erlaubt" — beim Vorschlag gibt es die
+        Projekt-Kategorien ja noch nicht. Fehlgeschlagene Analysen werden gezählt statt
+        verschluckt (BUG-6); ``propose_structure`` weicht dann auf die Heuristik aus.
+        """
         cfg = config.load_config()
         cfg.llm_provider = provider
         api_key = config.load_credentials() if provider == "openrouter" else None
-        client = build_client(cfg, api_key, [], [])
+        client = build_client(cfg, api_key, None, [])
         return _AiProbe(client)
 
     def _choose_subrouting(self, categories: list[str], provider: str) -> dict[str, str]:
