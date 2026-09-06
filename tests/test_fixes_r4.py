@@ -87,7 +87,7 @@ def test_ai_probe_counts_failures(tmp_path):
     _write_rechnung(hive)
     probe = _AiProbe(FailingClient())
 
-    proposals, _total, used_ai, _existing = propose_structure(hive, ai_analyze=probe)
+    proposals, _total, used_ai, _existing, _prot = propose_structure(hive, ai_analyze=probe)
     assert probe.errors == 1 and probe.ok == 0          # Ausfall wurde GEZÄHLT
     assert used_ai is False                             # nicht als „KI-Analyse" verkauft
     assert proposals                                    # Heuristik liefert trotzdem etwas

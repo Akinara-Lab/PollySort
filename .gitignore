@@ -18,6 +18,11 @@ dist/
 ~/.beehive/
 credentials
 
+# Generierte Testprojekte (aus tools/testprojekte.py reproduzierbar) samt ihrer
+# .honig-Ordner und Sortier-Ergebnisse. Der Generator und die Erwartungen sind getrackt,
+# die erzeugten Dateien nicht.
+/test projekte/
+
 # Archiv der Vorgaenger-Ordner (Bumble_beebliothek, PollySort_Beta, der alte
 # Arbeitsordner). Liegt bewusst IM Projekt, damit die Historie greifbar bleibt,
 # gehoert aber nie ins Repository.

@@ -358,6 +358,7 @@ class BeehiveShell(cmd.Cmd):
                 ("dubletten [aufraeumen]", "Erkannte Dubletten zeigen / in die Quarantäne"),
                 ("papierkorb <id> / leeren", "In Quarantäne / endgültig löschen"),
                 ("zurueckholen <id> · rueckflug", "Aus Quarantäne zurück · letzten Move rückgängig"),
+                ("fortschritt", "Wie weit ist dein Bienenstock? Stufe, Abzeichen, Serie"),
                 ("wabenbau [kategorie]", "Aus einer Wabe ein Projekt bauen (Bienenstock.md)"),
                 ("kalender [melden] · schwarm", "Deadlines / Schwarm-Überblick"),
                 ("empfehlung [para|..]", "Ablage-Strategie + Hinweise"),
@@ -526,7 +527,40 @@ class BeehiveShell(cmd.Cmd):
         if getattr(summary, "errors", 0) and ctx.cfg.llm_provider == "openrouter":
             self.con.ask("Falls der OpenRouter-Schlüssel abgelaufen ist: 'schluessel test' "
                          "prüft ihn, 'schluessel setzen' erneuert ihn.")
+        if not dry_run:
+            # Eine Vorschau ist nebenwirkungsfrei — sie zählt bewusst NICHT auf den
+            # Fortschritt ein. Gezählt wird nur, was wirklich einsortiert wurde.
+            self._fortschritt_buchen(summary)
         return summary
+
+    def _fortschritt_buchen(self, summary, *, korrekturen: int = 0) -> None:
+        """Den Bienenstock wachsen lassen und neue Abzeichen feiern.
+
+        Läuft strikt nebenwirkungsarm: Wenn hier etwas schiefgeht, darf das den
+        Sortierlauf nicht nachträglich beschädigen — der ist längst fertig.
+        """
+        from pollysort import spiel
+        from pollysort.wachstafel import Wachstafel
+        try:
+            sortiert = int(getattr(summary, "stored", 0) or 0) if summary else 0
+            waben = len(getattr(summary, "by_category", {}) or {}) if summary else 0
+            try:
+                regeln = len(Wachstafel(self.hive).rules())
+            except Exception:
+                regeln = None
+            stand, neue, aufgestiegen = spiel.nach_lauf(
+                self.hive, sortiert=sortiert, korrekturen=korrekturen,
+                regeln=regeln, waben=waben or None,
+                eingang_leer=self._inbox_count() == 0)
+            for schluessel in neue:
+                self.con.honey(i18n.t("spiel.neu",
+                                      name=i18n.t(f"spiel.abzeichen.{schluessel}"),
+                                      grund=i18n.t(f"spiel.grund.{schluessel}")), "🏅")
+            if aufgestiegen:
+                self.con.celebrate(i18n.t("spiel.aufgestiegen",
+                                          stufe=i18n.t(f"spiel.stufe.{stand.stufe}")))
+        except Exception:
+            pass
 
     def _start_inbox_observer(self, wake):
         """watchdog-Observer auf dem Eingangsordner (nur Root). None, wenn nicht verfügbar."""
@@ -730,6 +764,8 @@ class BeehiveShell(cmd.Cmd):
         else:
             self.con.honey(f"{parts[0]}: {old} → {parts[1].lower()} ✓ (Gedächtnis lernt)")
             self._reflektieren(ctx, laut=False)   # Wachstafel gleich mit-aktualisieren
+            # Dem Werkzeug etwas beizubringen ist echte Arbeit und zählt entsprechend.
+            self._fortschritt_buchen(None, korrekturen=1)
 
     def _reflektieren(self, ctx, *, laut: bool = True) -> list:
         """Königin liest die Korrekturen und ritzt Regeln in die Wachstafel (RISE + ACE)."""
@@ -1136,6 +1172,21 @@ class BeehiveShell(cmd.Cmd):
         elif senden and not w.kanaele:
             self.con.info("Keine Flugrouten aktiv — 'flugrouten setup' schaltet den Versand frei.",
                           "🧭")
+
+    def do_fortschritt(self, _arg: str) -> None:
+        """fortschritt — wie weit ist dein Bienenstock? (auch: progress, stufe)"""
+        from pollysort import spiel
+        stand = spiel.laden(self.hive)
+        self.con.rule("🍯 " + i18n.t("spiel.titel"))
+        if stand.dokumente == 0 and not stand.abzeichen:
+            self.con.info(i18n.t("spiel.leer"), "🐝")
+            return
+        for zeile in spiel.uebersicht(stand):
+            self.con.raw("  " + zeile)
+
+    do_progress = do_fortschritt
+    do_stufe = do_fortschritt
+    do_level = do_fortschritt
 
     def do_schwarm(self, _arg: str) -> None:
         """schwarm — Überblick über Königin & Bienen (Waben, offene Fälle, Projekte, Deadlines)."""
@@ -1627,7 +1678,8 @@ class BeehiveShell(cmd.Cmd):
 
         ai_analyze = self._ai_analyzer(provider) if provider != "offline" else None
         self.con.bloom(i18n.t("su.scout.ai") if ai_analyze else i18n.t("su.scout.offline"), "🐝")
-        proposals, total, used_ai, existing = propose_structure(hive, ai_analyze=ai_analyze)
+        proposals, total, used_ai, existing, protokoll = propose_structure(
+            hive, ai_analyze=ai_analyze)
         # Ehrlich bleiben (BUG-6): Wenn die KI (teilweise) ausgefallen ist, das laut sagen,
         # statt einen Heuristik-Notvorschlag als „KI-Analyse" zu verkaufen.
         if ai_analyze is not None and ai_analyze.errors:

@@ -1,0 +1,228 @@
+"""Taxonomie-Regeln — wie aus vielen Einzel-Labels **eine saubere** Ordnerstruktur wird.
+
+Das Problem, das dieses Modul löst: Beim Struktur-Vorschlag wird jedes Dokument **einzeln**
+analysiert. Ein Modell, das eine Rechnung isoliert sieht, antwortet mal „rechnungen", mal
+„finanzen", mal „buchhaltung" — alles vertretbar, aber zusammen ergibt es drei Ordner für
+denselben Stapel Papier. Niemand hat je auf die Gesamtmenge geschaut.
+
+Hier schaut jemand darauf. Zwei Ebenen, absichtlich in dieser Reihenfolge:
+
+1. **Die Regeln als System-Message** (:data:`SYSTEM_REGELN`) — das Modell bekommt sie beim
+   Konsolidierungs-Aufruf und beim Einzel-Label.
+2. **Deterministische Nachkontrolle** (:func:`konsolidieren`) — die Regeln werden im Code
+   noch einmal erzwungen. Ein Sprachmodell hält sich nicht zuverlässig an Vorgaben; die
+   Ordnerstruktur des Nutzers ist aber kein Ort für „meistens".
+
+Die Leitregel in einem Satz: **Zwei Ordner dürfen nie dieselbe Frage beantworten.**
+"""
+
+from __future__ import annotations
+
+from .heuristics import RULES, _stem_match
+
+# --------------------------------------------------------------------------- #
+#  Die Regeln — Text für das Modell
+# --------------------------------------------------------------------------- #
+#: Wird dem LLM als verbindliche Vorgabe mitgegeben. Bewusst knapp und in Beispielen
+#: gedacht, nicht in Abstraktionen — kleine Modelle (9B) folgen Beispielen deutlich
+#: zuverlässiger als Prinzipien.
+SYSTEM_REGELN = """Regeln für eine gute Ablage-Struktur (verbindlich):
+
+1. ÜBERSCHNEIDUNGSFREI. Zwei Kategorien duerfen nie dieselben Dokumente meinen.
+   Falsch: "Rechnungen" UND "Finanzen", wenn es nur Rechnungen gibt.
+   Richtig: nur "Rechnungen".
+
+2. OBERBEGRIFF NUR BEI MEHREREN GRUPPEN. Ein weiter Begriff (Finanzen, Verwaltung,
+   Allgemein, Sonstiges) ist nur erlaubt, wenn er mehrere unterschiedliche Gruppen
+   zusammenfasst, die einzeln zu klein waeren.
+   Falsch: nur Rechnungen -> "Finanzen".
+   Richtig: Rechnungen + Reisekostenabrechnungen + Kontoauszuege -> drei eigene
+   Kategorien, ODER "Finanzen" nur dann, wenn von jeder Gruppe nur ein, zwei
+   Dokumente da sind.
+
+3. NIE OBERBEGRIFF UND UNTERBEGRIFF NEBENEINANDER. Wenn "Rechnungen" existiert,
+   darf daneben kein "Finanzen" und kein "Belege" stehen.
+
+4. SPEZIFISCH SCHLAEGT ALLGEMEIN. Beschreibt eine engere Kategorie alle Dokumente,
+   nimm die engere.
+
+5. NACH DOKUMENTTYP BENENNEN, nicht nach Abteilung, Absender oder Projekt.
+   Richtig: "Vertraege", "Protokolle", "Kontoauszuege".
+   Falsch: "Buchhaltung", "Herr Meier", "Projekt Nord".
+
+6. MINDESTGROESSE. Eine Kategorie lohnt sich ab etwa drei Dokumenten. Weniger ->
+   in die naechstpassende Kategorie einsortieren.
+
+7. KEINE SYNONYME. "Rechnung" und "Rechnungen" und "Eingangsrechnungen" sind EINE
+   Kategorie. Entscheide dich fuer einen Namen (Plural, kleingeschrieben, ein Wort).
+"""
+
+#: Oberbegriffe und die Kategorien, die sie verschlucken würden.
+#:
+#: Steht ein Oberbegriff **neben** einem seiner Unterbegriffe, ist das immer der
+#: Doppelordner-Fehler — dann verschwindet der Oberbegriff (Regel 3). Steht er allein,
+#: darf er bleiben: dann ist er die einzige sinnvolle Klammer über einen gemischten Rest.
+OBERBEGRIFFE: dict[str, set[str]] = {
+    "finanzen": {"rechnungen", "belege", "steuer", "steuern", "kontoauszuege", "kontoauszug",
+                 "buchhaltung", "gehalt", "gehaelter", "lohn", "zahlungen", "reisekosten",
+                 "spesen", "abrechnungen", "mahnungen", "bank"},
+    "buchhaltung": {"rechnungen", "belege", "kontoauszuege", "steuer", "steuern", "mahnungen"},
+    "kosten": {"rechnungen", "spesen", "reisekosten", "belege"},
+    "verwaltung": {"vertraege", "korrespondenz", "protokolle", "versicherung", "behoerden",
+                   "bescheide", "schriftverkehr"},
+    "personal": {"bewerbung", "bewerbungen", "arbeitsvertraege", "gehalt", "gehaelter",
+                 "reisekosten", "spesen", "zeugnisse"},
+    "dokumente": set(),
+    "allgemein": set(),
+    "unterlagen": set(),
+    "sonstiges": set(),
+}
+
+#: Wie viele Dokumente eine eigene Kategorie mindestens rechtfertigen (Regel 6).
+MINDEST_DOKUMENTE = 3
+
+#: Obergrenze — mehr Ordner als das überblickt niemand mehr.
+MAX_KATEGORIEN = 8
+
+
+# --------------------------------------------------------------------------- #
+#  Hilfen
+# --------------------------------------------------------------------------- #
+def _familie(label: str) -> str | None:
+    """Zu welcher RULES-Familie gehört das Label (über seine Synonyme)?"""
+    lab = label.strip().lower()
+    if lab in RULES:
+        return lab
+    for kat, begriffe in RULES.items():
+        if _stem_match(lab, kat) or any(_stem_match(lab, b) for b in begriffe):
+            return kat
+    return None
+
+
+#: Fugenlaute deutscher Komposita. Steht einer davon direkt vor dem Kopf-Nomen, ist das
+#: lange Wort eine Zusammensetzung MIT diesem Kopf ("Eingang-s-rechnungen" = Rechnungen).
+#: Steht dort etwas anderes, ist es ein eigenes Wort ("reisekosten-ab-rechnung" ist eben
+#: KEINE Rechnung) — genau deshalb reicht ein simpler Teilstring-Vergleich hier nicht.
+_FUGENLAUTE = set("sner")
+
+
+def _kompositum_mit_kopf(lang: str, kopf: str) -> bool:
+    """Ist ``lang`` ein Kompositum, dessen Kopf-Nomen ``kopf`` ist?"""
+    if len(kopf) < 8 or len(lang) <= len(kopf) or not lang.endswith(kopf):
+        return False
+    return lang[-len(kopf) - 1] in _FUGENLAUTE
+
+
+def _gleichbedeutend(a: str, b: str) -> bool:
+    """Meinen zwei Labels dasselbe? (Wortstamm, Kompositum oder gemeinsame RULES-Familie)"""
+    if a == b:
+        return True
+    if _stem_match(a, b):
+        return True
+    # Deutsche Komposita hängen den Kopf hinten an: "eingangsrechnungen" ist dasselbe
+    # wie "rechnungen". _stem_match vergleicht nur Präfixe und sieht das nicht.
+    if _kompositum_mit_kopf(a, b) or _kompositum_mit_kopf(b, a):
+        return True
+    fa, fb = _familie(a), _familie(b)
+    return fa is not None and fa == fb
+
+
+def _ist_oberbegriff_von(ober: str, unter: str) -> bool:
+    kinder = OBERBEGRIFFE.get(ober.strip().lower())
+    if kinder is None:
+        return False
+    u = unter.strip().lower()
+    return any(_stem_match(u, k) for k in kinder)
+
+
+# --------------------------------------------------------------------------- #
+#  Die Konsolidierung
+# --------------------------------------------------------------------------- #
+def konsolidieren(labels: dict[str, int], *,
+                  mindest: int = MINDEST_DOKUMENTE,
+                  maximum: int = MAX_KATEGORIEN) -> tuple[dict[str, int], list[str]]:
+    """Aus rohen Einzel-Labels eine überschneidungsfreie Struktur machen.
+
+    Gibt ``(kategorien_mit_anzahl, protokoll)`` zurück. Das Protokoll nennt jede
+    Zusammenlegung im Klartext — der Nutzer soll sehen, *warum* aus fünf Vorschlägen
+    drei Ordner wurden, statt es hinnehmen zu müssen.
+
+    Die Reihenfolge der Schritte ist wesentlich: erst Synonyme (sonst zählt derselbe
+    Stapel doppelt und wirkt größer), dann Oberbegriffe (braucht die bereinigten
+    Zahlen), dann die Mindestgröße (braucht beides).
+    """
+    protokoll: list[str] = []
+    rein = {k.strip().lower(): v for k, v in labels.items() if k and k.strip()}
+    rein.pop("_unassigned", None)
+    if not rein:
+        return {}, protokoll
+
+    # -- Regel 7: Synonyme und Wortstämme zusammenlegen ----------------------
+    # Das jeweils häufigste Label gewinnt den Namen — es ist das, was das Modell
+    # am häufigsten für richtig hielt.
+    zusammen: dict[str, int] = {}
+    for label in sorted(rein, key=lambda k: (-rein[k], k)):
+        for ziel in zusammen:
+            if _gleichbedeutend(label, ziel):
+                zusammen[ziel] += rein[label]
+                protokoll.append(f"'{label}' → '{ziel}' (dasselbe gemeint)")
+                break
+        else:
+            zusammen[label] = rein[label]
+
+    # -- Regel 3: kein Oberbegriff neben seinem Unterbegriff ------------------
+    for ober in sorted(zusammen, key=lambda k: -zusammen[k]):
+        if ober not in zusammen:
+            continue
+        kinder = [u for u in zusammen if u != ober and _ist_oberbegriff_von(ober, u)]
+        if not kinder:
+            continue
+        ziel = max(kinder, key=lambda k: zusammen[k])
+        zusammen[ziel] += zusammen.pop(ober)
+        protokoll.append(f"'{ober}' → '{ziel}' (Oberbegriff neben Unterbegriff)")
+
+    # -- Regel 6: zu kleine Kategorien einsortieren ---------------------------
+    # Nur solange mehr als eine Kategorie übrig bleibt — der letzte Ordner bleibt
+    # immer stehen, auch wenn er klein ist.
+    for klein in sorted([k for k, v in zusammen.items() if v < mindest], key=lambda k: zusammen[k]):
+        if len(zusammen) <= 1 or klein not in zusammen:
+            continue
+        rest = [k for k in zusammen if k != klein]
+        fam = _familie(klein)
+        passend = [k for k in rest if fam and _familie(k) == fam]
+        ziel = max(passend or rest, key=lambda k: zusammen[k])
+        zusammen[ziel] += zusammen.pop(klein)
+        protokoll.append(f"'{klein}' → '{ziel}' (zu wenige Dokumente)")
+
+    # -- Deckelung ------------------------------------------------------------
+    if len(zusammen) > maximum:
+        geordnet = sorted(zusammen.items(), key=lambda kv: -kv[1])
+        behalten = dict(geordnet[:maximum])
+        ziel = geordnet[0][0]
+        for name, n in geordnet[maximum:]:
+            behalten[ziel] += n
+            protokoll.append(f"'{name}' → '{ziel}' (mehr als {maximum} Kategorien)")
+        zusammen = behalten
+
+    return dict(sorted(zusammen.items(), key=lambda kv: -kv[1])), protokoll
+
+
+def pruefe(kategorien: list[str]) -> list[str]:
+    """Eine fertige Kategorienliste auf Regelverstöße prüfen. Gibt Klartext-Beanstandungen.
+
+    Für Tests und für den ``doctor`` — und um eine LLM-Antwort zu bewerten, bevor man
+    sie übernimmt.
+    """
+    k = [c.strip().lower() for c in kategorien if c and c.strip()]
+    probleme: list[str] = []
+    for i, a in enumerate(k):
+        for b in k[i + 1:]:
+            if _gleichbedeutend(a, b):
+                probleme.append(f"'{a}' und '{b}' meinen dasselbe")
+            elif _ist_oberbegriff_von(a, b):
+                probleme.append(f"'{a}' ist ein Oberbegriff von '{b}'")
+            elif _ist_oberbegriff_von(b, a):
+                probleme.append(f"'{b}' ist ein Oberbegriff von '{a}'")
+    if len(k) > MAX_KATEGORIEN:
+        probleme.append(f"{len(k)} Kategorien — mehr als {MAX_KATEGORIEN} überblickt niemand")
+    return probleme

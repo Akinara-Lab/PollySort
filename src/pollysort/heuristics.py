@@ -29,10 +29,27 @@ RULES: dict[str, list[str]] = {
                       "nachricht", "mitteilung", "betreff", "gruesse", "grüße", "antwort",
                       "rückantwort", "rueckantwort", "absender", "empfänger", "empfaenger",
                       "postkarte", "umschlag", "memo"],
-    "finanzen": ["kontoauszug", "steuer", "finanzamt", "gehalt", "lohn", "bilanz", "buchhaltung",
-                 "iban", "überweisung", "ueberweisung", "kredit", "darlehen", "zinsen",
-                 "sparbuch", "dividende", "aktien", "depot", "budget", "guthaben", "saldo",
-                 "kontostand", "einkommen", "ausgaben", "einnahmen"],
+    # 'finanzen' war lange ein Sammeltopf: Kontoauszüge, Steuerbescheide und Gehalt
+    # landeten alle darin und verschwanden dann als Oberbegriff in der Konsolidierung.
+    # Die beiden häufigsten Sorten haben jetzt eigene Kategorien.
+    "kontoauszuege": ["kontoauszug", "kontoauszüge", "kontostand", "iban", "saldo",
+                      "lastschrift", "lastschriften", "gutschriften", "sparkasse",
+                      "kontoinhaber", "buchungen", "einzelumsaetze", "einzelumsätze",
+                      "bankleitzahl", "girokonto", "auszugsdatum"],
+    "steuer": ["steuer", "steuern", "finanzamt", "steuernummer", "steuerbescheid",
+               "koerperschaftsteuer", "körperschaftsteuer", "umsatzsteuervoranmeldung",
+               "einkommensteuer", "gewerbesteuer", "vorauszahlungen", "rechtsbehelfsbelehrung",
+               "einspruch", "nachzahlung", "veranlagung", "elster"],
+    # 'finanzen' behält die spezifischen Begriffe BEWUSST mit: Wer nur eine Kategorie
+    # "Finanzen" führt, muss weiterhin einen Steuerbescheid oder Kontoauszug dorthin
+    # einsortiert bekommen (snap_category). Welche Kategorie beim freien Klassifizieren
+    # gewinnt, entscheidet die Bewertung — die spezifische trägt ihren Namen im Text und
+    # bekommt dafür den Namensbonus.
+    "finanzen": ["gehalt", "lohn", "bilanz", "buchhaltung", "überweisung", "ueberweisung",
+                 "kredit", "darlehen", "zinsen", "sparbuch", "dividende", "aktien", "depot",
+                 "budget", "guthaben", "einkommen", "ausgaben", "einnahmen",
+                 "kontoauszug", "kontostand", "iban", "saldo",
+                 "steuer", "finanzamt", "steuerbescheid"],
     "versicherung": ["versicherung", "police", "schaden", "tarif", "haftpflicht", "rechtsschutz",
                      "deckung", "beitrag", "prämie", "praemie", "selbstbeteiligung", "hausrat",
                      "risiko", "insurance", "policy", "coverage", "claim", "premium", "liability"],
@@ -56,6 +73,10 @@ RULES: dict[str, list[str]] = {
                    "makler", "exposé", "expose", "quadratmeter", "wohnfläche", "wohnflaeche",
                    "grundbuch", "hypothek", "eigentum", "eigentümer", "eigentuemer",
                    "nebenkosten", "kaution", "grundriss", "bauplan", "property", "mortgage"],
+    "spesen": ["spesen", "reisekosten", "reisekostenabrechnung", "verpflegungsmehraufwand",
+               "kilometerpauschale", "fahrtkosten", "dienstreise", "kostenstelle",
+               "personalnummer", "erstattungsbetrag", "auswaertstaetigkeit", "tagegeld",
+               "uebernachtungspauschale", "reisezweck", "expense", "mileage"],
     "kfz": ["fahrzeug", "automobil", "kennzeichen", "zulassung", "hauptuntersuchung",
             "führerschein", "fuehrerschein", "werkstatt", "reparatur", "reifen", "kilometerstand",
             "bußgeld", "bussgeld", "diesel", "benzin", "motorrad", "verkehr", "inspektion"],
@@ -112,15 +133,44 @@ def _needles_for(cat: str, *, use_rules: bool) -> list[str]:
     return list(needles)
 
 
+#: Zusatzgewicht, wenn der Kategoriename selbst im Text steht ("KONTOAUSZUG Nr. 3/2026").
+#: Das ist das mit Abstand stärkste Signal und soll nicht von vielen schwachen
+#: Allerweltstreffern überstimmt werden.
+_NAME_BONUS = 12
+
+
+def _score(blob: str, cat: str) -> int:
+    """Wie gut passt diese Kategorie auf den Text?
+
+    Jeder Treffer zählt mit seiner Länge: Längere Begriffe sind spezifischer.
+    „kontoauszug" (11) wiegt damit deutlich schwerer als „beleg" (5) — und genau
+    darauf kam es an.
+    """
+    punkte = 0
+    for needle in _needles_for(cat, use_rules=True):
+        if _hit(blob, needle):
+            punkte += len(needle)
+            if needle == cat:
+                punkte += _NAME_BONUS
+    return punkte
+
+
 def classify(stem: str, text: str, ext: str, *, allowed: list[str] | None = None) -> str:
-    """Kategorie raten. ``allowed`` beschränkt auf die Projekt-Kategorien (None = alle Regeln)."""
+    """Die am BESTEN passende Kategorie raten (``allowed`` = nur Projekt-Kategorien).
+
+    Früher gewann schlicht die Kategorie, die in ``RULES`` zufällig zuerst stand: Weil
+    ``rechnungen`` der erste Schlüssel ist und dort Allerweltswörter wie „betrag", „beleg"
+    oder „gutschrift" stehen, landete jedes Geschäftsdokument dort — ein Kontoauszug
+    wegen „Gutschriften", eine Reisekostenabrechnung wegen „laut Beleg". Jetzt wird
+    bewertet und die stärkste Übereinstimmung gewinnt.
+    """
     blob = f"{stem} {text}".lower()
     cats = list(RULES.keys()) if allowed is None else allowed
-    for cat in cats:
-        if not cat or cat == "_unassigned":
-            continue
-        if any(_hit(blob, n) for n in _needles_for(cat, use_rules=True)):
-            return cat
+    bewertet = [(_score(blob, c), c) for c in cats if c and c != "_unassigned"]
+    bewertet = [(s, c) for s, c in bewertet if s > 0]
+    if bewertet:
+        # Bei Gleichstand entscheidet der Name alphabetisch — reproduzierbar statt zufällig.
+        return max(bewertet, key=lambda sc: (sc[0], -ord(sc[1][0])))[1]
     for cat, exts in TYPE_CATEGORY.items():
         if ext in exts and (allowed is None or cat in allowed):
             return cat

@@ -9,6 +9,56 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — Klare Regeln gegen Doppelordner
+- **`taxonomie.py`** (neu): Bisher wurde jedes Dokument **einzeln** analysiert und die
+  Labels nur gezählt — niemand schaute je auf die Gesamtmenge. Dasselbe Bündel Rechnungen
+  bekam so mal „rechnungen", mal „finanzen", mal „belege": drei Ordner für einen Stapel.
+  Jetzt gibt es eine Konsolidierung mit sieben verbindlichen Regeln, die in **zwei** Ebenen
+  wirken: als System-Message für das Modell **und** als deterministische Nachkontrolle im
+  Code. Ein Sprachmodell hält sich nicht zuverlässig an Vorgaben; die Ordnerstruktur des
+  Nutzers ist kein Ort für „meistens".
+- Die Leitregel: **Zwei Ordner dürfen nie dieselbe Frage beantworten.** Ein Oberbegriff
+  („Finanzen") verschwindet neben seinem Unterbegriff („Rechnungen"); umgekehrt bleiben
+  echte Gruppen (Rechnungen · Reisekosten · Kontoauszüge) getrennt. Jede Zusammenlegung
+  wird im Klartext protokolliert — der Nutzer soll sehen, *warum* aus fünf Vorschlägen
+  drei Ordner wurden.
+- **Deutsche Komposita** werden erkannt: „eingangsrechnungen" ist dasselbe wie
+  „rechnungen", „reisekostenabrechnung" aber ausdrücklich **nicht** — entschieden über den
+  Fugenlaut vor dem Kopf-Nomen, nicht über einen naiven Teilstring-Vergleich.
+
+### Behoben — `classify` nahm die erstbeste statt der besten Kategorie
+- Die Offline-Klassifikation lief `RULES` in Dict-Reihenfolge durch und nahm den **ersten**
+  Treffer. Weil `rechnungen` der erste Schlüssel ist und dort Allerweltswörter wie „betrag",
+  „beleg" oder „gutschrift" stehen, landete praktisch jedes Geschäftsdokument dort: ein
+  Kontoauszug wegen „Gutschriften", eine Reisekostenabrechnung wegen „laut Beleg". Jetzt
+  wird bewertet — längere (spezifischere) Begriffe wiegen mehr, der Kategoriename im Text
+  am schwersten.
+- Neue Kategorien **`kontoauszuege`**, **`steuer`** und **`spesen`**; `finanzen` behält die
+  Begriffe bewusst mit, damit ein Projekt mit nur einer „Finanzen"-Wabe weiterhin alles
+  dorthin einsortiert bekommt.
+
+### Hinzugefügt — Testprojekte und automatische Prüfung
+- **`tools/testprojekte.py`** erzeugt vier reproduzierbare Szenarien (70 Dokumente, ohne
+  verräterische Dateinamen — die Zuordnung muss allein über den Inhalt gelingen).
+- **`tools/taxonomie_check.py`** prüft sie gegen hinterlegte Erwartungen und misst beide
+  Richtungen: keine Doppelordner, aber echte Gruppen bleiben getrennt.
+  Offline **von 2/4 auf 4/4**.
+
+### Hinzugefügt — Der wachsende Bienenstock (Gamification)
+- **`spiel.py`**: Stufen, acht Abzeichen, Tagesserie und ein Fortschrittsbalken; neuer
+  Befehl **`fortschritt`** (`progress`, `level`).
+- Bewusst **ohne dunkle Muster**: keine Punkte fürs Starten des Programms, keine täglichen
+  Anmelde-Belohnungen, keine Erinnerungen mit schlechtem Gewissen. Jeder Punkt steht für
+  ein Dokument, das wirklich einsortiert wurde. Eine Vorschau zählt nicht mit.
+
+### Behoben — Lokale KI war 4× langsamer als nötig
+- `qwen3.5:9b` ist ein Reasoning-Modell und grübelt vor jeder Antwort mehrere tausend
+  Zeichen — für ein kurzes Klassifikations-JSON reine Wartezeit. Der native CPU-Fallback
+  schaltete das schon ab (`think: False`), der normale `/v1`-Pfad aber nicht; dort wird
+  `think` ignoriert und nur `reasoning_effort` wirkt.
+- Gemessen mit warmem Modell, vier Dokumente je Variante: **12,2 s je Dokument mit Denken,
+  2,8 s ohne — bei identischen Antworten.**
+
 ### Hinzugefügt — Installer, die den PATH wirklich setzen
 - **`install.ps1`** (neu, Windows/PowerShell): trägt den Programm-Ordner dauerhaft in den
   **Benutzer-PATH** ein — nie systemweit, keine Administratorrechte nötig. Idempotent: ein
@@ -75,7 +125,8 @@ sichtbar ist der Produktname PollySort.
   für die Sitzung gemerkt.
 
 ### Qualität
-- **153 Tests grün** (vorher 124), `ruff` clean. Neu: `test_firstrun.py` (20),
+- **180 Tests grün** (vorher 124), `ruff` clean. Neu: `test_taxonomie.py` (12),
+  `test_spiel.py` (15), `test_firstrun.py` (20),
   `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate) und
   `test_rename_migration.py` (9 — vor allem: die alte Ablage wird kopiert, nicht verschoben).
 - i18n-Wächter: jeder Katalog-Eintrag muss DE **und** EN haben, mit identischen Platzhaltern.

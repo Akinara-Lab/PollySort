@@ -37,6 +37,57 @@ _CATALOG: dict[str, dict[str, str]] = {
     },
 
     # ------------------------------------------------------------------ #
+    #  Der wachsende Bienenstock (spiel.py) — Fortschritt sichtbar machen
+    # ------------------------------------------------------------------ #
+    "spiel.titel": {"de": "Dein Bienenstock", "en": "Your hive"},
+    "spiel.stufe": {"de": "Stufe", "en": "Level"},
+    "spiel.stufe.schwarm": {"de": "Junger Schwarm", "en": "Fresh swarm"},
+    "spiel.stufe.jung": {"de": "Junger Stock", "en": "Young hive"},
+    "spiel.stufe.summend": {"de": "Summender Stock", "en": "Humming hive"},
+    "spiel.stufe.stark": {"de": "Starker Stock", "en": "Strong hive"},
+    "spiel.stufe.golden": {"de": "Goldener Stock", "en": "Golden hive"},
+    "spiel.stufe.legendaer": {"de": "Legendärer Stock", "en": "Legendary hive"},
+    "spiel.bis_naechste": {"de": "noch {n} bis zur nächsten Stufe",
+                           "en": "{n} more to the next level"},
+    "spiel.maximum": {"de": "höchste Stufe erreicht 🏆", "en": "top level reached 🏆"},
+    "spiel.zahlen": {
+        "de": "{dokumente} einsortiert · {waben} Waben · {regeln} gelernte Regeln · "
+              "{serie} Tage in Folge",
+        "en": "{dokumente} filed · {waben} combs · {regeln} learned rules · "
+              "{serie}-day streak",
+    },
+    "spiel.abzeichen_titel": {"de": "Abzeichen {n}/{gesamt}:", "en": "Badges {n}/{gesamt}:"},
+    "spiel.abzeichen.erste_wabe": {"de": "Erste Wabe", "en": "First comb"},
+    "spiel.abzeichen.zehn": {"de": "Zehnerpack", "en": "Ten in the tin"},
+    "spiel.abzeichen.hundert": {"de": "Hundertschaft", "en": "Century"},
+    "spiel.abzeichen.lehrmeister": {"de": "Lehrmeister", "en": "Mentor"},
+    "spiel.abzeichen.weise": {"de": "Weise Königin", "en": "Wise queen"},
+    "spiel.abzeichen.blitzblank": {"de": "Blitzblank", "en": "Spotless"},
+    "spiel.abzeichen.serie": {"de": "Sieben Tage Sonne", "en": "Seven sunny days"},
+    "spiel.abzeichen.vielfalt": {"de": "Bunter Stock", "en": "Colourful hive"},
+    "spiel.neu": {"de": "Neues Abzeichen: {name} — {grund}",
+                  "en": "New badge: {name} — {grund}"},
+    "spiel.aufgestiegen": {"de": "Aufgestiegen: {stufe}!", "en": "Level up: {stufe}!"},
+    "spiel.leer": {
+        "de": "Noch nichts einsortiert — 'sortiere' legt los, dann wächst hier etwas.",
+        "en": "Nothing filed yet — run 'sort' and this will start to grow.",
+    },
+    "spiel.grund.erste_wabe": {"de": "erstes Dokument einsortiert",
+                               "en": "filed your first document"},
+    "spiel.grund.zehn": {"de": "10 Dokumente einsortiert", "en": "filed 10 documents"},
+    "spiel.grund.hundert": {"de": "100 Dokumente einsortiert", "en": "filed 100 documents"},
+    "spiel.grund.lehrmeister": {"de": "erste Korrektur beigebracht",
+                                "en": "taught your first correction"},
+    "spiel.grund.weise": {"de": "5 gelernte Regeln auf der Wachstafel",
+                          "en": "5 learned rules on the wax tablet"},
+    "spiel.grund.blitzblank": {"de": "Posteingang komplett leer geräumt",
+                               "en": "cleared the inbox completely"},
+    "spiel.grund.serie": {"de": "7 Tage in Folge aufgeräumt",
+                          "en": "tidied 7 days in a row"},
+    "spiel.grund.vielfalt": {"de": "6 verschiedene Waben gefüllt",
+                             "en": "filled 6 different combs"},
+
+    # ------------------------------------------------------------------ #
     #  Erststart-Assistent (firstrun.py) — Sprache → Darstellung → KI → Überblick
     # ------------------------------------------------------------------ #
     # ------------------------------------------------------------------ #

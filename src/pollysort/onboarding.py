@@ -48,13 +48,20 @@ def propose_structure(
     ai_analyze: Callable[[Finding], tuple[str, list[str]]] | None = None,
     ai_sample: int = 15,
     sample: int = 400,
-) -> tuple[list[tuple[str, int]], int, bool, set[str]]:
+    konsolidieren: bool = True,
+) -> tuple[list[tuple[str, int]], int, bool, set[str], list[str]]:
     """Bestehende Struktur + lose Dateien anschauen und Kategorien mit Anzahl vorschlagen.
 
     Zuerst wird die **vorhandene Ordnerstruktur** erfasst (Unterordner = bereits gelebte
     Kategorien), dann werden die losen Dateien im Root analysiert (KI wenn ``ai_analyze``
     gesetzt, sonst heuristisch) und beides zusammengeführt.
-    Returns: ([(kategorie, anzahl)], gescannt, ki_genutzt, {vorhandene_kategorien}).
+
+    Zum Schluss läuft die **Konsolidierung** (:mod:`pollysort.taxonomie`): Weil jedes
+    Dokument einzeln analysiert wird, liefert dieselbe Sorte Papier sonst mal
+    „rechnungen", mal „finanzen", mal „belege" — drei Ordner für einen Stapel. Erst der
+    Blick auf die Gesamtmenge kann das zusammenlegen.
+
+    Returns: ([(kategorie, anzahl)], gescannt, ki_genutzt, {vorhandene}, [protokoll]).
     """
     existing = existing_structure(hive)                       # bestehende Struktur mit ansehen
 
@@ -90,10 +97,19 @@ def propose_structure(
         else:
             proposals["sonstiges"] = rest
 
-    # Bestehende Ordner zusammenführen — sie zählen als vorhandene Kategorien.
+    # Erst konsolidieren, DANN die bestehenden Ordner einmischen. Andersherum würde die
+    # Zählung eines Modell-Labels verloren gehen, sobald schon ein gleichnamiger Ordner
+    # existiert — und die Konsolidierung sähe eine verfälschte Verteilung.
+    protokoll: list[str] = []
+    if konsolidieren:
+        from .taxonomie import konsolidieren as _konsolidieren
+        proposals, protokoll = _konsolidieren(proposals)
+
+    # Bereits gelebte Ordner sind gesetzt: sie stammen vom Nutzer, nicht vom Modell, und
+    # werden nie wegkonsolidiert.
     for name, n in existing.items():
         proposals[name] = proposals.get(name, 0) + n
 
     ordered = sorted(proposals.items(), key=lambda kv: -kv[1])
     scanned = len(findings) + sum(existing.values())
-    return ordered, scanned, used_ai, set(existing)
+    return ordered, scanned, used_ai, set(existing), protokoll

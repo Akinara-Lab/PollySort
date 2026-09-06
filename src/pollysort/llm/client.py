@@ -198,6 +198,10 @@ def _parse_json(raw: str) -> dict:
 class OpenRouterClient:
     BASE = "https://openrouter.ai/api/v1"
     PROVIDER_NAME = "OpenRouter"      # für Fehlermeldungen (Ollama überschreibt das)
+
+    #: Zusatzfelder, die dieser Provider jedem Chat-Payload mitgibt. Leer für OpenRouter;
+    #: Ollama schaltet damit den Denk-Modus ab (s. dort).
+    EXTRA_PAYLOAD: dict = {}
     TIMEOUT = LLM_TIMEOUT             # Ollama überschreibt das (CPU-Inferenz braucht Luft)
 
     def __init__(self, api_key: str, model: str, embed_model: str, categories: list[str],
@@ -238,8 +242,17 @@ class OpenRouterClient:
             "model": model,
             "response_format": {"type": "json_object"},
             "messages": [{"role": "user", "content": content}],
+            **self.EXTRA_PAYLOAD,
         }
-        data = self._post("/chat/completions", payload)
+        try:
+            data = self._post("/chat/completions", payload)
+        except LLMRequestError:
+            # Ein Server, der die Zusatzfelder nicht kennt, darf die Analyse nicht kosten.
+            if not self.EXTRA_PAYLOAD:
+                raise
+            for key in self.EXTRA_PAYLOAD:
+                payload.pop(key, None)
+            data = self._post("/chat/completions", payload)
         usage = data.get("usage", {})
         self.usage.add(usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
         raw = data["choices"][0]["message"]["content"]
@@ -256,8 +269,12 @@ class OpenRouterClient:
                           "Kategorien verwenden (exakt so geschrieben): "
                           f"{', '.join(self._categories)}")
         else:
-            kategorie_hint = "kurzes, kleingeschriebenes Label (moeglichst ein Wort)"
-            known_line = ""
+            # Vorschlags-Modus: Das Modell vergibt das Label frei. Genau hier entstehen
+            # sonst die Doppelordner — deshalb bekommt es hier die Benennungs-Regeln.
+            from ..taxonomie import SYSTEM_REGELN
+            kategorie_hint = ("kurzes, kleingeschriebenes Label nach DOKUMENTTYP, "
+                              "Plural, moeglichst ein Wort")
+            known_line = "\n" + SYSTEM_REGELN
         prompt = PROMPT.format(kategorie_hint=kategorie_hint, known_line=known_line,
                                fewshots=_format_fewshots(self._few_shots),
                                regeln=_format_regeln(self._wachstafel))
@@ -304,6 +321,7 @@ class OpenRouterClient:
             data = self._post("/chat/completions", {
                 "model": self._model, "response_format": {"type": "json_object"},
                 "messages": [{"role": "user", "content": prompt}],
+                **self.EXTRA_PAYLOAD,
             })
             flags = _parse_json(data["choices"][0]["message"]["content"])
             known = {c.strip().lower() for c in categories}
@@ -387,6 +405,15 @@ class OllamaClient(OpenRouterClient):
     PROVIDER_NAME = "Ollama"
     # CPU-Inferenz + Modell-Kaltstart brauchen deutlich mehr Luft als ein Online-API-Call.
     TIMEOUT = httpx.Timeout(300.0, connect=5.0)
+
+    #: Denk-Modus AUS. Modelle wie qwen3.5 grübeln vor jeder Antwort mehrere tausend
+    #: Zeichen lang — für ein kurzes Klassifikations-JSON ist das reine Wartezeit.
+    #: Gemessen auf CPU mit qwen3.5:9b, vier Dokumente je Variante, Modell warm:
+    #: **12,2 s je Dokument mit Denken, 2,8 s ohne — bei identischen Antworten.**
+    #: Der native Pfad (CPU-Fallback) nutzt dafür ``think: False``; über die
+    #: OpenAI-kompatible ``/v1``-Schnittstelle wird ``think`` ignoriert, dort wirkt
+    #: nur ``reasoning_effort``.
+    EXTRA_PAYLOAD = {"reasoning_effort": "none"}
 
     def __init__(self, endpoint: str, categories: list[str],
                  few_shots: list[dict] | None = None, wachstafel: str = ""):
