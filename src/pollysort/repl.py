@@ -64,6 +64,10 @@ class _AiProbe:
         self.ok = 0
         self.errors = 0
         self.last_reason: str | None = None
+        #: (Finding, Analyse) je erfolgreich untersuchtem Dokument. Diese Analysen waren
+        #: bisher nach dem Zählen weg — dabei sind sie genau das Wissen, mit dem sich das
+        #: Gedächtnis vorwärmen lässt (siehe `_gedaechtnis_vorwaermen`).
+        self.proben: list = []
 
     def __call__(self, finding) -> tuple[str, list[str]]:
         from pollysort.extractor import extract
@@ -74,6 +78,7 @@ class _AiProbe:
             self.last_reason = str(reason or "Analyse fehlgeschlagen")
             raise RuntimeError(self.last_reason)
         self.ok += 1
+        self.proben.append((finding, a))
         return a.kategorie, list(a.keywords)
 
 
@@ -91,6 +96,7 @@ class BeehiveShell(cmd.Cmd):
         self.hive: Path | None = hive
         self.offline = True
         self._ollama: bool | None = None      # lazy - siehe _ollama_ready()
+        self._proben: list = []               # Analysen des letzten Struktur-Vorschlags
         self._sync_prompt()
 
     def _maybe_auto_theme(self) -> None:
@@ -1584,6 +1590,10 @@ class BeehiveShell(cmd.Cmd):
     def _run_setup(self, hive: Path) -> None:
         """Assistent — Reihenfolge: Name → KI-Modus → Kategorien (KI-Vorschlag) → Überwachung."""
         self.hive = hive
+        # Proben eines frueheren Setups verwerfen: Sonst wuerde beim zweiten Projekt das
+        # Gedaechtnis mit den Dokumenten des ERSTEN vorgewaermt, sobald hier nicht der
+        # Vorschlags-Modus gewaehlt wird.
+        self._proben = []
         self.con.rule(i18n.t("su.title"))
         self.con.info(i18n.t("su.folder", path=hive), "📂")
 
@@ -1610,12 +1620,42 @@ class BeehiveShell(cmd.Cmd):
         made_txt = f" ({i18n.t('su.done.made', n=made)})" if made else ""
         self.con.honey(i18n.t("su.done", name=name, n=len(categories), made=made_txt,
                               provider=provider, watch=watch_txt.get(watch, "")), "✅")
+        self._vorwaermen(hive, categories, provider)
         # Die schon vorhandenen losen Dateien direkt in die Waben einlagern.
         if self._inbox_count():
             self.con.info(i18n.t("su.filing"), "🐝")
             self._cycle(mode="move")
         else:
             self._show_inbox()
+
+    def _vorwaermen(self, hive: Path, categories: list[str], provider: str) -> None:
+        """Das Gedächtnis mit den Analysen des Struktur-Vorschlags vorwärmen.
+
+        Ohne das startet der erste Sortierlauf mit leerem Gedächtnis — und sobald die
+        ersten Dokumente einer Sorte drin sind, widerspricht der kNN dem Label jeder
+        NEUEN Sorte. Die Datei landet dann in der Rückfrage, obwohl ihre Kategorie
+        stimmt und der Nutzer sie eben selbst bestätigt hat. Details: `vorwaermen.py`.
+
+        Läuft nur, wenn der Vorschlag tatsächlich mit KI lief (offline gibt es keine
+        vergleichbaren Analysen). Ein Fehler hier darf die Einrichtung nie abbrechen.
+        """
+        if not self._proben or provider == "offline":
+            return
+        from pollysort import vorwaermen as vw
+        from pollysort.hive_mind import HiveMind
+        from pollysort.llm.client import embed_model_for
+        try:
+            cfg = config.load_config()
+            cfg.llm_provider = provider
+            api_key = config.load_credentials() if provider == "openrouter" else None
+            client = build_client(cfg, api_key, categories, [])
+            gesaet = vw.vorwaermen(self._proben, categories, mind=HiveMind(hive),
+                                   embed=client.embed,
+                                   embed_model=embed_model_for(cfg, api_key))
+        except Exception:
+            return
+        if gesaet:
+            self.con.info(i18n.t("vw.done", n=sum(gesaet.values()), k=len(gesaet)), "🧠")
 
     def _scaffold_categories(self, hive: Path, categories: list[str]) -> int:
         """Die gewählten/vorgeschlagenen Kategorie-Ordner sichtbar im Projekt anlegen."""
@@ -1677,6 +1717,7 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.onboarding import propose_structure
 
         ai_analyze = self._ai_analyzer(provider) if provider != "offline" else None
+        self._proben = []
         self.con.bloom(i18n.t("su.scout.ai") if ai_analyze else i18n.t("su.scout.offline"), "🐝")
         proposals, total, used_ai, existing, protokoll = propose_structure(
             hive, ai_analyze=ai_analyze)
@@ -1702,6 +1743,9 @@ class BeehiveShell(cmd.Cmd):
             bar = "█" * max(1, round(10 * n / maxn))
             mark = " · " + i18n.t("su.scout.exists") if label in existing else ""
             self.con.raw(f"       {pretty_category(label):<18} [honey]{bar}[/honey] {n}{mark}")
+        # Die Analysen aufheben: Sie sind das Wissen, mit dem sich gleich das
+        # Gedächtnis vorwärmen lässt (siehe `_vorwaermen`).
+        self._proben = list(getattr(ai_analyze, "proben", []) or [])
         ans = self._ask("     " + i18n.t("su.scout.apply")).strip()
         chosen = [label for label, _ in proposals]
         if ans.lower() in ("", *self._YES):

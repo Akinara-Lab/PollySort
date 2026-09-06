@@ -9,6 +9,33 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Behoben — das erste Dokument einer neuen Sorte landete in der Rückfrage
+- **`vorwaermen.py`** (neu): Der Einrichtungs-Assistent schaut sich die Dokumente an und
+  leitet daraus die Kategorien ab — dieses Wissen wurde danach **weggeworfen**. Jetzt legt
+  er von **jeder** akzeptierten Kategorie bis zu zwei Vertreter ins Gedächtnis, bevor der
+  erste Sortierlauf startet.
+- **Die Ursache war nicht das leere Gedächtnis, sondern das einseitig gefüllte.** Ist das
+  Gedächtnis leer, greift in `assigner.py` der Zweig „kein aussagekräftiges Gedächtnis →
+  dem klaren Label vertrauen" (`BASE_KNOWN` = 0,80) und die Datei wird einsortiert. Sind
+  aber erst zwei Rechnungen gespeichert, ist „rechnungen" für **jedes** weitere Dokument
+  der kNN-Gewinner — und die erste Reisekostenabrechnung bekommt Widerspruch statt
+  Bestätigung. Widerspruch wertet der Assigner als Mehrdeutigkeit (`CONFLICT` = 0,55), also
+  Rückfrage, obwohl die Kategorie stimmt und der Nutzer sie Sekunden vorher bestätigt hat.
+- Zwei Eigenschaften, auf die es dabei ankommt: Die Saat liegt unter **derselben ID**, die
+  der echte Eintrag später bekommt (aus dem Inhalts-Hash) — der reale Lauf überschreibt sie,
+  statt Dubletten anzulegen. Und gesät wird nur, was per `snap_category` auf eine
+  **tatsächlich gewählte** Kategorie passt: Wer den Vorschlag verwirft und eigene Kategorien
+  eingibt, bekommt kein Gedächtnis voller Labels, die es gar nicht mehr gibt.
+- Der Embedding-Text hat jetzt **eine** Definition (`models._embedding_text`), die Saat und
+  Echteintrag teilen — sonst lägen sie in verschiedenen Räumen und die Saat wäre wirkungslos.
+- Scheitert eine Einbettung (Provider weg, Embedding-Modell nicht gezogen), wird sie
+  übersprungen: Vorwärmen ist eine Verbesserung, kein Muss, und darf die Einrichtung nie
+  abbrechen.
+- **Gemessen mit `qwen3.5:9b`**, dieselben 6 Dokumente in 3 Kategorien: vorher 3 von 6 in
+  der Rückfrage (zwei davon mit 0,55, eines als `_unassigned` mit 0,26), nachher **keine
+  einzige** — alle zwischen 0,80 und 0,88. Im Gedächtnis liegen danach 6 Vektoren, nicht 11:
+  die Saat wurde von den echten Einträgen überschrieben.
+
 ### Hinzugefügt — Deinstallation
 - **`uninstall.sh`, `uninstall.ps1`, `uninstall.bat`** (neu). Standardmäßig wird nur die
   **Anwendung** entfernt: die Befehle `pollysort`/`pollysort-cli` und der PATH-Eintrag des
@@ -159,7 +186,7 @@ sichtbar ist der Produktname PollySort.
   für die Sitzung gemerkt.
 
 ### Qualität
-- **183 Tests grün** (vorher 124), `ruff` clean. Neu: `test_taxonomie.py` (15),
+- **198 Tests grün** (vorher 124), `ruff` clean. Neu: `test_vorwaermen.py` (15), `test_taxonomie.py` (15),
   `test_spiel.py` (15), `test_firstrun.py` (20),
   `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate) und
   `test_rename_migration.py` (9 — vor allem: die alte Ablage wird kopiert, nicht verschoben).

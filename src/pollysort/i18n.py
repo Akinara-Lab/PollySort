@@ -93,6 +93,12 @@ _CATALOG: dict[str, dict[str, str]] = {
     # ------------------------------------------------------------------ #
     #  Projekt-Einrichtungs-Assistent (repl.py) — Fortsetzung des Erststarts
     # ------------------------------------------------------------------ #
+    "vw.done": {
+        "de": "Gedächtnis vorgewärmt: {n} Beispiel(e) aus {k} Kategorie(n) — so landet "
+              "auch das erste Dokument jeder Sorte gleich richtig.",
+        "en": "Memory warmed up: {n} example(s) from {k} categor(ies) — so the first "
+              "document of each kind lands correctly too.",
+    },
     "su.choice": {"de": "Wahl [{default}]: ", "en": "Choice [{default}]: "},
     "su.cancelled": {"de": "Abgebrochen — kein Projekt angelegt.",
                      "en": "Cancelled — no project created."},

@@ -48,6 +48,23 @@ def _now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
+def _embedding_text(title: str, aufgabe: str, summary: str, keywords: list[str]) -> str:
+    """Der kanonische Text, aus dem ein Vektor entsteht.
+
+    Bewusst **eine** Definition: Saat-Vektoren aus dem Struktur-Vorschlag und die späteren
+    echten Einträge müssen im selben Raum liegen, sonst findet der kNN sie nicht als
+    Nachbarn wieder — und genau darauf beruht das Vorwärmen.
+    """
+    parts = [title, aufgabe, summary, " ".join(keywords or [])]
+    return "\n".join(p for p in parts if p).strip()
+
+
+def embedding_text_for(analysis: BeeAnalysis) -> str:
+    """Denselben Text direkt aus einer Roh-Analyse bauen (ohne fertigen BeeEntry)."""
+    return _embedding_text(analysis.title, analysis.funktion_aufgabe,
+                           analysis.summary, analysis.keywords)
+
+
 class BeeEntry(BaseModel):
     """Ein Eintrag = eine 'Biene' im Stock (§7). Identisch für JSON, DB und Export."""
 
@@ -76,13 +93,8 @@ class BeeEntry(BaseModel):
 
     def embedding_text(self) -> str:
         """Kanonischer Eintragstext fürs Hive Mind (§14): titel+aufgabe+summary+keywords."""
-        parts = [
-            self.content.title,
-            self.funktion.aufgabe,
-            self.content.summary,
-            " ".join(self.content.keywords),
-        ]
-        return "\n".join(p for p in parts if p).strip()
+        return _embedding_text(self.content.title, self.funktion.aufgabe,
+                               self.content.summary, self.content.keywords)
 
     @classmethod
     def from_analysis(
