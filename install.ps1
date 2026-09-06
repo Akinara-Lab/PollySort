@@ -29,6 +29,27 @@ function Has-Command($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
+# Native Programme schreiben Warnungen und Hinweise nach stderr. Mit
+# $ErrorActionPreference = 'Stop' macht PowerShell daraus einen Abbruch: Ein
+# 'pip show' fuer ein nicht installiertes Paket wuerde das Skript mittendrin
+# beenden. Deshalb laufen ALLE Aufrufe fremder Programme durch diesen Helfer,
+# der stderr einsammelt und nur den Exit-Code weiterreicht.
+function Invoke-Tool {
+    param([Parameter(Mandatory)][string]$Exe, [string[]]$Argumente = @())
+    $vorher = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $ausgabe = (& $Exe @Argumente 2>&1 | Out-String)
+        $code = $LASTEXITCODE
+    }
+    catch {
+        $ausgabe = "$_"
+        $code = 1
+    }
+    finally { $ErrorActionPreference = $vorher }
+    return [pscustomobject]@{ Ausgabe = $ausgabe; Code = $code }
+}
+
 Set-Location -LiteralPath $PSScriptRoot
 Say 'PollySort-Installer'
 if ($DryRun) { Warn 'Trockenlauf - es wird nichts veraendert.' }
@@ -52,11 +73,14 @@ foreach ($c in @('py', 'python', 'python3')) {
     if (-not (Has-Command $c)) { continue }
     # Ohne innere Anfuehrungszeichen und ohne '%': PowerShell reicht native Argumente
     # sonst verstuemmelt an das Programm weiter.
-    $ver = & $c -c 'import platform; print(platform.python_version())' 2>$null
-    if ($LASTEXITCODE -ne 0 -or "$ver" -notmatch '^\d+\.\d+') { continue }   # Platzhalter
+    # Ohne innere Anfuehrungszeichen und ohne '%': PowerShell reicht native Argumente
+    # sonst verstuemmelt an das Programm weiter.
+    $probe = Invoke-Tool $c @('-c', 'import platform; print(platform.python_version())')
+    $ver = $probe.Ausgabe.Trim()
+    if ($probe.Code -ne 0 -or $ver -notmatch '^\d+\.\d+') { continue }   # Platzhalter
     $pyAny = $c; $pyAnyVer = $ver
-    & $c -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)' 2>$null
-    if ($LASTEXITCODE -eq 0) { $py = $c; break }
+    $passt = Invoke-Tool $c @('-c', 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)')
+    if ($passt.Code -eq 0) { $py = $c; break }
 }
 if (-not $py -and $pyAny) {
     Fail "Python 3.12+ benoetigt - gefunden wurde nur $pyAny ($pyAnyVer)."
@@ -79,19 +103,19 @@ $binDir = $null
 
 if (Has-Command 'uv') {
     Ok 'uv erkannt'
-    if (-not $DryRun) { uv tool install --force ".[extract]" }
+    if (-not $DryRun) { Invoke-Tool 'uv' @('tool', 'install', '--force', '.[extract]') | Out-Null }
     $binDir = Join-Path $env:USERPROFILE '.local\bin'
 }
 elseif (Has-Command 'pipx') {
     Ok 'pipx erkannt'
-    if (-not $DryRun) { pipx install --force ".[extract]" }
-    $binDir = (pipx environment --value PIPX_BIN_DIR 2>$null)
+    if (-not $DryRun) { Invoke-Tool 'pipx' @('install', '--force', '.[extract]') | Out-Null }
+    $binDir = (Invoke-Tool 'pipx' @('environment', '--value', 'PIPX_BIN_DIR')).Ausgabe.Trim()
     if (-not $binDir) { $binDir = Join-Path $env:USERPROFILE '.local\bin' }
 }
 else {
     Ok 'Weder uv noch pipx - verwende pip (Benutzer-Installation)'
-    if (-not $DryRun) { & $py -m pip install --user ".[extract]" }
-    $userBase = & $py -c 'import site; print(site.getuserbase())'
+    if (-not $DryRun) { Invoke-Tool $py @('-m', 'pip', 'install', '--user', '.[extract]') | Out-Null }
+    $userBase = (Invoke-Tool $py @('-c', 'import site; print(site.getuserbase())')).Ausgabe.Trim()
     $binDir = Join-Path $userBase 'Scripts'
 }
 Info "Programme landen in: $binDir"
@@ -126,8 +150,8 @@ if ($NoPath) {
 }
 else {
     # Die Werkzeuge bringen eigene Mechanismen mit - die zuerst.
-    if (Has-Command 'uv')   { if (-not $DryRun) { uv tool update-shell 2>$null | Out-Null } }
-    if (Has-Command 'pipx') { if (-not $DryRun) { pipx ensurepath 2>$null | Out-Null } }
+    if (Has-Command 'uv')   { if (-not $DryRun) { Invoke-Tool 'uv' @('tool', 'update-shell') | Out-Null } }
+    if (Has-Command 'pipx') { if (-not $DryRun) { Invoke-Tool 'pipx' @('ensurepath') | Out-Null } }
     Add-ToUserPath $binDir
 }
 
@@ -143,7 +167,7 @@ if ($DryRun) {
     exit 0
 }
 if (Has-Command 'pollysort') {
-    $ver = (pollysort-cli --version 2>$null)
+    $ver = (Invoke-Tool 'pollysort-cli' @('--version')).Ausgabe.Trim()
     if (-not $ver) { $ver = 'bereit' }
     Ok "Befehl 'pollysort' verfuegbar ($ver)"
     Say 'Fertig! Tippe einfach:  pollysort'

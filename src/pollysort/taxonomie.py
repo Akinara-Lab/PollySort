@@ -170,6 +170,14 @@ def konsolidieren(labels: dict[str, int], *,
     if not rein:
         return {}, protokoll
 
+    # Die Mindestgröße muss zur Menge passen. Bei sechs Dokumenten in drei sauber
+    # getrennten Gruppen wären drei Ordner völlig richtig — eine starre Untergrenze
+    # von drei faltet sie alle zu einem einzigen zusammen (real beobachtet in einem
+    # Ollama-Lauf: 2 Rechnungen + 2 Reisekosten + 2 Kontoauszüge wurden eine Wabe).
+    # Also: nie mehr als ein Viertel des Bestands verlangen, nie weniger als zwei.
+    gesamt = sum(rein.values())
+    mindest = max(2, min(mindest, gesamt // 4))
+
     # -- Regel 7: Synonyme und Wortstämme zusammenlegen ----------------------
     # Das jeweils häufigste Label gewinnt den Namen — es ist das, was das Modell
     # am häufigsten für richtig hielt.

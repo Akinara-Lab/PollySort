@@ -9,6 +9,40 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — Deinstallation
+- **`uninstall.sh`, `uninstall.ps1`, `uninstall.bat`** (neu). Standardmäßig wird nur die
+  **Anwendung** entfernt: die Befehle `pollysort`/`pollysort-cli` und der PATH-Eintrag des
+  Installers — letzterer nur, wenn in dem Ordner nichts anderes mehr liegt (`~/.local/bin`
+  gehört uv und pipx gemeinsam, nicht PollySort allein).
+- **`--alles`** (PowerShell: `-Alles`) entfernt zusätzlich die globale Ablage
+  `~/.pollysort` samt Einstellungen, OpenRouter-Schlüssel, Projektliste, Flugrouten und
+  Historie — mit Rückfrage, und die alte `~/.beehive` gleich mit.
+- **Nutzerdaten werden unter KEINER Option angefasst**: weder die Projektordner noch die
+  versteckten `.honig`-Ordner darin. In `.honig/papierkorb/` liegt die Quarantäne, die noch
+  echte Dateien enthalten kann, die aussortiert, aber nie endgültig gelöscht wurden. Der
+  Deinstaller listet diese Ordner stattdessen auf. Ein Deinstaller, der ungefragt
+  Nutzerdaten mitnimmt, ist Datenverlust mit gutem Gewissen.
+- Beide kennen `--dry-run`.
+
+### Behoben — stderr fremder Programme brach die PowerShell-Skripte ab
+- Mit `$ErrorActionPreference = 'Stop'` macht PowerShell aus jeder stderr-Zeile eines
+  aufgerufenen Programms einen Abbruch. Ein `pip show` für ein nicht installiertes Paket
+  schreibt eine Warnung dorthin — und beendete die Deinstallation mitten im Lauf. Alle
+  Aufrufe fremder Programme laufen jetzt durch einen Helfer, der stderr einsammelt und nur
+  den Exit-Code weiterreicht. Dieselbe Falle steckte auch in `install.ps1`.
+
+### Behoben — Mindestgröße einer Kategorie war absolut statt relativ
+- Aufgefallen in einem echten Ollama-Lauf: sechs Dokumente in drei sauber getrennten
+  Gruppen zu je zwei wurden zu **einer** Wabe zusammengefaltet, weil eine Kategorie starr
+  drei Dokumente brauchte. Bei sechs Dokumenten sind drei Ordner aber genau richtig. Die
+  Untergrenze skaliert jetzt mit dem Bestand: nie mehr als ein Viertel, nie weniger als zwei.
+
+### Behoben — erfundene Kosten im lokalen Betrieb
+- Der Sortierlauf meldete auch offline und mit Ollama „N KI-Anfragen · ~0.0006 €". Offline
+  gibt es gar keine KI-Anfrage, und lokale Inferenz kostet nichts. Jetzt sagt die Zeile, was
+  wirklich passiert ist — Vertrauen ist bei einem Werkzeug, das die eigenen Dokumente liest,
+  die ganze Währung.
+
 ### Hinzugefügt — Klare Regeln gegen Doppelordner
 - **`taxonomie.py`** (neu): Bisher wurde jedes Dokument **einzeln** analysiert und die
   Labels nur gezählt — niemand schaute je auf die Gesamtmenge. Dasselbe Bündel Rechnungen
@@ -125,7 +159,7 @@ sichtbar ist der Produktname PollySort.
   für die Sitzung gemerkt.
 
 ### Qualität
-- **180 Tests grün** (vorher 124), `ruff` clean. Neu: `test_taxonomie.py` (12),
+- **183 Tests grün** (vorher 124), `ruff` clean. Neu: `test_taxonomie.py` (15),
   `test_spiel.py` (15), `test_firstrun.py` (20),
   `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate) und
   `test_rename_migration.py` (9 — vor allem: die alte Ablage wird kopiert, nicht verschoben).

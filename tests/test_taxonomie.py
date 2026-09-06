@@ -127,3 +127,23 @@ def test_deutsche_komposita_mit_und_ohne_fugenlaut():
     assert _gleichbedeutend("eingangsrechnungen", "rechnungen")
     assert _gleichbedeutend("jahresprotokolle", "protokolle")
     assert not _gleichbedeutend("reisekostenabrechnung", "rechnungen")
+
+
+def test_mindestgroesse_richtet_sich_nach_dem_bestand():
+    """Aus einem echten Ollama-Lauf: 6 Dokumente, drei saubere Gruppen zu je zwei.
+
+    Mit einer starren Untergrenze von drei Dokumenten wurden alle drei Gruppen zu
+    EINER Wabe zusammengefaltet — bei sechs Dokumenten sind drei Ordner aber genau
+    richtig. Die Untergrenze skaliert deshalb mit dem Bestand.
+    """
+    klein, _ = konsolidieren({"rechnungen": 2, "spesen": 2, "kontoauszuege": 2})
+    assert set(klein) == {"rechnungen", "spesen", "kontoauszuege"}
+
+    # Bei viel Material bleibt ein Ausreißer trotzdem ein Ausreißer.
+    gross, protokoll = konsolidieren({"rechnungen": 60, "protokolle": 8, "versicherung": 2})
+    assert set(gross) == {"rechnungen", "protokolle"}
+    assert any("zu wenige" in z for z in protokoll)
+
+    # Und die Untergrenze fällt nie unter zwei — sonst überlebt jeder Einzelfall.
+    winzig, _ = konsolidieren({"rechnungen": 3, "versicherung": 1})
+    assert set(winzig) == {"rechnungen"}

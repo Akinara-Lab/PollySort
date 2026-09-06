@@ -158,7 +158,28 @@ pipx install .                 # or:  uv tool install .
 > automatically falls back to CPU inference (`num_gpu: 0`) — slower, but it keeps working.
 
 **Update** (after `git pull`): `pipx install --force ".[extract]"` (or `uv tool install --force`).
-**Uninstall:** `pipx uninstall pollysort`.
+
+### Uninstalling
+
+| Platform | Command |
+|---|---|
+| **Windows** | double-click **`uninstall.bat`**, or `.\uninstall.ps1` in PowerShell |
+| **Linux / macOS / Git-Bash** | **`bash uninstall.sh`** |
+
+By default this removes only the **application**: the `pollysort` and `pollysort-cli`
+commands, plus the PATH entry the installer added (and only if nothing else lives in that
+folder). Add **`--alles`** (PowerShell: `-Alles`) to also delete the global store
+`~/.pollysort` — settings, your OpenRouter key, the project list, notification routes and
+the input history. That step asks for confirmation.
+
+**Your documents are never touched**, under any option. Neither are the hidden `.honig`
+folders inside your projects: they hold the catalogue, the learned memory — and
+`papierkorb/`, the quarantine, which may still contain real files you sorted out but never
+purged. The uninstaller lists those folders instead, so you can decide yourself. A
+deinstaller that quietly takes user data with it is data loss with a clean conscience, and
+PollySort's first principle is that nothing is ever deleted.
+
+Both scripts accept `--dry-run` to show what would happen without changing anything.
 
 ### Run without installing
 

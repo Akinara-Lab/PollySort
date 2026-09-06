@@ -417,7 +417,17 @@ def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) 
         con.ask(f"{s.needs_review} Datei(en) unsicher — liegen noch hier. "
                 f"Mit 'rueckfragen' schnell zuordnen.")
     if s.llm_calls:
-        con.info(f"{s.llm_calls} KI-Anfragen · ~{s.est_cost_eur:.4f} €", "🧠")
+        # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
+        # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen
+        # Rechner ist schlicht erfunden — und Vertrauen ist hier die ganze Währung.
+        provider = getattr(ctx.cfg, "llm_provider", "")
+        if provider == "offline":
+            con.info(f"{s.llm_calls} Analyse(n) — offline, ohne KI-Anfrage und ohne Kosten",
+                     "🧠")
+        elif provider == "ollama":
+            con.info(f"{s.llm_calls} KI-Anfragen — lokal gerechnet, ohne Kosten", "🧠")
+        else:
+            con.info(f"{s.llm_calls} KI-Anfragen · ~{s.est_cost_eur:.4f} €", "🧠")
     if dry_run:
         # Vorschau ist nebenwirkungsfrei: keine Konfetti-Meldung, kein Journal-Eintrag.
         con.info("Vorschau — es wurde nichts verschoben oder gespeichert.", "🧪")
