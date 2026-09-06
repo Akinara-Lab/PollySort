@@ -1,2 +1,11 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Textdateien im Repo immer mit LF; im Arbeitsverzeichnis darf Git plattformüblich auschecken.
+* text=auto eol=lf
+
+# Windows-Skripte brauchen CRLF, sonst stolpert cmd.exe darüber.
+*.bat text eol=crlf
+
+# Shell-Skripte müssen LF behalten, auch auf Windows-Checkouts.
+*.sh text eol=lf
+
+# Der Lizenztext bleibt unangetastet.
+LICENSE -text

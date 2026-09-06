@@ -4,7 +4,7 @@
 > files, type **`sort`** — and it files them into clean category folders, getting smarter
 > with every correction.
 >
-> _Developed by **Akinara** · **public beta** · Fair-Code_
+> _Developed by **Akinara** · **public beta** · Apache-2.0_
 
 PollySort watches a folder, reads each document, figures out **what it is** and **what it's
 for**, assigns it to a **learning category**, and moves it into a visible category folder
@@ -17,9 +17,12 @@ only the category folders appear.
 > still change before 1.0. Your files are safe by design (move-only, never delete), but treat
 > this as pre-release software.
 
-> 🌍 **Language.** The interface ships in **German** with a full set of **English command
-> aliases** and an English UI mode (`language en`). This README uses the English aliases; the
+> 🌍 **Language.** The first-run wizard asks for your language and **defaults to English**;
+> German is fully equivalent (`language de`). This README uses the English command aliases; the
 > original German names are shown in parentheses.
+>
+> Note: the *setup* is fully translated, but some runtime messages during a sort run are still
+> German. Full coverage is in progress.
 
 ---
 
@@ -36,7 +39,7 @@ only the category folders appear.
 - [AI modes: offline · ollama · openrouter](#ai-modes)
 - [Learning: the Wachstafel (meta-learning)](#learning-the-wachstafel)
 - [Stage 2: projects, deadlines & notifications](#stage-2-projects)
-- [Licensing (Fair-Code)](#licensing-fair-code)
+- [Licence](#licence)
 - [Privacy & security](#privacy--security)
 - [Development & testing](#development--testing)
 - [Roadmap](#roadmap)
@@ -74,7 +77,7 @@ don't fit. PollySort is different:
 | ❓ | **Confidence & batch review** — sure files are filed automatically, unsure ones are queued |
 | 👁️ | **Real-time watch** — a `watchdog` observer sorts/announces new files the instant they land |
 | 👀 | **Preview & apply** — dry-run first, then apply from cache with **no second AI calls** |
-| ⚡ | **Ultra Swarm** — parallel AI analysis for large batches (licensed feature) |
+| ⚡ | **Ultra Swarm** — parallel AI analysis for large batches, free and unrestricted |
 | 📁 | **Dynamic subfolders** — e.g. file invoices into `Invoices/{year}/{month}` automatically |
 | 🔁 | **Learns from manual moves** — drag a file between folders, `scan` turns it into a rule |
 | 🧹 | **Duplicate detection** — SHA-256 dedupe; a second run makes **zero** new AI calls |
@@ -83,7 +86,7 @@ don't fit. PollySort is different:
 | 🔔 | **Notifications** — optional Discord / e-mail alerts for due deadlines; `.ics` calendar sync |
 | 🔌 | **Three AI modes** — offline heuristic · local Ollama · OpenRouter, switchable per project |
 | 🩺 | **`doctor` health-check**, 🌍 **DE/EN UI**, 🎨 **dark/light themes**, 🛟 **abort any prompt** |
-| 🔒 | **Fair-Code** — free for personal/internal use up to 5 projects |
+| 🔓 | **Apache-2.0** — real open source: no feature gates, no project limit, commercial use OK |
 
 ---
 
@@ -121,7 +124,7 @@ cd pollysort
 pipx install ".[extract]"      # or:  uv tool install ".[extract]"
 
 # 3) Verify & launch
-bumble doctor                  # health-check: Python, AI provider, DB, license
+bumble doctor                  # health-check: Python, AI provider, DB, memory
 bumble                         # open the interactive console
 ```
 
@@ -247,7 +250,7 @@ below list the **English alias** first and the original **German** name in paren
 | Command | What it does |
 |---|---|
 | `watch` (`wache`) | Monitor the inbox in **real time** (watchdog); announce or sort new files instantly. Ctrl-C stops. |
-| `sort turbo [N]` | **Ultra Swarm**: analyze many files in parallel (default 10 workers) — same result, much faster (licensed) |
+| `sort turbo [N]` | **Ultra Swarm**: analyze many files in parallel (default 10 workers) — same result, much faster |
 | `scan` (`sweep`) | Check the whole folder for manual changes (moved/changed/new/gone) and **learn from hand-moves** — free, no AI call |
 | `import <folder>` (`importiere`) | Sort files from another folder into here |
 | `assign <id> <cat>` (`zuordnen`) | Correct an assignment (memory learns) |
@@ -274,7 +277,7 @@ below list the **English alias** first and the original **German** name in paren
 | `reflect` (`reflektiere`) · `rules [clear]` (`wachstafel [leeren]`) | Derive rules from your corrections · show/clear them |
 | `memory [approve]` (`gedaechtnis`) | Learned categories + merge/new proposals |
 | `person <name> <cat,..>` | Set responsibility in the background |
-| `doctor` · `license [activate <KEY>]` (`lizenz`) | Health-check · Fair-Code license status |
+| `doctor` | Health-check: Python, AI provider, database, extraction extras, memory |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |
@@ -313,8 +316,8 @@ heuristic** for the rest instead of producing a pile of errors.
 
 `sort turbo [N]` warms the expensive AI analyses **in parallel** into that same cache; the
 actual filing (DB, move, memory) stays **single-threaded**, so there are no race conditions and
-the result is identical to a sequential run — just much faster for big batches. (Licensed
-feature; without a license the tool simply sorts normally and tells you.)
+the result is identical to a sequential run — just much faster for big batches. Fully
+included, no activation needed.
 
 ---
 
@@ -400,22 +403,27 @@ project:
 
 ---
 
-## Licensing (Fair-Code)
+## Licence
 
-PollySort is **Fair-Code**: the source is open to read, and it stays generously free for
-individuals.
+PollySort is licensed under the **[Apache License 2.0](LICENSE)** — real, OSI-approved open
+source.
 
-- 🐝 **Free for personal & internal use** — your own data, up to **5 projects**.
-- 🍯 **From the 6th project**, or for **paid client work**, a yearly license applies.
-- ⚡ **Ultra Swarm** (`sort turbo`) is a **licensed** performance feature.
+- ✅ **Everything is included.** No project limit, no feature behind a gate, no licence key.
+  **Ultra Swarm** runs free.
+- ✅ **Commercial use is allowed** — your own data and paid client work alike.
+- ✅ **Fork it, change it, ship it.**
+- ✅ **Patent grant included** (Apache-2.0 §3) — that is why Apache rather than MIT.
 
-When a license expires, already-sorted data and the core functions for existing projects keep
-working — Fair-Code never locks your data away. Check and manage status with `license`; the full
-model is in **[`LICENSE-KONZEPT.md`](LICENSE-KONZEPT.md)** (pricing lives on the product page,
-not in this repo).
+What the licence does *not* cover is the name and logo: "PollySort" and "Akinara" are
+trademarks of Akinara. See **[`TRADEMARK.md`](TRADEMARK.md)** for what needs no permission —
+short version: do anything you like with the code, but please fork under your own name.
 
-> 🔒 Your license key is stored **masked, locally** — never in plain text, never in logs or AI
-> prompts.
+**So how is this funded?** Akinara is building a commercial **web cockpit** for teams on top of
+it (project management in the browser, multiple users, server deployment) — a separate package
+that this repository does not need. The local terminal tool here stays complete and free.
+
+Contributions welcome: **[`CONTRIBUTING.md`](CONTRIBUTING.md)** ·
+Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
 
 ---
 
@@ -427,7 +435,7 @@ not in this repo).
 - **No document content is ever logged** (`log.jsonl` holds metadata only).
 - **Move-only guarantee:** no code path deletes or overwrites a user file; deletion happens only
   through the confirmed `trash` → `empty` flow.
-- Keys/passwords/license are stored locally only and never enter an AI prompt.
+- API keys and credentials are stored locally only and never enter an AI prompt.
 
 ---
 
@@ -485,4 +493,4 @@ Flavor. Internally the tool uses a beehive metaphor; it doesn't affect how you u
 
 ---
 
-_PollySort — Developed by Akinara · Fair-Code · public beta. Feedback and issues welcome._
+_PollySort — Developed by Akinara · Apache-2.0 · public beta. Feedback and issues welcome._

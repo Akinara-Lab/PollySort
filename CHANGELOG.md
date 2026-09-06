@@ -9,7 +9,46 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
-_Noch nichts._
+### Geändert — Open Core (Apache-2.0)
+- **Lizenz von Fair-Code auf [Apache-2.0](LICENSE) umgestellt.** PollySort ist damit echtes,
+  OSI-anerkanntes Open Source. Grund: Der Wert des Projekts für Akinara liegt in Sichtbarkeit
+  und Vertrauen, nicht in Lizenzumsatz — den trägt später das kommerzielle Web-Cockpit.
+- **Lizenz-Gate vollständig aus dem Kern entfernt** (`licensing.py`, `lizenz`,
+  `bumble-cli activate`, Doctor-Lizenzzeile, Projektzähler). Es gibt keine Freigrenze mehr.
+- **Ultra Swarm (`sortiere turbo`) ist jetzt frei** — vorher lizenzpflichtig.
+- `NOTICE`, `TRADEMARK.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  Issue-/PR-Vorlagen ergänzt. `LICENSE-KONZEPT.md` entfällt (Fair-Code-Modell hinfällig).
+- `pyproject.toml`: `License-Expression: Apache-2.0`, Projekt-URLs, Klassifizierer.
+
+### Geändert — Erststart
+- **Erststart-Assistent neu gebaut** (`firstrun.py`): vier Schritte in fester Reihenfolge —
+  **Sprache → Darstellung → KI-Backend → Überblick**. Die Sprache kommt zuerst, damit jede
+  weitere Frage schon in der gewählten Sprache steht; das Thema wird sofort angewandt.
+- **Sprache und Thema werden überhaupt erst gefragt** — vorher startete jeder Nutzer
+  unwiderruflich auf Deutsch im Dunkel-Modus, ohne je gefragt worden zu sein.
+- **Englisch ist die Vorauswahl** (Enter = English); Deutsch bleibt voll gleichwertig.
+- **KI-Auswahl zeigt die Verfügbarkeit ehrlich an** (Ollama erkannt / nicht erreichbar, Key
+  hinterlegt / nötig) und schlägt nur eine Option vor, die auch funktioniert. Wer trotzdem
+  ein nicht erreichbares Ollama wählt, landet in Offline statt im ersten Sortierlauf zu scheitern.
+- **Der komplette Projekt-Assistent ist übersetzt** (Pfad, Name, KI-Modus, Kategorien,
+  Unterordner, Überwachung) — ein englischer Nutzer fällt nicht mehr nach dem zweiten Schritt
+  zurück ins Deutsche. `yes` wird jetzt als Zustimmung verstanden.
+- **Flugrouten-Frage aus dem Erststart entfernt**: ohne Projekt gibt es noch keine Deadlines,
+  über die jemand benachrichtigt werden könnte. Der Hinweis steht jetzt im Abschluss-Überblick.
+- Das getrennte 3-Schritt-Tutorial entfällt; es ist Schritt 4 des Assistenten geworden.
+
+### Behoben
+- **Ollama wurde bei jedem Start geprüft**, auch wenn die Einrichtung längst stand — ohne
+  laufenden Ollama kostete das jeden Start den vollen Verbindungs-Timeout, bevor auch nur das
+  Banner erschien. Die Prüfung läuft jetzt erst, wenn die Antwort gebraucht wird, und wird
+  für die Sitzung gemerkt.
+
+### Qualität
+- **144 Tests grün** (vorher 124), `ruff` clean. Neu: `test_firstrun.py` (20) und
+  `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate).
+- i18n-Wächter: jeder Katalog-Eintrag muss DE **und** EN haben, mit identischen Platzhaltern.
+- **Wheel-Build erstmals real verifiziert** (`uv build` → Installation in frischem venv →
+  `bumble` und `bumble-cli doctor` laufen). Damit ist der letzte offene Beta-SOLL-Punkt erledigt.
 
 ## [0.4.0b1] — 2026-07-15 — erste öffentliche Beta
 

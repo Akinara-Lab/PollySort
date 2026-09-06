@@ -1,0 +1,50 @@
+name: Bug report
+description: Something behaves differently than it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **If this is a security problem — especially a lost or
+        overwritten file, or a leaked key — please do not file it here.** Use a
+        [private advisory](https://github.com/Akinara-Lab/PollySort/security/advisories/new)
+        instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we reproduce it?
+      placeholder: |
+        1. bumble "C:\some\folder"
+        2. type 'sortiere'
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `bumble doctor`
+      description: Tells us your Python version, AI provider and database state.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: AI mode
+      options: ["offline", "ollama (local)", "openrouter"]
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: |
+        Relevant lines from `.honig/log.jsonl` are helpful. It contains metadata only,
+        never document content — but do check before pasting.

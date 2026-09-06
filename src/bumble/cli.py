@@ -519,7 +519,7 @@ def export(
 
 @app.command()
 def doctor(hive: str | None = typer.Option(None, "--hive")):
-    """Health-Check: Interpreter, KI-Provider, Datenbank, Extras, Lizenz."""
+    """Health-Check: Interpreter, KI-Provider, Datenbank, Extras, Gedächtnis."""
     con = _con()
     try:
         hive_path = config.resolve_hive(hive)
@@ -533,19 +533,6 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
         con.raw(f"  {icon.get(status, '•')}  {label:<12} {detail}")
         worst = max(worst, {"ok": 0, "warn": 1, "fail": 2}.get(status, 0))
     raise typer.Exit(worst)
-
-
-@app.command()
-def activate(key: str = typer.Argument(..., help="Lizenzschlüssel (XXXX-XXXX-XXXX-XXXX).")):
-    """Lizenzschlüssel aktivieren — legt ein lokales Zertifikat für den Offline-Betrieb an."""
-    con = _con()
-    from .licensing import activate as do_activate
-    ok, msg = do_activate(key)
-    if ok:
-        con.honey(msg, "🔑")
-    else:
-        con.error(f"Aktivierung fehlgeschlagen: {msg}")
-        raise typer.Exit(1)
 
 
 @app.command()

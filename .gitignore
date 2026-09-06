@@ -22,12 +22,9 @@ credentials
 # (LICENSE-KONZEPT.md bleibt bewusst getrackt: die README verlinkt darauf.)
 /Pollysort_projektbrief.md
 /TODO.md
+/TODO_V2_experimental.txt
+/PLAN_PM_OPENSOURCE.md
 /report.txt
-# LICENSE.md vorerst lokal halten (Proprietary-Platzhalter). Die Lizenz-Metadaten kommen
-# solange aus pyproject.toml (license = { text = "Proprietary" }), damit der Build ohne die
-# Datei durchläuft. Wenn eine finale LICENSE.md rein soll: hier rausnehmen + pyproject zurück
-# auf license = { file = "LICENSE.md" }.
-/LICENSE.md
 
 # OS
 .DS_Store

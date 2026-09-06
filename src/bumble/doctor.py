@@ -72,14 +72,6 @@ def _extras_check() -> tuple[str, str, str]:
     return ("Extraktion", "ok", detail)
 
 
-def _license_check(hive: Path | None) -> tuple[str, str, str]:
-    try:
-        from .licensing import status_line
-        return ("Lizenz", "ok", status_line())
-    except Exception:
-        return ("Lizenz", "ok", "Personal/Free (bis 5 Projekte)")
-
-
 def _memory_check(hive: Path | None) -> tuple[str, str, str]:
     """F1: Warnt, wenn das Embedding-Modell gewechselt hat (alte Vektoren = totes Gewicht).
     Rein lokal, kein Netz/KI-Call."""
@@ -106,8 +98,8 @@ def _memory_check(hive: Path | None) -> tuple[str, str, str]:
 
 def run_checks(hive: Path | None) -> list[tuple[str, str, str]]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles)."""
-    checks = (_py_check, _provider_check, _db_check, _extras_check, _license_check, _memory_check)
-    hive_checks = (_provider_check, _db_check, _license_check, _memory_check)
+    checks = (_py_check, _provider_check, _db_check, _extras_check, _memory_check)
+    hive_checks = (_provider_check, _db_check, _memory_check)
     out: list[tuple[str, str, str]] = []
     for fn in checks:
         try:

@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest something PollySort should be able to do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the solution. It helps us find better options.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What did you have in mind?
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Does it fit PollySort?
+      options:
+        - label: It never deletes or overwrites a user's file.
+        - label: It still works offline (or degrades gracefully without an AI provider).

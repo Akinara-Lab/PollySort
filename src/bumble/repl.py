@@ -15,7 +15,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from bumble import __version__, config
+from bumble import __version__, config, i18n
 from bumble.config import DEFAULT_CATEGORIES, HiveSeed
 from bumble.console import BeeConsole, resolve_theme
 from bumble.guards import IgnoreMatcher
@@ -34,7 +34,7 @@ except Exception:
 BANNER = r"""
  ___     _ _      ___          _
 | _ \___| | |_  _/ __| ___ _ _| |_        🐝  PollySort
-|  _/ _ \ | | || \__ \/ _ \ '_|  _|          Dein lernender Dokumenten-Archivar
+|  _/ _ \ | | || \__ \/ _ \ '_|  _|          Your learning document archivist
 |_| \___/_|_|\_, |___/\___/_|  \__|          Developed by Akinara
              |__/
 """
@@ -90,7 +90,7 @@ class BeehiveShell(cmd.Cmd):
         i18n.set_language(getattr(_cfg, "language", "de"))   # UI-Sprache (de|en)
         self.hive: Path | None = hive
         self.offline = True
-        self._ollama = False          # wird beim globalen Onboarding erkannt
+        self._ollama: bool | None = None      # lazy - siehe _ollama_ready()
         self._sync_prompt()
 
     def _maybe_auto_theme(self) -> None:
@@ -202,71 +202,62 @@ class BeehiveShell(cmd.Cmd):
     # ------------------------------------------------------------------ #
     def preloop(self) -> None:
         self.con.raw(BANNER, style="honey")
-        self.con.info(f"v{__version__} · 'hilfe' zeigt alle Befehle", "🐝")
         try:
-            self._maybe_tutorial()             # einmalig: kurzes 3-Schritt-Tutorial
-            self._global_onboarding()          # einmalig: KI-Backend (Ollama/OpenRouter) klären
+            self._global_onboarding()          # einmalig: Sprache → Darstellung → KI
+            # Erst NACH der Sprachwahl — sonst stünde die erste Zeile in einer Sprache,
+            # die der Nutzer soeben abgewählt hat.
+            self.con.info(i18n.t("start.hint", version=__version__), "🐝")
             if self.hive is None:
                 self._first_run()
             else:
                 self._open_project(self.hive, greet=True)
         except AbortAction:
             # Nutzer hat die Ersteinrichtung abgebrochen — Konsole trotzdem starten.
-            self.con.info("Einrichtung abgebrochen — 'neu' oder 'setup' startet sie später.", "🐝")
-
-    def _maybe_tutorial(self) -> None:
-        """Beim allerersten Start ein knappes 3-Schritt-Tutorial zeigen (nur einmal)."""
-        from bumble import i18n
-        cfg = config.load_config()
-        if getattr(cfg, "tutorial_seen", False):
-            return
-        self.con.rule(i18n.t("tut.title"))
-        self.con.raw("   " + i18n.t("tut.step1"))
-        self.con.raw("   " + i18n.t("tut.step1b"))
-        self.con.raw("   " + i18n.t("tut.step2"))
-        self.con.raw("   " + i18n.t("tut.step3"))
-        self.con.raw(i18n.t("tut.more"))
-        self.con.rule()
-        cfg.tutorial_seen = True
-        config.save_config(cfg)
+            self.con.info(i18n.t("setup.aborted"), "🐝")
 
     def _global_onboarding(self) -> None:
-        """Einmalige Grundeinrichtung VOR den Projekten: Ollama erkennen, Key anbieten."""
-        from bumble.llm.client import ollama_available
-        self._ollama = ollama_available()
+        """Einmalige Grundeinrichtung VOR den Projekten: Sprache → Darstellung → KI.
+
+        Der Ablauf selbst liegt in :mod:`bumble.firstrun` (dort ohne Terminal testbar);
+        hier wird nur verdrahtet und das Ergebnis persistiert. Die Flugrouten-Frage ist
+        bewusst NICHT mehr Teil des Erststarts: ohne Projekt gibt es noch keine Deadlines,
+        über die jemand benachrichtigt werden könnte — der Hinweis steht jetzt im Überblick.
+        """
+        from bumble import firstrun
         cfg = config.load_config()
         if cfg.onboarded:
+            # Bestandsnutzer: Einrichtung steht schon — nur die ersten Handgriffe nachreichen.
+            if not getattr(cfg, "tutorial_seen", False):
+                firstrun.show_next_steps(self.con)
+                cfg.tutorial_seen = True
+                config.save_config(cfg)
             return
-        self.con.rule("Erste Einrichtung")
-        if self._ollama:
-            self.con.honey("Lokales Ollama erkannt — KI kann kostenlos & privat lokal laufen.", "🦙")
-        else:
-            self.con.info("Kein lokales Ollama gefunden (optional — für lokale KI).", "🦙")
-        if not config.load_credentials():
-            ans = self._ask("🔑  OpenRouter-API-Key hinterlegen? (beste Qualität, "
-                            "kostenpflichtig) [j/N]: ").strip().lower()
-            if ans in ("j", "ja", "y"):
-                self._ensure_key()
-        else:
-            self.con.honey("OpenRouter-Key ist hinterlegt.", "🔑")
-        # Optional: Flugrouten für die Wächterbienen (Discord/E-Mail) — jederzeit nachholbar.
-        ans = self._ask("🧭  Flugrouten für die Wächterbienen einrichten? (Benachrichtigungen, "
-                        "optional — später via 'flugrouten setup') [j/N]: ").strip().lower()
-        if ans in ("j", "ja", "y"):
-            self._flugrouten_setup()
+        res = firstrun.run(
+            self.con, self._ask,
+            ollama_probe=self._ollama_ready,
+            has_key=lambda: config.load_credentials() is not None,
+            save_key=self._save_key,
+            apply_theme=self._apply_theme,
+        )
+        # Erst nach dem vollständigen Durchlauf schreiben — ein Abbruch hinterlässt nichts.
         cfg = config.load_config()
+        cfg.language = res.language
+        cfg.theme = res.theme
+        cfg.llm_provider = res.provider
         cfg.onboarded = True
+        cfg.tutorial_seen = True
         config.save_config(cfg)
+        self.offline = res.provider == "offline"
 
     def _first_run(self) -> None:
         """Kein Projekt hinterlegt → Erst-Einrichtung, beginnend mit dem Pfad."""
-        self.con.info("Willkommen! Noch kein Projekt vorhanden.", "🐝")
-        self.con.raw("   Ein Projekt ist ein Ordner, dessen Dokumente sortiert werden sollen.")
+        self.con.info(i18n.t("firstrun.welcome"), "🐝")
+        self.con.raw("   " + i18n.t("firstrun.what"))
         self._new_project()
 
     # Befehle, die auch OHNE aktives Projekt erlaubt sind.
     _NO_PROJECT_OK = {"neu", "wechsel", "ordner", "projekte", "setup",
-                      "home", "start", "zuhause", "doctor", "lizenz", "license",
+                      "home", "start", "zuhause", "doctor",
                       "modell", "modellwechsel", "flugrouten", "api",
                       "schluessel", "key", "apikey",
                       "thema", "theme", "farbe", "ansicht", "view",
@@ -359,7 +350,7 @@ class BeehiveShell(cmd.Cmd):
             ],
             "🎯 Für bestimmte Anwendungsfälle": [
                 ("wache", "Eingang in Echtzeit überwachen (watchdog)"),
-                ("sortiere turbo [N]", "Ultra Swarm — viele Dateien parallel (Lizenz)"),
+                ("sortiere turbo [N]", "Ultra Swarm — viele Dateien parallel"),
                 ("scan  (sweep)", "Ganzen Ordner prüfen; aus manuellen Moves lernen"),
                 ("importiere <ordner>", "Aus einem anderen Ordner hierher sortieren"),
                 ("zuordnen <id> <kat>", "Zuordnung korrigieren (Gedächtnis lernt)"),
@@ -381,7 +372,7 @@ class BeehiveShell(cmd.Cmd):
                 ("reflektiere · wachstafel", "Meta-Learning: Regeln ableiten / zeigen"),
                 ("gedaechtnis [approve|neu]", "Kategorien/Vorschläge · 'neu' = Reindex n. Modellwechsel"),
                 ("person <name> <kat,..>", "Zuständigkeit im Hintergrund setzen"),
-                ("doctor · lizenz", "Health-Check · Lizenzstatus (Fair-Code)"),
+                ("doctor", "Health-Check: Python, KI-Provider, Datenbank, Gedächtnis"),
                 ("sprache <de|en>", "UI-Sprache umschalten (language / lang)"),
                 ("thema [dunkel|hell|auto]", "Dark/Light; 'auto' = tags dunkel, abends hell"),
                 ("ansicht [statisch|log]", "Statische Selbst-Ansicht oder klassisches Log"),
@@ -428,12 +419,6 @@ class BeehiveShell(cmd.Cmd):
             workers = 10
             if len(parts) > 1 and parts[1].isdigit():
                 workers = max(2, int(parts[1]))
-            import bumble.licensing as licensing
-            if not licensing.ultra_swarm_allowed():
-                # Fair-Code: nicht hart blocken, sondern normal weitersortieren + Hinweis.
-                self.con.ask("Ultra Swarm ist ein Lizenz-Feature (Freelancer/Agency). "
-                             "Ich sortiere normal weiter — 'lizenz' zeigt mehr.")
-                workers = 1
         self._cycle(mode="move", workers=workers)
 
     do_s = do_sortiere
@@ -811,38 +796,12 @@ class BeehiveShell(cmd.Cmd):
     do_regeln = do_wachstafel
 
     def do_doctor(self, _arg: str) -> None:
-        """doctor — Health-Check: Interpreter, KI-Provider, Datenbank, Extras, Lizenz."""
+        """doctor — Health-Check: Interpreter, KI-Provider, Datenbank, Extras, Gedächtnis."""
         from bumble.doctor import run_checks
         icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
         self.con.rule("🩺 Doctor")
         for label, status, detail in run_checks(self.hive):
             self.con.raw(f"  {icon.get(status, '•')}  {label:<12} {detail}")
-
-    def do_lizenz(self, arg: str) -> None:
-        """lizenz [aktivieren <KEY> | entfernen] — Lizenzstatus (Fair-Code) zeigen/verwalten."""
-        import bumble.licensing as licensing
-        parts = arg.split()
-        if parts and parts[0].lower() in ("aktivieren", "activate"):
-            if len(parts) < 2:
-                self.con.ask("Nutzung: lizenz aktivieren <SCHLÜSSEL>")
-                return
-            ok, msg = licensing.activate(parts[1])
-            if ok:
-                self.con.honey(msg, "🔑")
-            else:
-                self.con.error(f"Aktivierung fehlgeschlagen: {msg}")
-            return
-        if parts and parts[0].lower() in ("entfernen", "deactivate", "aus"):
-            self.con.info("Lizenz entfernt." if licensing.deactivate()
-                          else "Keine Lizenz hinterlegt.", "🔑")
-            return
-        self.con.rule("Lizenz")
-        self.con.info(licensing.status_line(), "🔑")
-        if licensing.free_limit_reached():
-            self.con.ask("Freie Stufe ausgeschöpft — für weitere oder kommerzielle "
-                         "(Kunden-)Projekte: 'lizenz aktivieren <KEY>' (siehe LICENSE-KONZEPT.md).")
-
-    do_license = do_lizenz
 
     def do_sprache(self, arg: str) -> None:
         """sprache <de|en> — UI-Sprache umschalten (auch: language, lang)."""
@@ -1078,11 +1037,10 @@ class BeehiveShell(cmd.Cmd):
                 akt = "Dunkel" if self._theme_pref == "dark" else "Hell"
                 self.con.info(f"Thema: {akt}-Modus. Wechseln: 'thema dunkel | hell | auto'.", "🎨")
             return
-        self._theme_pref = mapping[key]
         cfg = config.load_config()
-        cfg.theme = self._theme_pref
+        cfg.theme = mapping[key]
         config.save_config(cfg)
-        eff = self.con.set_theme(resolve_theme(self._theme_pref))
+        eff = self._apply_theme(mapping[key])
         self._render_frame()
         if self._theme_pref == "auto":
             self.con.honey(f"Thema: Automatik — tagsüber Dunkel, abends Hell. Jetzt aktiv: "
@@ -1312,8 +1270,16 @@ class BeehiveShell(cmd.Cmd):
         self.con.honey("Flugrouten gesichert (nur lokal, chmod 600). Testflug: 'flugrouten test'.",
                        "🍯")
 
+    #: Zustimmung in beiden Sprachen — sonst versteht der EN-Modus sein eigenes "yes" nicht.
+    _YES = ("j", "ja", "y", "yes")
+
     def _ja(self, prompt: str) -> bool:
-        return self._ask(prompt).strip().lower() in ("j", "ja", "y")
+        """Ja/Nein-Frage mit Default **nein**."""
+        return self._ask(prompt).strip().lower() in self._YES
+
+    def _ja_default(self, prompt: str) -> bool:
+        """Ja/Nein-Frage mit Default **ja** (leere Eingabe = ja)."""
+        return self._ask(prompt).strip().lower() in ("", *self._YES)
 
     # ------------------------------------------------------------------ #
     #  Löschung (separat, nie automatisch)
@@ -1464,20 +1430,19 @@ class BeehiveShell(cmd.Cmd):
     def _new_project(self, path_arg: str = "") -> None:
         path = self._acquire_path(path_arg)
         if path is None:
-            self.con.info("Abgebrochen — kein Projekt angelegt.", "🐝")
+            self.con.info(i18n.t("su.cancelled"), "🐝")
             return
         if config.is_setup(path):
             # Ordner hat schon eine Konfiguration (z. B. eine KOPIE eines Projekts). Den
             # Setup-Assistenten NICHT still überspringen — sonst landen neue Dateien in der
             # alten, evtl. unpassenden Taxonomie. Stattdessen die Wahl lassen.
-            self.con.ask(f"'{path.name}' ist schon ein Projekt (Konfiguration vorhanden).")
-            if self._ja("Neu einrichten — Assistent starten (überschreibt die Config)? [j/N]: "):
-                if self._ja("Bisherigen Katalog/Index frisch starten? "
-                            "(Dateien bleiben, altes .honig wird gesichert) [j/N]: "):
+            self.con.ask(i18n.t("su.exists", name=path.name))
+            if self._ja(i18n.t("su.exists.redo")):
+                if self._ja(i18n.t("su.exists.reset")):
                     self._reset_honig(path)
                 self._run_setup(path)
             else:
-                self.con.info("Ok — öffne das bestehende Projekt.", "🐝")
+                self.con.info(i18n.t("su.exists.open"), "🐝")
                 self._open_project(path)
             return
         self._run_setup(path)
@@ -1493,32 +1458,30 @@ class BeehiveShell(cmd.Cmd):
             backup = honig.with_name(f".honig.bak-{time.strftime('%Y%m%d-%H%M%S')}")
             try:
                 honig.rename(backup)
-                self.con.info(f"Alter Katalog gesichert → {backup.name}", "🗄️")
+                self.con.info(i18n.t("su.backup.ok", name=backup.name), "🗄️")
             except OSError as exc:
-                self.con.error(f"Konnte {honig.name} nicht sichern: {exc}")
+                self.con.error(i18n.t("su.backup.fail", name=honig.name, err=exc))
 
     def _acquire_path(self, path_arg: str = "") -> Path | None:
         """Nach dem Projekt-Pfad fragen (erste Setup-Frage); legt den Ordner bei Bedarf an."""
         raw = path_arg.strip().strip('"')
         while True:
             if not raw:
-                raw = self._ask("  📂 Pfad zum Projekt-Ordner (leer = abbrechen): ")\
-                    .strip().strip('"')
+                raw = self._ask("  📂 " + i18n.t("su.path.ask")).strip().strip('"')
             if not raw:
                 return None
             p = Path(raw).expanduser().resolve()
             if p.is_dir():
                 return p
             if not p.exists():
-                if self._ask(f"     Ordner gibt es noch nicht. '{p}' anlegen? [J/n]: ")\
-                        .strip().lower() in ("", "j", "ja", "y"):
+                if self._ja_default("     " + i18n.t("su.path.create", path=p)):
                     try:
                         p.mkdir(parents=True, exist_ok=True)
                         return p
                     except OSError as exc:
-                        self.con.error(f"     Konnte nicht anlegen: {exc}")
+                        self.con.error("     " + i18n.t("su.path.mkfail", err=exc))
             else:
-                self.con.error(f"     '{p}' ist kein Ordner.")
+                self.con.error("     " + i18n.t("su.path.notdir", path=p))
             raw = ""
 
     def _resolve_project(self, arg: str, projects: list[Path]) -> Path | None:
@@ -1557,7 +1520,7 @@ class BeehiveShell(cmd.Cmd):
         if provider == "openrouter" and not self._ensure_key():
             self.con.info("Kein Key → Modus unverändert.", "🐝")
             return
-        if provider == "ollama" and not self._ollama:
+        if provider == "ollama" and not self._ollama_ready(refresh=True):
             self.con.ask("Kein lokales Ollama erkannt — bitte Ollama starten.")
             return
         self.offline = provider == "offline"
@@ -1570,10 +1533,10 @@ class BeehiveShell(cmd.Cmd):
     def _run_setup(self, hive: Path) -> None:
         """Assistent — Reihenfolge: Name → KI-Modus → Kategorien (KI-Vorschlag) → Überwachung."""
         self.hive = hive
-        self.con.rule("Projekt einrichten")
-        self.con.info(f"Ordner: {hive}", "📂")
+        self.con.rule(i18n.t("su.title"))
+        self.con.info(i18n.t("su.folder", path=hive), "📂")
 
-        name = self._ask(f"  1) Projektname [{hive.name}]: ").strip() or hive.name
+        name = self._ask("  1) " + i18n.t("su.name", default=hive.name)).strip() or hive.name
         provider = self._choose_mode()                       # 2) KI-Modus zuerst
         self.offline = provider == "offline"
         categories = self._choose_categories(hive, provider)  # 3) Kategorien (KI-Vorschlag)
@@ -1590,19 +1553,15 @@ class BeehiveShell(cmd.Cmd):
         made = self._scaffold_categories(hive, categories)   # Kategorie-Ordner anlegen
         self._sync_prompt()
 
-        self.con.rule("Fertig eingerichtet")
-        watch_txt = {"off": "", "notify": " · Eingang: melden", "move": " · Eingang: auto-sortieren"}
-        self.con.honey(f"'{name}' · {len(categories)} Waben"
-                       f"{f' ({made} Ordner angelegt)' if made else ''} · Modus {provider}"
-                       f"{watch_txt.get(watch, '')}", "✅")
-        # Fair-Code-Hinweis, sobald die freie Stufe (5 Projekte) überschritten ist.
-        import bumble.licensing as licensing
-        if licensing.free_limit_reached():
-            self.con.ask("Das ist dein 6.+ Projekt — die freie Stufe deckt 5 ab. Für weitere "
-                         "oder kommerzielle (Kunden-)Projekte: 'lizenz aktivieren <KEY>'.")
+        self.con.rule(i18n.t("su.done.title"))
+        watch_txt = {"off": "", "notify": " · " + i18n.t("su.done.notify"),
+                     "move": " · " + i18n.t("su.done.move")}
+        made_txt = f" ({i18n.t('su.done.made', n=made)})" if made else ""
+        self.con.honey(i18n.t("su.done", name=name, n=len(categories), made=made_txt,
+                              provider=provider, watch=watch_txt.get(watch, "")), "✅")
         # Die schon vorhandenen losen Dateien direkt in die Waben einlagern.
         if self._inbox_count():
-            self.con.info("Königin lässt einlagern — sortiere die vorhandenen Dokumente …", "🐝")
+            self.con.info(i18n.t("su.filing"), "🐝")
             self._cycle(mode="move")
         else:
             self._show_inbox()
@@ -1620,26 +1579,25 @@ class BeehiveShell(cmd.Cmd):
 
     def _choose_mode(self) -> str:
         """Schritt 2: KI-Backend wählen (offline / lokale Ollama / OpenRouter)."""
-        from bumble.llm.client import ollama_available
-        self._ollama = ollama_available()   # frisch prüfen — nur ERREICHBARES Ollama anbieten
+        ollama = self._ollama_ready(refresh=True)   # nur ERREICHBARES Ollama anbieten
         has_key = config.load_credentials() is not None
-        opts: list[tuple[str, str]] = [("offline", "Offline — Heuristik, kostenlos, ohne Internet")]
-        if self._ollama:
-            opts.append(("ollama", "Lokale KI (Ollama) — gratis & privat, gute Qualität"))
+        opts: list[tuple[str, str]] = [("offline", i18n.t("fr.ai.offline"))]
+        if ollama:
+            opts.append(("ollama", i18n.t("fr.ai.ollama")))
         if has_key:
-            opts.append(("openrouter", "OpenRouter — beste Qualität (Key hinterlegt)"))
-        elif not self._ollama:
-            opts.append(("openrouter", "OpenRouter — beste Qualität (Key jetzt hinterlegen)"))
+            opts.append(("openrouter", i18n.t("su.mode.or_key")))
+        elif not ollama:
+            opts.append(("openrouter", i18n.t("su.mode.or_nokey")))
 
-        self.con.raw("  2) KI-Modus — womit sollen Dokumente eingeordnet werden?")
+        self.con.raw("  2) " + i18n.t("su.mode.q"))
         for i, (_, desc) in enumerate(opts, 1):
             self.con.raw(f"       [{i}] {desc}")
         default = str(len(opts))          # bevorzugt die beste verfügbare KI
-        choice = self._ask(f"     Wahl [{default}]: ").strip() or default
+        choice = self._ask("     " + i18n.t("su.choice", default=default)).strip() or default
         idx = int(choice) - 1 if choice.isdigit() and 0 < int(choice) <= len(opts) else len(opts) - 1
         provider = opts[idx][0]
         if provider == "openrouter" and not has_key and not self._ensure_key():
-            self.con.info("Kein Key → Offline-Modus.", "🐝")
+            self.con.info(i18n.t("su.mode.nokey"), "🐝")
             return "offline"
         return provider
 
@@ -1647,18 +1605,18 @@ class BeehiveShell(cmd.Cmd):
         """Schritt 3: Vorschlag (KI, wenn online) / Standard / Eigene."""
         n = self._inbox_count()
         ki = provider != "offline"
-        how = "die KI schaut sie an" if ki else "heuristisch"
-        self.con.raw("  3) Kategorien — wie soll einsortiert werden?")
-        self.con.raw(f"       [1] Vorschlag — {n} Datei(en) anschauen ({how})"
-                     f"{'  (empfohlen)' if n else ''}")
-        self.con.raw(f"       [2] Standard  — {', '.join(DEFAULT_CATEGORIES)}")
-        self.con.raw("       [3] Eigene    — selbst eingeben")
+        how = i18n.t("su.cat.byai") if ki else i18n.t("su.cat.byheur")
+        self.con.raw("  3) " + i18n.t("su.cat.q"))
+        self.con.raw("       [1] " + i18n.t("su.cat.propose", n=n, how=how)
+                     + (f"  {i18n.t('su.cat.recommended')}" if n else ""))
+        self.con.raw("       [2] " + i18n.t("su.cat.standard", cats=", ".join(DEFAULT_CATEGORIES)))
+        self.con.raw("       [3] " + i18n.t("su.cat.own"))
         default = "1" if n else "2"
-        choice = self._ask(f"     Wahl [{default}]: ").strip() or default
+        choice = self._ask("     " + i18n.t("su.choice", default=default)).strip() or default
         if choice == "1":
             return self._propose_categories(hive, provider)
         if choice == "3":
-            return self._parse_cats(self._ask("     Kategorien (kommagetrennt): ")) \
+            return self._parse_cats(self._ask("     " + i18n.t("su.cat.enter"))) \
                 or list(DEFAULT_CATEGORIES)
         return list(DEFAULT_CATEGORIES)
 
@@ -1668,41 +1626,36 @@ class BeehiveShell(cmd.Cmd):
         from bumble.onboarding import propose_structure
 
         ai_analyze = self._ai_analyzer(provider) if provider != "offline" else None
-        self.con.bloom("Spähbienen fliegen aus — die KI begutachtet Dokumente & bestehende Waben …"
-                       if ai_analyze
-                       else "Spähbienen fliegen aus über Dokumente & bestehende Waben …", "🐝")
+        self.con.bloom(i18n.t("su.scout.ai") if ai_analyze else i18n.t("su.scout.offline"), "🐝")
         proposals, total, used_ai, existing = propose_structure(hive, ai_analyze=ai_analyze)
         # Ehrlich bleiben (BUG-6): Wenn die KI (teilweise) ausgefallen ist, das laut sagen,
         # statt einen Heuristik-Notvorschlag als „KI-Analyse" zu verkaufen.
         if ai_analyze is not None and ai_analyze.errors:
             if not ai_analyze.ok:
-                self.con.error(
-                    f"KI-Analyse fehlgeschlagen ({ai_analyze.errors} Datei(en)) — "
-                    f"{ai_analyze.last_reason or 'Provider nicht erreichbar'}.")
-                self.con.ask("Der Vorschlag unten basiert nur auf der Offline-Heuristik. "
-                             "Tipp: KI-Backend prüfen ('modus', 'schluessel test') und "
-                             "'setup' später erneut ausführen.")
+                self.con.error(i18n.t(
+                    "su.scout.failed", n=ai_analyze.errors,
+                    reason=ai_analyze.last_reason or i18n.t("su.scout.unreachable")))
+                self.con.ask(i18n.t("su.scout.failed_hint"))
             else:
-                self.con.info(f"{ai_analyze.errors} von {ai_analyze.errors + ai_analyze.ok} "
-                              "KI-Analysen fehlgeschlagen — Rest heuristisch ergänzt.", "⚠️")
+                self.con.info(i18n.t("su.scout.partial", bad=ai_analyze.errors,
+                                     total=ai_analyze.errors + ai_analyze.ok), "⚠️")
         if not proposals:
-            self.con.info("Nichts zu beschnuppern — nehme die Standard-Waben.", "🐝")
+            self.con.info(i18n.t("su.scout.nothing"), "🐝")
             return list(DEFAULT_CATEGORIES)
-        tag = "KI-Analyse" if used_ai else "heuristisch"
-        wabe = "Wabe" if len(existing) == 1 else "Waben"
-        note = f", davon {len(existing)} bestehende {wabe}" if existing else ""
-        self.con.honey(f"{total} Dokument(e) beschnuppert ({tag}{note}) — Waben-Vorschlag:", "🍯")
+        tag = i18n.t("su.scout.tag_ai") if used_ai else i18n.t("su.scout.tag_heur")
+        note = i18n.t("su.scout.note", n=len(existing)) if existing else ""
+        self.con.honey(i18n.t("su.scout.header", total=total, tag=tag, note=note), "🍯")
         maxn = max(n for _, n in proposals) or 1
         for label, n in proposals:
             bar = "█" * max(1, round(10 * n / maxn))
-            mark = " · Wabe existiert" if label in existing else ""
+            mark = " · " + i18n.t("su.scout.exists") if label in existing else ""
             self.con.raw(f"       {pretty_category(label):<18} [honey]{bar}[/honey] {n}{mark}")
-        ans = self._ask("     Übernehmen? [J/n] oder eigene Kategorien eingeben: ").strip()
+        ans = self._ask("     " + i18n.t("su.scout.apply")).strip()
         chosen = [label for label, _ in proposals]
-        if ans.lower() in ("", "j", "ja", "y"):
+        if ans.lower() in ("", *self._YES):
             return chosen
-        if ans.lower() in ("n", "nein"):
-            return self._parse_cats(self._ask("     Kategorien (kommagetrennt): ")) or chosen
+        if ans.lower() in ("n", "nein", "no"):
+            return self._parse_cats(self._ask("     " + i18n.t("su.cat.enter"))) or chosen
         return self._parse_cats(ans) or chosen
 
     def _ai_analyzer(self, provider: str) -> _AiProbe:
@@ -1732,33 +1685,65 @@ class BeehiveShell(cmd.Cmd):
         if not suggestions:
             return {}
         from bumble.config import pretty_category
-        self.con.raw("  ↳ Unterordner — diese Kategorien nach Jahr/Monat ablegen? (Vorschlag)")
+        self.con.raw("  ↳ " + i18n.t("su.sub.q"))
         for cat, pattern in suggestions.items():
             self.con.raw(f"       {pretty_category(cat)} → {pattern}")
-        ans = self._ask("     Übernehmen? [J/n] (n = keine Unterordner): ").strip().lower()
-        return suggestions if ans in ("", "j", "ja", "y") else {}
+        return suggestions if self._ja_default("     " + i18n.t("su.sub.apply")) else {}
 
     def _choose_watch(self) -> str:
         """Schritt 4: Verhalten bei neuen Dateien im Eingang (alle ~10 s)."""
-        self.con.raw("  4) Neue Dateien im Eingang (alle ~10 s prüfen)?")
-        self.con.raw("       [1] aus")
-        self.con.raw("       [2] nur melden — 'es gibt X neue Dateien'")
-        self.con.raw("       [3] sofort sortieren")
-        choice = self._ask("     Wahl [1]: ").strip() or "1"
+        self.con.raw("  4) " + i18n.t("su.watch.q"))
+        self.con.raw("       [1] " + i18n.t("su.watch.off"))
+        self.con.raw("       [2] " + i18n.t("su.watch.notify"))
+        self.con.raw("       [3] " + i18n.t("su.watch.move"))
+        choice = self._ask("     " + i18n.t("su.choice", default="1")).strip() or "1"
         return {"1": "off", "2": "notify", "3": "move"}.get(choice, "off")
 
     @staticmethod
     def _parse_cats(raw: str) -> list[str]:
         return [c.strip().lower() for c in raw.split(",") if c.strip()]
 
+    def _ollama_ready(self, *, refresh: bool = False) -> bool:
+        """Antwortet ein lokaler Ollama-Server? Das Ergebnis wird für die Sitzung gemerkt.
+
+        Früher lief diese Prüfung bei **jedem** Start — ohne laufenden Ollama kostete das
+        jedes Mal den vollen Verbindungs-Timeout, bevor überhaupt das Banner erschien.
+        Jetzt wird nur dort geprüft, wo die Antwort gebraucht wird; ``refresh=True``
+        erzwingt eine frische Prüfung (wenn der Nutzer den Modus bewusst umstellt).
+        """
+        if refresh or self._ollama is None:
+            from bumble.llm.client import ollama_available
+            self._ollama = ollama_available()
+        return bool(self._ollama)
+
+    def _apply_theme(self, pref: str) -> str:
+        """Themen-Voreinstellung setzen und sofort aufs Terminal anwenden.
+
+        Gibt das effektive Thema zurück (``auto`` löst sich nach Tageszeit auf).
+        """
+        self._theme_pref = pref
+        return self.con.set_theme(resolve_theme(pref))
+
+    def _save_key(self, key: str) -> bool:
+        """Den OpenRouter-Key lokal ablegen. Gibt zurück, ob es geklappt hat.
+
+        🔒 Wachssiegel: Der Key wird nur an ``config.save_credentials`` weitergereicht
+        (chmod 600) — er wird nie ausgegeben, geloggt oder in einen Prompt geschrieben.
+        """
+        try:
+            config.save_credentials(key.strip())
+        except OSError as exc:
+            self.con.error(f"Key konnte nicht gespeichert werden: {exc}")
+            return False
+        return True
+
     def _ensure_key(self) -> bool:
         """Sicherstellen, dass ein OpenRouter-Key da ist (fragt bei Bedarf). True = vorhanden."""
         if config.load_credentials():
             return True
         key = self._ask("     🔑 OpenRouter API-Key (leer = abbrechen): ").strip()
-        if not key:
+        if not key or not self._save_key(key):
             return False
-        config.save_credentials(key)
         self.con.honey("     Key gespeichert (chmod 600).", "✅")
         return True
 

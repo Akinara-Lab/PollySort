@@ -5,7 +5,19 @@ description = "PollySort — lernender, konsolenbasierter Dokumenten-Archivar (D
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Akinara" }]
-license = { text = "Proprietary" }   # LICENSE.md liegt lokal (gitignored), daher Text-Form
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["document-management", "file-organizer", "llm", "ollama", "cli", "local-first"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Topic :: System :: Filesystems",
+]
 # Kern — bewusst schlank gehalten, damit `pipx install` / `uv tool install` auf
 # jedem OS ohne Kompilier-/Wheel-Probleme durchläuft. Alles Optionale steht in
 # [optional-dependencies] und wird per Extra dazugeholt (siehe README).
@@ -21,6 +33,12 @@ dependencies = [
     # lesen kann: die kennt keine Datei-Anhänge, der Text wird lokal extrahiert.
     "pypdf>=4.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Akinara-Lab/PollySort"
+Repository = "https://github.com/Akinara-Lab/PollySort"
+Issues = "https://github.com/Akinara-Lab/PollySort/issues"
+Changelog = "https://github.com/Akinara-Lab/PollySort/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 # Bessere Text-Extraktion (DOCX/CSV/HTML → Markdown) und MIME-Erkennung via libmagic.
