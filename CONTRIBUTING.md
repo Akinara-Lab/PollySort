@@ -51,8 +51,10 @@ either is fine.
 
 PollySort follows an open-core model: the core in this repository is Apache-2.0, while
 Akinara also builds commercial components on top of it. So that contributed code can be
-used across both, we ask contributors to sign a CLA. The CLA bot will comment on your
-first pull request with a link — it takes one click.
+used across both, we ask contributors to agree to a CLA — the full text and the reasoning
+are in [CLA.md](CLA.md). A bot comments on your first pull request; one comment is enough,
+and it then covers every later contribution. You keep the copyright to your work — you
+grant a licence, you do not hand anything over.
 
 If you would rather not sign, we can usually still take the *idea*: open an issue
 describing it and we will implement it independently.

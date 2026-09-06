@@ -401,7 +401,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_exit(self, _arg: str) -> bool:
         """Konsole verlassen."""
-        self.con.info("Bis bald! 🍯", "🐝")
+        self.con.info(i18n.t("bye"), "🐝")
         return True
 
     do_quit = do_exit
@@ -1377,7 +1377,7 @@ class BeehiveShell(cmd.Cmd):
         for r in rows:
             self.con.raw(f"    🛡️ {Path(r['path']).name}  — Original: "
                          f"{r['filename']} ({r['kategorie'] or 'unsortiert'})")
-        if arg.strip().lower() not in ("aufraeumen", "aufräumen"):
+        if arg.strip().lower() not in ("aufraeumen", "aufräumen", "cleanup", "clean", "tidy"):
             self.con.ask("'dubletten aufraeumen' verschiebt sie in die Quarantäne "
                          "(papierkorb — nichts wird gelöscht).")
             return

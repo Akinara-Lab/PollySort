@@ -9,6 +9,30 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — Release-Workflow und CLA
+- **`.github/workflows/release.yml`**: Tag → bauen → auf allen drei Betriebssystemen aus dem
+  **Wheel** installieren und starten → GitHub-Release. Bewusst dreistufig: Ein Wheel, das
+  sich nicht installieren lässt, darf nie auf PyPI landen — dort ist eine Version nicht
+  ersetzbar, nur zurückziehbar. Eine Sperre bricht ab, wenn Tag und `pyproject`-Version
+  auseinanderlaufen. Der PyPI-Schritt bleibt **inaktiv**, bis dort ein Trusted Publisher
+  eingerichtet und `PUBLISH_TO_PYPI=true` gesetzt ist.
+- **`CLA.md` + `.github/workflows/cla.yml`** (Entwurf, juristisch noch ungeprüft, Workflow
+  inaktiv bis `REQUIRE_CLA=true`). Ohne CLA bleiben die Rechte an einem Beitrag bei der
+  beitragenden Person — Akinara dürfte ihn dann nicht ins kommerzielle Cockpit übernehmen,
+  und rückwirkend einholen lässt sich das praktisch nie.
+
+### Geändert — der Sortierlauf spricht jetzt die gewählte Sprache
+- Damit ist der Weg **durchgängig** zweisprachig: Erststart, Projekt-Einrichtung,
+  Struktur-Vorschlag, Sortierlauf, Abschluss, Abzeichen, Verabschiedung. Vorher wählte man
+  Englisch, richtete auf Englisch ein — und der erste Sortierlauf antwortete auf Deutsch.
+- Auch der Unterordner-Vorschlag: `{year}/{month}` statt `{jahr}/{monat}`. Beide
+  Schreibweisen löst `resolve_subpath` identisch auf, gespeicherte Muster funktionieren
+  also unverändert weiter.
+- `dubletten` versteht jetzt auch `cleanup`/`clean`/`tidy` — sonst hätte die englische
+  Meldung auf ein Wort verwiesen, das der Befehl gar nicht kennt.
+- Der Projekt-Journaleintrag (`journal.md`) bleibt bewusst deutsch: Eine über die Zeit
+  gemischtsprachige Logdatei wäre schlechter lesbar als eine durchgängig deutsche.
+
 ### Behoben — das erste Dokument einer neuen Sorte landete in der Rückfrage
 - **`vorwaermen.py`** (neu): Der Einrichtungs-Assistent schaut sich die Dokumente an und
   leitet daraus die Kategorien ab — dieses Wissen wurde danach **weggeworfen**. Jetzt legt

@@ -308,6 +308,7 @@ class OpenRouterClient:
         Ein einziger, günstiger Call. Bei JEDEM Fehler → Rückfall auf die Heuristik, damit
         das Setup nie hängt oder abbricht.
         """
+        from ..heuristics import datums_muster as heuristic_muster
         from ..heuristics import suggest_subrouting as heuristic
         if not categories:
             return {}
@@ -325,7 +326,8 @@ class OpenRouterClient:
             })
             flags = _parse_json(data["choices"][0]["message"]["content"])
             known = {c.strip().lower() for c in categories}
-            out = {str(k).strip().lower(): "{jahr}/{monat}"
+            muster = heuristic_muster()
+            out = {str(k).strip().lower(): muster
                    for k, v in flags.items() if str(k).strip().lower() in known and bool(v)}
             return out or heuristic(categories)
         except Exception:

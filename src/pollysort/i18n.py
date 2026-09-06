@@ -93,6 +93,72 @@ _CATALOG: dict[str, dict[str, str]] = {
     # ------------------------------------------------------------------ #
     #  Projekt-Einrichtungs-Assistent (repl.py) — Fortsetzung des Erststarts
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    #  Sortierlauf (pipeline.py) — was der Nutzer bei jedem Lauf liest
+    # ------------------------------------------------------------------ #
+    "pl.nothing": {"de": "Keine neuen Dateien zu sortieren. Alles aufgeräumt. ✨",
+                   "en": "No new files to sort. All tidy. ✨"},
+    "pl.found": {"de": "{n} Datei(en) gefunden — verarbeite …",
+                 "en": "{n} file(s) found — working …"},
+    "pl.progress.sort": {"de": "sortiere", "en": "sorting"},
+    "pl.progress.reindex": {"de": "Gedächtnis neu", "en": "rebuilding memory"},
+    "pl.drift": {
+        "de": "Das Embedding-Modell hat sich geändert (Gedächtnis: {drift}). Alte Vektoren "
+              "matchen nicht mehr zuverlässig — 'gedaechtnis neu' baut das Gedächtnis mit "
+              "dem aktuellen Modell neu auf.",
+        "en": "The embedding model has changed (memory: {drift}). Old vectors no longer "
+              "match reliably — 'memory rebuild' rebuilds the memory with the current model.",
+    },
+    "pl.turbo": {
+        "de": "Ultra Swarm: {n} Dokument(e) parallel mit {workers} Bienen vorbereitet — "
+              "lagere jetzt ein …",
+        "en": "Ultra Swarm: {n} document(s) prepared in parallel by {workers} bees — "
+              "filing them now …",
+    },
+    "pl.unexpected": {"de": "{name}: unerwarteter Fehler — {err}",
+                      "en": "{name}: unexpected error — {err}"},
+    "pl.reindex_skip": {"de": "Reindex übersprungen ({id}): {err}",
+                        "en": "Reindex skipped ({id}): {err}"},
+    "pl.retry": {"de": "Neuer Anlauf (war Fehler): {name}",
+                 "en": "Retrying (previously failed): {name}"},
+    "pl.path_fixed": {"de": "Pfad repariert: {name} (kein LLM-Call)",
+                      "en": "Path repaired: {name} (no LLM call)"},
+    "pl.duplicate": {"de": "Dublette: {name} (kein neuer Eintrag, kein LLM-Call)",
+                     "en": "Duplicate: {name} (no new entry, no LLM call)"},
+    "pl.too_big": {"de": "{name} > {mb} MB → Metadaten-Eintrag",
+                   "en": "{name} > {mb} MB → metadata-only entry"},
+    "pl.dry_move": {"de": "[Vorschau] {name} → {dest}", "en": "[preview] {name} → {dest}"},
+    "pl.entry_error": {"de": "{name}: {reason}", "en": "{name}: {reason}"},
+    "pl.rule.preview": {"de": "Vorschau", "en": "Preview"},
+    "pl.rule.done": {"de": "Fertig", "en": "Done"},
+    "pl.preview_sorted": {"de": "[Vorschau] {n} Datei(en) würden einsortiert: {parts}",
+                          "en": "[preview] {n} file(s) would be filed: {parts}"},
+    "pl.sorted": {"de": "{n} Datei(en) sortiert: {parts}", "en": "{n} file(s) sorted: {parts}"},
+    "pl.duplicates": {
+        "de": "{n} Dublette(n) erkannt (nicht doppelt abgelegt) — 'dubletten aufraeumen' "
+              "legt sie in die Quarantäne",
+        "en": "{n} duplicate(s) found (not filed twice) — 'duplicates cleanup' moves them "
+              "to quarantine",
+    },
+    "pl.recovered": {"de": "{n} Pfad(e) nachgezogen", "en": "{n} path(s) updated"},
+    "pl.errors": {"de": "{n} Datei(en) mit Fehler — 'liste error' zeigt sie",
+                  "en": "{n} file(s) with errors — 'list error' shows them"},
+    "pl.review": {
+        "de": "{n} Datei(en) unsicher — liegen noch hier. Mit 'rueckfragen' schnell zuordnen.",
+        "en": "{n} file(s) uncertain — still lying here. Sort them out with 'review'.",
+    },
+    "pl.calls_offline": {
+        "de": "{n} Analyse(n) — offline, ohne KI-Anfrage und ohne Kosten",
+        "en": "{n} analysis/analyses — offline, no AI request and no cost",
+    },
+    "pl.calls_local": {"de": "{n} KI-Anfragen — lokal gerechnet, ohne Kosten",
+                       "en": "{n} AI requests — computed locally, no cost"},
+    "pl.calls_online": {"de": "{n} KI-Anfragen · ~{cost} €", "en": "{n} AI requests · ~{cost} €"},
+    "pl.preview_note": {"de": "Vorschau — es wurde nichts verschoben oder gespeichert.",
+                        "en": "Preview — nothing was moved or saved."},
+    "pl.celebrate": {"de": "Sauber sortiert — nichts bleibt liegen!",
+                     "en": "All sorted — nothing left lying around!"},
+
     "vw.done": {
         "de": "Gedächtnis vorgewärmt: {n} Beispiel(e) aus {k} Kategorie(n) — so landet "
               "auch das erste Dokument jeder Sorte gleich richtig.",
@@ -206,6 +272,7 @@ _CATALOG: dict[str, dict[str, str]] = {
                         "en": "notify only — 'there are X new files'"},
     "su.watch.move": {"de": "sofort sortieren", "en": "sort immediately"},
 
+    "bye": {"de": "Bis bald! 🍯", "en": "See you! 🍯"},
     "start.hint": {
         "de": "v{version} · 'hilfe' zeigt alle Befehle",
         "en": "v{version} · type 'help' for all commands",

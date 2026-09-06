@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import mover
+from . import i18n, mover
 from .assigner import assign
 from .config import AppConfig, HiveSeed
 from .console import BeeConsole
@@ -119,31 +119,28 @@ def run_cycle(
         findings = findings[:limit]
 
     if not findings:
-        con.info("Keine neuen Dateien zu sortieren. Alles aufgeräumt. ✨", "🐝")
+        con.info(i18n.t("pl.nothing"), "🐝")
         return CycleSummary()
 
-    con.info(f"{len(findings)} Datei(en) gefunden — verarbeite …", "🔍")
+    con.info(i18n.t("pl.found", n=len(findings)), "🔍")
     # F1: Hat sich das Embedding-Modell geändert (nur per Config-Datei möglich), matchen die
     # alten Vektoren nicht mehr — einmal je Lauf freundlich darauf hinweisen (kein KI-Call).
     if not dry_run:
         drift = ctx.mind.mismatch(getattr(ctx.client, "embed_model", None))
         if drift:
-            con.info(f"Das Embedding-Modell hat sich geändert (Gedächtnis: {drift}). Alte "
-                     "Vektoren matchen nicht mehr zuverlässig — 'gedaechtnis neu' baut das "
-                     "Gedächtnis mit dem aktuellen Modell neu auf.", "⚠️")
+            con.info(i18n.t("pl.drift", drift=drift), "⚠️")
     # Ultra Swarm: KI-Analysen parallel vorbereiten (füllt den Cache), Rest bleibt sequenziell.
     if workers and workers > 1 and not dry_run:
         cache = cache if cache is not None else {}
         n = _prewarm_parallel(ctx, findings, workers, cache)
         if n:
-            con.honey(f"Ultra Swarm: {n} Dokument(e) parallel mit {workers} Bienen "
-                      "vorbereitet — lagere jetzt ein …", "⚡")
+            con.honey(i18n.t("pl.turbo", n=n, workers=workers), "⚡")
     summary = CycleSummary()
     prior_calls = 0            # KI-Calls vor einem etwaigen Offline-Wechsel (Kostenanzeige)
     fail_streak = 0            # aufeinanderfolgende Fehl-Dateien (KI wohl nicht erreichbar)
     switched = False
-    with con.progress("sortiere") as prog:
-        task = prog.add_task("sortiere", total=len(findings))
+    with con.progress(i18n.t("pl.progress.sort")) as prog:
+        task = prog.add_task(i18n.t("pl.progress.sort"), total=len(findings))
         for f in findings:
             prog.update(task, description=f"🌸 {f.path.name}")
             errs_before = summary.errors
@@ -151,7 +148,7 @@ def run_cycle(
                 _process_one(ctx, f, mode=mode, dry_run=dry_run, summary=summary, cache=cache)
             except Exception as exc:  # letzte Sicherheitsnetz-Isolation (§16)
                 summary.errors += 1
-                con.error(f"{f.path.name}: unerwarteter Fehler — {exc}")
+                con.error(i18n.t("pl.unexpected", name=f.path.name, err=exc))
             fail_streak = fail_streak + 1 if summary.errors > errs_before else 0
             # Reißt die KI mitten im Lauf wiederholt ab, den REST heuristisch sortieren,
             # statt reihenweise Fehler-Einträge zu produzieren (Offline-Fallback, §16).
@@ -179,7 +176,7 @@ def reindex_memory(ctx: Context) -> tuple[int, int]:
     ctx.mind.reset()                       # Alt-Vektoren verwerfen — sonst bleibt totes Gewicht
     ok = fail = 0
     con = ctx.console
-    with con.progress("gedaechtnis neu") as prog:
+    with con.progress(i18n.t("pl.progress.reindex")) as prog:
         task = prog.add_task("reindex", total=len(rows))
         for row in rows:
             entry = row_to_entry(row)
@@ -190,7 +187,7 @@ def reindex_memory(ctx: Context) -> tuple[int, int]:
                 ok += 1
             except Exception as exc:       # KI-Schluckauf → überspringen, nicht abbrechen (§16)
                 fail += 1
-                con.error(f"Reindex übersprungen ({entry.id}): {exc}")
+                con.error(i18n.t("pl.reindex_skip", id=entry.id, err=exc))
             prog.advance(task)
     return ok, fail
 
@@ -278,7 +275,7 @@ def _process_one(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSum
         # Fehler-Einträge (z. B. KI-Ausfall) blockieren die Datei NICHT dauerhaft:
         # beim nächsten Lauf wird die Analyse erneut versucht statt still übersprungen.
         if existing.get("status") == Status.ERROR.value:
-            con.info(f"Neuer Anlauf (war Fehler): {f.path.name}", "🔁")
+            con.info(i18n.t("pl.retry", name=f.path.name), "🔁")
             ingest(ctx, f, mode=mode, dry_run=dry_run, summary=summary, cache=cache)
             return
         known_paths = {existing["path"], existing.get("original_path")}
@@ -293,15 +290,15 @@ def _process_one(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSum
             # Gleicher Inhalt, alter Pfad weg → verschoben/umbenannt: nur Pfad nachziehen.
             store.update_path(existing["id"], str(f.path))
             summary.recovered += 1
-            con.info(f"Pfad repariert: {f.path.name} (kein LLM-Call)", "🔀")
+            con.info(i18n.t("pl.path_fixed", name=f.path.name), "🔀")
         else:
             store.add_duplicate_path(existing["id"], str(f.path))
             summary.duplicates += 1
-            con.info(f"Dublette: {f.path.name} (kein neuer Eintrag, kein LLM-Call)", "🛡️")
+            con.info(i18n.t("pl.duplicate", name=f.path.name), "🛡️")
         return
 
     if not within_size_limit(f.path, ctx.seed.max_file_mb):
-        con.ask(f"{f.path.name} > {ctx.seed.max_file_mb} MB → Metadaten-Eintrag")
+        con.ask(i18n.t("pl.too_big", name=f.path.name, mb=ctx.seed.max_file_mb))
 
     ingest(ctx, f, mode=mode, dry_run=dry_run, summary=summary, cache=cache)
 
@@ -360,7 +357,8 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
         dest = mover.move(ctx.hive, entry, dry_run=dry_run,
                           subrouting=getattr(ctx.seed, "subrouting", None))
         if dry_run:
-            con.info(f"[dry-run] {f.path.name} → {dest.relative_to(ctx.hive)}", "🧪")
+            con.info(i18n.t("pl.dry_move", name=f.path.name,
+                              dest=dest.relative_to(ctx.hive)), "🧪")
         else:
             src_before = f.path
             store.update_path(entry.id, str(dest))
@@ -392,48 +390,46 @@ def _tally(con: BeeConsole, entry: BeeEntry, reason, summary: CycleSummary) -> N
         summary.needs_review += 1
     else:
         summary.errors += 1
-        con.error(f"{entry.filename}: {reason}")
+        con.error(i18n.t("pl.entry_error", name=entry.filename, reason=reason))
 
 
 def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) -> None:
     con = ctx.console
-    con.rule("Vorschau" if dry_run else "Fertig")
+    con.rule(i18n.t("pl.rule.preview") if dry_run else i18n.t("pl.rule.done"))
     # Aufschlüsselung nach Kategorie — das Herzstück des Feedbacks.
     if s.by_category:
         parts = ", ".join(f"{n} → {cat}" for cat, n in sorted(s.by_category.items(),
                                                               key=lambda x: -x[1]))
         if dry_run:
-            con.honey(f"[Vorschau] {s.stored} Datei(en) würden einsortiert: {parts}", "🧪")
+            con.honey(i18n.t("pl.preview_sorted", n=s.stored, parts=parts), "🧪")
         else:
-            con.honey(f"{s.stored} Datei(en) sortiert: {parts}", "🍯")
+            con.honey(i18n.t("pl.sorted", n=s.stored, parts=parts), "🍯")
     if s.duplicates:
-        con.info(f"{s.duplicates} Dublette(n) erkannt (nicht doppelt abgelegt) — "
-                 f"'dubletten aufraeumen' legt sie in die Quarantäne", "🛡️")
+        con.info(i18n.t("pl.duplicates", n=s.duplicates), "🛡️")
     if s.recovered:
-        con.info(f"{s.recovered} Pfad(e) nachgezogen", "🔀")
+        con.info(i18n.t("pl.recovered", n=s.recovered), "🔀")
     if s.errors:
-        con.error(f"{s.errors} Datei(en) mit Fehler — 'liste error' zeigt sie")
+        con.error(i18n.t("pl.errors", n=s.errors))
     if s.needs_review:
-        con.ask(f"{s.needs_review} Datei(en) unsicher — liegen noch hier. "
-                f"Mit 'rueckfragen' schnell zuordnen.")
+        con.ask(i18n.t("pl.review", n=s.needs_review))
     if s.llm_calls:
         # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
         # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen
         # Rechner ist schlicht erfunden — und Vertrauen ist hier die ganze Währung.
         provider = getattr(ctx.cfg, "llm_provider", "")
         if provider == "offline":
-            con.info(f"{s.llm_calls} Analyse(n) — offline, ohne KI-Anfrage und ohne Kosten",
-                     "🧠")
+            con.info(i18n.t("pl.calls_offline", n=s.llm_calls), "🧠")
         elif provider == "ollama":
-            con.info(f"{s.llm_calls} KI-Anfragen — lokal gerechnet, ohne Kosten", "🧠")
+            con.info(i18n.t("pl.calls_local", n=s.llm_calls), "🧠")
         else:
-            con.info(f"{s.llm_calls} KI-Anfragen · ~{s.est_cost_eur:.4f} €", "🧠")
+            con.info(i18n.t("pl.calls_online", n=s.llm_calls,
+                            cost=f"{s.est_cost_eur:.4f}"), "🧠")
     if dry_run:
         # Vorschau ist nebenwirkungsfrei: keine Konfetti-Meldung, kein Journal-Eintrag.
-        con.info("Vorschau — es wurde nichts verschoben oder gespeichert.", "🧪")
+        con.info(i18n.t("pl.preview_note"), "🧪")
         return
     if not s.needs_review and not s.errors and s.stored:
-        con.celebrate("Sauber sortiert — nichts bleibt liegen!")
+        con.celebrate(i18n.t("pl.celebrate"))
     ctx.journal.entry(f"{mode}-Lauf", [
         f"eingelagert: {s.stored}", f"verschoben: {s.moved}", f"dubletten: {s.duplicates}",
         f"needs_review: {s.needs_review}", f"fehler: {s.errors}",

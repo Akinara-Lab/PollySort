@@ -211,6 +211,18 @@ def snap_category(label: str, known: list[str]) -> str | None:
 
 
 # Kategorien, die typischerweise von Datum-Unterordnern profitieren (Jahr/Monat).
+def datums_muster() -> str:
+    """Das vorgeschlagene Unterordner-Muster in der aktiven Sprache.
+
+    ``mover.resolve_subpath`` versteht beide Schreibweisen ({jahr}/{monat} und
+    {year}/{month}) und löst sie identisch auf — ein englischer Nutzer soll aber
+    keinen deutschen Platzhalter vorgeschlagen bekommen. Bereits gespeicherte Muster
+    funktionieren dadurch unverändert weiter.
+    """
+    from . import i18n
+    return "{year}/{month}" if i18n.get_language() == "en" else "{jahr}/{monat}"
+
+
 _DATE_ORIENTED = {
     "rechnung", "rechnungen", "invoice", "beleg", "belege", "quittung", "receipt",
     "kontoauszug", "auszug", "finanzen", "finanz", "steuer", "gehalt", "lohn", "mahnung",
@@ -232,7 +244,7 @@ def suggest_subrouting(categories: list[str]) -> dict[str, str]:
         words = set(re.split(r"[\s_\-/]+", c))
         needles = set(_needles_for(c, use_rules=True))
         if (words & _DATE_ORIENTED) or (needles & _DATE_ORIENTED):
-            out[c] = "{jahr}/{monat}"
+            out[c] = datums_muster()
     return out
 
 
