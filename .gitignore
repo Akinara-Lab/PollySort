@@ -18,6 +18,11 @@ dist/
 ~/.beehive/
 credentials
 
+# Archiv der Vorgaenger-Ordner (Bumble_beebliothek, PollySort_Beta, der alte
+# Arbeitsordner). Liegt bewusst IM Projekt, damit die Historie greifbar bleibt,
+# gehoert aber nie ins Repository.
+/archive/
+
 # Interne Arbeits-/Planungsdokumente — nicht ins (Beta-)Repo.
 # (LICENSE-KONZEPT.md bleibt bewusst getrackt: die README verlinkt darauf.)
 /Pollysort_projektbrief.md
