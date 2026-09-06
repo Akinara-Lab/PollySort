@@ -89,14 +89,27 @@ MAX_KATEGORIEN = 8
 #  Hilfen
 # --------------------------------------------------------------------------- #
 def _familie(label: str) -> str | None:
-    """Zu welcher RULES-Familie gehört das Label (über seine Synonyme)?"""
+    """Zu welcher RULES-Familie gehört das Label (über seine Synonyme)?
+
+    Es gewinnt die Familie mit dem **längsten** passenden Begriff, nicht die erste in
+    der Reihenfolge des Regelwerks. Sonst landet „reisekostenabrechnungen" bei „reisen",
+    nur weil „reise" ein Präfix davon ist und weiter oben steht — und die viel genauere
+    Übereinstimmung mit „reisekostenabrechnung" unter „spesen" bliebe ungenutzt.
+    """
     lab = label.strip().lower()
     if lab in RULES:
         return lab
+    bester, beste_laenge = None, 0
     for kat, begriffe in RULES.items():
-        if _stem_match(lab, kat) or any(_stem_match(lab, b) for b in begriffe):
-            return kat
-    return None
+        laenge = 0
+        if _stem_match(lab, kat):
+            laenge = len(kat)
+        for b in begriffe:
+            if _stem_match(lab, b):
+                laenge = max(laenge, len(b))
+        if laenge > beste_laenge:
+            bester, beste_laenge = kat, laenge
+    return bester
 
 
 #: Fugenlaute deutscher Komposita. Steht einer davon direkt vor dem Kopf-Nomen, ist das

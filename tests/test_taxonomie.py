@@ -103,3 +103,27 @@ def test_systemregeln_nennen_den_konkreten_fall():
     text = SYSTEM_REGELN.lower()
     assert "rechnungen" in text and "finanzen" in text
     assert "dokumenttyp" in text
+
+
+def test_familie_nimmt_den_laengsten_treffer_nicht_den_ersten():
+    """Aus einem echten Ollama-Lauf: 'reisekostenabrechnungen' gehört zu 'spesen'.
+
+    Vorher gewann die Familie, die im Regelwerk zufällig weiter oben stand — 'reisen',
+    nur weil 'reise' ein Präfix des Wortes ist. Die viel genauere Übereinstimmung mit
+    'reisekostenabrechnung' unter 'spesen' blieb ungenutzt, und die Dokumente landeten
+    beim größten Nachbarn statt bei ihresgleichen.
+    """
+    from pollysort.taxonomie import _familie
+    assert _familie("reisekostenabrechnungen") == "spesen"
+
+    ergebnis, _ = konsolidieren({"rechnungen": 8, "kontoauszuege": 5, "spesen": 3,
+                                 "reisekostenabrechnungen": 2})
+    assert ergebnis == {"rechnungen": 8, "kontoauszuege": 5, "spesen": 5}
+
+
+def test_deutsche_komposita_mit_und_ohne_fugenlaut():
+    """'eingangsrechnungen' ist eine Rechnung, 'reisekostenabrechnung' nicht."""
+    from pollysort.taxonomie import _gleichbedeutend
+    assert _gleichbedeutend("eingangsrechnungen", "rechnungen")
+    assert _gleichbedeutend("jahresprotokolle", "protokolle")
+    assert not _gleichbedeutend("reisekostenabrechnung", "rechnungen")
