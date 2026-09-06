@@ -18,8 +18,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-import bumble.llm.client as client_mod
-from bumble.llm.client import (
+import pollysort.llm.client as client_mod
+from pollysort.llm.client import (
     LLMBackendCrash,
     LLMRequestError,
     OllamaClient,
@@ -134,11 +134,11 @@ def test_embed_prefix_and_cpu_payload(monkeypatch):
 
 # ---- Extractor: dauerhafte Ablehnung → Rückfrage statt error-Schleife -----
 def test_extractor_turns_request_error_into_review(tmp_path):
-    from bumble.extractor import extract
-    from bumble.guards import IgnoreMatcher
-    from bumble.llm.client import Usage
-    from bumble.models import Status
-    from bumble.scout import scout, walk
+    from pollysort.extractor import extract
+    from pollysort.guards import IgnoreMatcher
+    from pollysort.llm.client import Usage
+    from pollysort.models import Status
+    from pollysort.scout import scout, walk
 
     class RejectingClient:
         usage = Usage()

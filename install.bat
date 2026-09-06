@@ -58,17 +58,17 @@ echo [ok] Weder uv noch pipx gefunden - verwende pip (Benutzer-Installation)
 :verify
 echo.
 echo Pruefe Installation ...
-where bumble >nul 2>&1
+where pollysort >nul 2>&1
 if errorlevel 1 (
-  echo [!] 'bumble' ist noch nicht im PATH.
+  echo [!] 'pollysort' ist noch nicht im PATH.
   echo     Tipp: Terminal neu oeffnen, oder 'pipx ensurepath' ausfuehren, dann erneut versuchen.
-  echo     Alternativ direkt starten:  %PY% Beehive.py
+  echo     Alternativ direkt starten:  %PY% polly.py
   goto :end
 )
-echo [ok] Befehl 'bumble' verfuegbar
-bumble-cli --version
+echo [ok] Befehl 'pollysort' verfuegbar
+pollysort-cli --version
 echo.
-echo Fertig! Starte das Tool mit:  bumble
+echo Fertig! Starte das Tool mit:  pollysort
 goto :end
 
 :fail

@@ -1,6 +1,6 @@
 """Feedback-Loop (§14.4) — corrections.jsonl.
 
-Jede beantwortete Rückfrage (< 75 %) und jede manuelle Korrektur (``bumble assign``)
+Jede beantwortete Rückfrage (< 75 %) und jede manuelle Korrektur (``pollysort assign``)
 landet hier und fließt zurück: als Few-Shot im Extraction-Prompt UND als Zentroid-Update
 im Vektor-Store (Letzteres über ``HiveMind.remember`` beim erneuten Einlagern).
 """

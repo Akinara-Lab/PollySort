@@ -7,8 +7,8 @@ import io
 
 from rich.console import Console
 
-from bumble.config import AppConfig
-from bumble.console import PALETTES, BeeConsole, _osc, auto_theme, resolve_theme
+from pollysort.config import AppConfig
+from pollysort.console import PALETTES, BeeConsole, _osc, auto_theme, resolve_theme
 
 
 def test_palettes_full_background_flip_text_stays_yellow():

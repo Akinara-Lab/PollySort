@@ -1,4 +1,4 @@
-"""Kategorie-Migration bei ``bumble hive approve`` (§6, §14.3).
+"""Kategorie-Migration bei ``pollysort-cli hive approve`` (§6, §14.3).
 
 In einem Zug: Ordner in ``waben/`` verschieben, DB-``kategorie`` updaten, Zentroide im
 Vektor-Store neu labeln, Eintrag im Journal. Nie halbfertig — Move-Log macht Wiederanlauf

@@ -1,4 +1,4 @@
-"""Move-Log — Sicherheitsnetz für ``bumble undo`` ('Rückflug', §19).
+"""Move-Log — Sicherheitsnetz für ``pollysort undo`` ('Rückflug', §19).
 
 Jede vom System durchgeführte Verschiebung wird angehängt; ``undo`` macht die jüngste
 rückgängig. Rein additiv; Nutzerdateien werden nie gelöscht.

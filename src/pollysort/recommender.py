@@ -34,18 +34,18 @@ def suggest(ctx: Context, strategy: str = "para") -> list[str]:
     # Rückfrage-Stau
     nr = [r for r in rows if r["status"] == "needs_review"]
     if nr:
-        hints.append(f"▸ Dynamisch: {len(nr)} Einträge unter der Schwelle → bumble review")
+        hints.append(f"▸ Dynamisch: {len(nr)} Einträge unter der Schwelle → pollysort-cli review")
 
     # Fehler-Stau
     err = [r for r in rows if r["status"] == "error"]
     if err:
-        hints.append(f"▸ Dynamisch: {len(err)} Fehler-Einträge → bumble list --status error")
+        hints.append(f"▸ Dynamisch: {len(err)} Fehler-Einträge → pollysort list --status error")
 
     # Häufungen ohne Kategorie → neue Kategorie denkbar
     unassigned = [r for r in rows if r["kategorie"] == "_unassigned"]
     if len(unassigned) >= 3:
         hints.append(f"▸ Dynamisch: {len(unassigned)} Dokumente ohne passende Kategorie → "
-                     f"neue Kategorie prüfen (bumble hive review)")
+                     f"neue Kategorie prüfen (pollysort-cli hive review)")
 
     # Dubletten
     dup = _duplicate_count(store)

@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.hive_mind.memory import HiveMind
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient, embed_model_for
-from bumble.pipeline import Context, reindex_memory, run_cycle
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.hive_mind.memory import HiveMind
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient, embed_model_for
+from pollysort.pipeline import Context, reindex_memory, run_cycle
 
 
 def _ctx(hive: Path) -> Context:

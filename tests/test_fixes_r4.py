@@ -15,15 +15,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.guards import IgnoreMatcher
-from bumble.journal import Journal
-from bumble.llm.client import LLMError, OfflineClient, OpenRouterClient, Usage
-from bumble.models import Status
-from bumble.movelog import MoveLog
-from bumble.pipeline import Context, run_cycle
-from bumble.scout import scout, walk
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.guards import IgnoreMatcher
+from pollysort.journal import Journal
+from pollysort.llm.client import LLMError, OfflineClient, OpenRouterClient, Usage
+from pollysort.models import Status
+from pollysort.movelog import MoveLog
+from pollysort.pipeline import Context, run_cycle
+from pollysort.scout import scout, walk
 
 
 class FailingClient:
@@ -79,8 +79,8 @@ def test_error_entries_are_retried(tmp_path):
 
 # ---- BUG-6: KI-Ausfall im Vorschlags-Modus wird gezählt -------------------
 def test_ai_probe_counts_failures(tmp_path):
-    from bumble.onboarding import propose_structure
-    from bumble.repl import _AiProbe
+    from pollysort.onboarding import propose_structure
+    from pollysort.repl import _AiProbe
 
     hive = tmp_path / "hive"
     hive.mkdir()
@@ -95,7 +95,7 @@ def test_ai_probe_counts_failures(tmp_path):
 
 # ---- BUG-7: Wachstafel lernt keine Müll-Regeln ----------------------------
 def test_derive_rules_filters_junk():
-    from bumble.wachstafel import _MAX_TOKENS_PER_CORRECTION, derive_rules
+    from pollysort.wachstafel import _MAX_TOKENS_PER_CORRECTION, derive_rules
 
     corrections = [{
         "title": "Fira Mono Font Lizenz",
@@ -116,7 +116,7 @@ def test_derive_rules_filters_junk():
 
 # ---- BUG-8: Korrektur-Moves landen im Move-Log ----------------------------
 def test_correction_moves_are_logged(tmp_path):
-    from bumble.review import apply_correction
+    from pollysort.review import apply_correction
 
     hive = tmp_path / "hive"
     ctx = _ctx(hive)
@@ -135,7 +135,7 @@ def test_correction_moves_are_logged(tmp_path):
 
 # ---- BUG-10: zurueckholen legt die Datei in ihre Wabe zurück --------------
 def test_resurrect_returns_to_category_folder(tmp_path):
-    from bumble.undertaker import resurrect, undertake
+    from pollysort.undertaker import resurrect, undertake
 
     hive = tmp_path / "hive"
     ctx = _ctx(hive)
@@ -155,7 +155,7 @@ def test_resurrect_returns_to_category_folder(tmp_path):
 
 # ---- OPT-5: Font-/Lizenzblöcke werden gefiltert ---------------------------
 def test_font_license_blocks_are_stripped():
-    from bumble.extractor import _strip_font_blocks
+    from pollysort.extractor import _strip_font_blocks
 
     text = ("Projektplan KI-Luftbildanalyse\n\n"
             "Meilensteine und Arbeitspakete für die Segmentierung.\n\n"
@@ -193,7 +193,7 @@ def test_fallback_model_on_truncated_json(monkeypatch):
 
 # ---- OPT-9: leere bestehende Ordner zählen als Waben ----------------------
 def test_existing_structure_includes_empty_folders(tmp_path):
-    from bumble.onboarding import existing_structure
+    from pollysort.onboarding import existing_structure
 
     hive = tmp_path / "hive"
     (hive / "Forschungsbericht").mkdir(parents=True)    # leer, aber bewusst angelegt
@@ -207,7 +207,7 @@ def test_existing_structure_includes_empty_folders(tmp_path):
 
 # ---- Sicherheitsnetz: Scout liefert Findings, die die Probe versteht ------
 def test_probe_success_path(tmp_path):
-    from bumble.repl import _AiProbe
+    from pollysort.repl import _AiProbe
 
     hive = tmp_path / "hive"
     hive.mkdir()

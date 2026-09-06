@@ -20,9 +20,61 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 # Pfade
 # ---------------------------------------------------------------------------
-BEEHIVE_HOME = Path(os.environ.get("BEEHIVE_HOME", Path.home() / ".beehive"))
-CONFIG_PATH = BEEHIVE_HOME / "config.toml"
-CREDENTIALS_PATH = BEEHIVE_HOME / "credentials"
+#: Die alte Ablage vor dem Rename auf PollySort. Wird einmalig übernommen (s. u.).
+LEGACY_HOME = Path.home() / ".beehive"
+
+
+def _migrate_legacy_home(old: Path, new: Path) -> None:
+    """Die alte ``~/.beehive``-Ablage nach ``~/.pollysort`` übernehmen.
+
+    Es wird **kopiert**, nie verschoben und nie gelöscht — die alte Ablage bleibt
+    unberührt liegen. Das folgt dem Grundprinzip des Projekts: kein Code-Pfad entfernt
+    Daten des Nutzers. Geht die Übernahme schief (Rechte, volle Platte), startet das
+    Tool mit einer leeren neuen Ablage weiter, statt abzubrechen.
+    """
+    import shutil
+    from datetime import UTC, datetime
+    try:
+        shutil.copytree(old, new)
+    except OSError:
+        try:
+            new.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        return
+    try:
+        (new / "UEBERNOMMEN.txt").write_text(
+            f"Übernommen aus {old} am "
+            f"{datetime.now(UTC).replace(microsecond=0).isoformat()}.\n"
+            "Der alte Ordner wurde bewusst NICHT gelöscht — du kannst ihn entfernen, "
+            "sobald du geprüft hast, dass hier alles vollständig ist.\n",
+            encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _resolve_home() -> Path:
+    """Wo die globale Ablage liegt.
+
+    Vorrang hat ``POLLYSORT_HOME``; der Altname ``BEEHIVE_HOME`` wird weiter akzeptiert,
+    damit bestehende Skripte und CI-Aufrufe nicht brechen. Ohne Env liegt sie in
+    ``~/.pollysort`` — gibt es die noch nicht, wohl aber eine alte ``~/.beehive``, wird
+    diese einmalig übernommen.
+    """
+    env = os.environ.get("POLLYSORT_HOME") or os.environ.get("BEEHIVE_HOME")
+    if env:
+        return Path(env)
+    home = Path.home() / ".pollysort"
+    if not home.exists() and LEGACY_HOME.is_dir():
+        _migrate_legacy_home(LEGACY_HOME, home)
+    return home
+
+
+POLLYSORT_HOME = _resolve_home()
+#: Altname — noch als Alias erhalten, damit externe Skripte nicht brechen.
+BEEHIVE_HOME = POLLYSORT_HOME
+CONFIG_PATH = POLLYSORT_HOME / "config.toml"
+CREDENTIALS_PATH = POLLYSORT_HOME / "credentials"
 
 #: Der EINE versteckte Ordner, in dem alles Generierte landet.
 HONIG = ".honig"
@@ -142,8 +194,8 @@ def load_config() -> AppConfig:
 
 
 def save_config(cfg: AppConfig) -> None:
-    BEEHIVE_HOME.mkdir(parents=True, exist_ok=True)
-    lines = ["# Bumble Beebliothek — globale Config (KEIN API-Key hier!)", ""]
+    POLLYSORT_HOME.mkdir(parents=True, exist_ok=True)
+    lines = ["# PollySort — globale Config (KEIN API-Key hier!)", ""]
     for key, val in cfg.model_dump().items():
         if val is None:
             continue
@@ -162,7 +214,7 @@ def load_credentials() -> str | None:
 
 
 def save_credentials(key: str) -> None:
-    BEEHIVE_HOME.mkdir(parents=True, exist_ok=True)
+    POLLYSORT_HOME.mkdir(parents=True, exist_ok=True)
     CREDENTIALS_PATH.write_text(key.strip(), encoding="utf-8")
     try:
         os.chmod(CREDENTIALS_PATH, 0o600)  # best effort; auf Windows teils No-Op
@@ -199,7 +251,7 @@ def write_seed(hive: Path, seed: HiveSeed) -> None:
                            for k, v in seed.responsibility.items())
     # WICHTIG: In TOML müssen bare Top-Level-Keys (categories, exclude) VOR jedem
     # [table]-Header stehen — sonst würden sie der Tabelle zugeordnet.
-    content = f"""# Bumble Beebliothek — Projekt-Konfiguration (human-editierbar)
+    content = f"""# PollySort — Projekt-Konfiguration (human-editierbar)
 # Das Gedächtnis (taxonomie.toml) lernt darüber hinaus; diese Datei bleibt der Startpunkt.
 
 # Start-Kategorien (das Gedächtnis darf später neue vorschlagen)
@@ -267,7 +319,7 @@ def resolve_hive(explicit: str | None = None) -> Path:
 # ---------------------------------------------------------------------------
 # Projekt-Registry (mehrere Bienenstöcke nebeneinander)
 # ---------------------------------------------------------------------------
-PROJECTS_PATH = BEEHIVE_HOME / "projects.txt"
+PROJECTS_PATH = POLLYSORT_HOME / "projects.txt"
 
 
 def register_project(hive: Path) -> None:
@@ -275,7 +327,7 @@ def register_project(hive: Path) -> None:
     hive = hive.resolve()
     known = list_projects()
     if hive not in known:
-        BEEHIVE_HOME.mkdir(parents=True, exist_ok=True)
+        POLLYSORT_HOME.mkdir(parents=True, exist_ok=True)
         with PROJECTS_PATH.open("a", encoding="utf-8") as fh:
             fh.write(str(hive) + "\n")
 

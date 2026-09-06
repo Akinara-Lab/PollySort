@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.flugrouten import (
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.flugrouten import (
     EMAIL_PRESETS,
     DiscordConfig,
     EmailConfig,
@@ -22,11 +22,11 @@ from bumble.flugrouten import (
     mask,
     save_flugrouten,
 )
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient, OpenRouterClient
-from bumble.pipeline import Context
-from bumble.swarm.kanaele import DiscordKanal, EmailKanal, build_kanaele
-from bumble.swarm.waechterbiene import Waechterbiene
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient, OpenRouterClient
+from pollysort.pipeline import Context
+from pollysort.swarm.kanaele import DiscordKanal, EmailKanal, build_kanaele
+from pollysort.swarm.waechterbiene import Waechterbiene
 
 SECRET_TOKEN = "discord-SUPERSECRET-abcd1234"
 SECRET_PASS = "app-PASSWORT-xyz789"
@@ -104,7 +104,7 @@ def test_env_overrides_and_never_written(tmp_path, monkeypatch):
     save_flugrouten(fr, path=p)             # ohne Token gespeichert
     assert 'bot_token  = ""' in p.read_text(encoding="utf-8")   # leer auf Platte
     monkeypatch.setenv("BEEHIVE_DISCORD_TOKEN", "env-secret-9999")
-    from bumble.flugrouten import discord_token
+    from pollysort.flugrouten import discord_token
     assert discord_token(load_flugrouten(path=p)) == "env-secret-9999"   # Env hat Vorrang
     assert "env-secret-9999" not in p.read_text(encoding="utf-8")        # nie persistiert
 

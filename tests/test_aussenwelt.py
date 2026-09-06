@@ -14,15 +14,15 @@ import types
 import httpx
 import pytest
 
-from bumble.config import AppConfig, HiveSeed, honig
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.pipeline import Context
-from bumble.swarm import Baubiene, Kalender, Waechterbiene
-from bumble.swarm.ics import build_ics
-from bumble.swarm.kalender import Termin
-from bumble.swarm.kanaele import DiscordKanal, KanalError
+from pollysort.config import AppConfig, HiveSeed, honig
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.pipeline import Context
+from pollysort.swarm import Baubiene, Kalender, Waechterbiene
+from pollysort.swarm.ics import build_ics
+from pollysort.swarm.kalender import Termin
+from pollysort.swarm.kanaele import DiscordKanal, KanalError
 
 TOKEN = "SECRET-BOT-TOKEN-abcd1234"
 CHANNEL = "998877665544"
@@ -90,7 +90,7 @@ def test_ics_format():
     assert ics.startswith("BEGIN:VCALENDAR\r\n")
     assert ics.rstrip().endswith("END:VCALENDAR")
     assert "BEGIN:VEVENT" in ics and ics.count("BEGIN:VEVENT") == 1   # nur der gültige Termin
-    assert "UID:a1@bumble-beebliothek" in ics
+    assert "UID:a1@pollysort" in ics
     assert "DTSTART;VALUE=DATE:20260720" in ics
     assert "SUMMARY:Deadline: Rechnungen\\, Q1" in ics                # Komma escaped
     assert "\r\n" in ics                                             # CRLF-Zeilenenden

@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble import doctor
-from bumble.config import AppConfig
+from pollysort import doctor
+from pollysort.config import AppConfig
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "bumble"
+SRC = Path(__file__).resolve().parent.parent / "src" / "pollysort"
 
 
 def test_doctor_runs_without_network(monkeypatch):
@@ -51,7 +51,7 @@ def test_no_source_file_gates_a_feature():
     offenders = []
     for path in SRC.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        for needle in ("import bumble.licensing", "from .licensing", "ultra_swarm_allowed",
+        for needle in ("import pollysort.licensing", "from .licensing", "ultra_swarm_allowed",
                        "free_limit_reached"):
             if needle in text:
                 offenders.append(f"{path.name}: {needle}")
@@ -62,7 +62,7 @@ def test_ultra_swarm_is_free():
     """`sortiere turbo` darf nicht mehr auf 1 Biene zurückgestuft werden."""
     import inspect
 
-    from bumble.repl import BeehiveShell
+    from pollysort.repl import BeehiveShell
 
     src = inspect.getsource(BeehiveShell.do_sortiere)
     assert "workers = 10" in src, "Turbo muss weiterhin parallelisieren"

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.models import BeeEntry
-from bumble.mover import resolve_subpath, target_dir
-from bumble.pipeline import Context, run_cycle
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.models import BeeEntry
+from pollysort.mover import resolve_subpath, target_dir
+from pollysort.pipeline import Context, run_cycle
 
 
 def _entry(tmp_path: Path, filename: str, kategorie: str) -> BeeEntry:
@@ -46,7 +46,7 @@ def test_date_from_dotted_format(tmp_path):
 
 
 def test_suggest_subrouting_heuristic():
-    from bumble.heuristics import suggest_subrouting
+    from pollysort.heuristics import suggest_subrouting
     subs = suggest_subrouting(["rechnungen", "finanzen", "vertraege", "kontoauszug"])
     assert subs.get("rechnungen") == "{jahr}/{monat}"
     assert subs.get("finanzen") == "{jahr}/{monat}"
@@ -55,14 +55,14 @@ def test_suggest_subrouting_heuristic():
 
 
 def test_offline_client_suggest_subrouting():
-    from bumble.llm.client import OfflineClient
+    from pollysort.llm.client import OfflineClient
     c = OfflineClient(["rechnungen", "protokolle"])
     subs = c.suggest_subrouting(["rechnungen", "protokolle"])
     assert subs == {"rechnungen": "{jahr}/{monat}"}
 
 
 def test_online_suggest_falls_back_to_heuristic_on_error(monkeypatch):
-    from bumble.llm.client import OpenRouterClient
+    from pollysort.llm.client import OpenRouterClient
     c = OpenRouterClient("k", "m", "e", ["rechnungen", "vertraege"])
 
     def boom(*a, **k):
@@ -74,7 +74,7 @@ def test_online_suggest_falls_back_to_heuristic_on_error(monkeypatch):
 
 def test_correction_respects_subrouting(tmp_path):
     """Auch `zuordnen` legt in den dynamischen Unterordner (nicht nur in den Waben-Root)."""
-    from bumble.review import apply_correction
+    from pollysort.review import apply_correction
     hive = tmp_path / "hive"
     hive.mkdir()
     seed = HiveSeed(categories=["rechnungen", "sonstiges"],

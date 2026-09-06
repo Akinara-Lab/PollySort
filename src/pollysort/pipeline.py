@@ -371,7 +371,7 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
 
     # -- Gedächtnis (§14): jedes erfolgreich analysierte Dokument mit eindeutigem Label
     # merken — auch wenn die Confidence noch unter der Schwelle liegt. So bootstrappt der
-    # Stock aus dem Kaltstart heraus; falsche Frühlabels korrigiert 'bumble assign' (§24).
+    # Stock aus dem Kaltstart heraus; falsche Frühlabels korrigiert 'pollysort assign' (§24).
     if not dry_run and vec is not None and entry.funktion.kategorie != "_unassigned":
         ctx.mind.remember(entry.id, entry.funktion.kategorie, vec,
                           getattr(ctx.client, "embed_model", None))

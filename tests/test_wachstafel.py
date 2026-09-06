@@ -12,13 +12,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed, honig
-from bumble.console import BeeConsole
-from bumble.feedback import Feedback
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient, OpenRouterClient
-from bumble.pipeline import Context, run_cycle
-from bumble.wachstafel import Wachstafel, derive_rules, parse_rules
+from pollysort.config import AppConfig, HiveSeed, honig
+from pollysort.console import BeeConsole
+from pollysort.feedback import Feedback
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient, OpenRouterClient
+from pollysort.pipeline import Context, run_cycle
+from pollysort.wachstafel import Wachstafel, derive_rules, parse_rules
 
 CATS = ["rechnungen", "internet_2026"]
 

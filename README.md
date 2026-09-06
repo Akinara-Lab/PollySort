@@ -94,11 +94,11 @@ don't fit. PollySort is different:
 
 **Requirement: Python 3.12+.** PollySort is a pure console tool. An isolated install via
 [`pipx`](https://pipx.pypa.io) or [`uv`](https://docs.astral.sh/uv/) is recommended — it puts
-the **`bumble`** command on your PATH on Windows, macOS and Linux without you having to manage
+the **`pollysort`** command on your PATH on Windows, macOS and Linux without you having to manage
 virtual environments.
 
-> 💡 **Note on the command name.** During the beta the executable is still called **`bumble`**
-> (and the scripting CLI **`bumble-cli`**). The product is *PollySort*; the command will be
+> 💡 **Note on the command name.** During the beta the executable is still called **`pollysort`**
+> (and the scripting CLI **`pollysort-cli`**). The product is *PollySort*; the command will be
 > renamed in a later release.
 
 ### Easiest: the installer script
@@ -110,7 +110,7 @@ text-extraction extra:
 - **Windows:** double-click **`install.bat`** — or run `install.bat` in a terminal.
 - **Linux / macOS / Git-Bash:** **`bash install.sh`** (run `chmod +x install.sh` first if needed).
 
-At the end the script reports whether the `bumble` command is ready. If it says `bumble` isn't
+At the end the script reports whether the `pollysort` command is ready. If it says `pollysort` isn't
 on your PATH yet, restart the terminal or run `pipx ensurepath`.
 
 ### Manual install
@@ -124,8 +124,8 @@ cd pollysort
 pipx install ".[extract]"      # or:  uv tool install ".[extract]"
 
 # 3) Verify & launch
-bumble doctor                  # health-check: Python, AI provider, DB, memory
-bumble                         # open the interactive console
+pollysort doctor                  # health-check: Python, AI provider, DB, memory
+pollysort                         # open the interactive console
 ```
 
 The **`[extract]`** extra (DOCX/CSV/HTML → Markdown, MIME detection via libmagic) is
@@ -147,7 +147,7 @@ pipx install .                 # or:  uv tool install .
 
 ### Run without installing
 
-From the cloned repo you can always run `python Beehive.py [path]`. If it's launched under an
+From the cloned repo you can always run `python polly.py [path]`. If it's launched under an
 old Python by mistake, it re-launches itself into the project's own `.venv`.
 
 ---
@@ -155,8 +155,8 @@ old Python by mistake, it re-launches itself into the project's own `.venv`.
 ## First run
 
 ```bash
-bumble                    # opens the most recently used project
-bumble "C:\path\to\dir"   # opens/creates a project at this path
+pollysort                    # opens the most recently used project
+pollysort "C:\path\to\dir"   # opens/creates a project at this path
 ```
 
 A **project** is just a folder whose documents get sorted; the loose files in it are your
@@ -446,14 +446,14 @@ Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
 uv pip install -e ".[extract,dev]"    # or: python -m venv .venv && pip install -e ".[extract,dev]"
 
 pytest -q
-ruff check src Beehive.py tests
+ruff check src polly.py tests
 ```
 
 Stack: Python ≥ 3.12 · `cmd` REPL + `pyreadline3` · `rich` output · `pydantic v2` models ·
 `SQLAlchemy 2 Core`/SQLite index · `httpx` (OpenRouter/Ollama) · `watchdog` · `pypdf` (core) +
 `markitdown` (extra) · `pytest` + `ruff`.
 
-For contributors and AI assistants, `bumble_beebliothek_projektbrief.md` is an onboarding brief
+For contributors and AI assistants, `Pollysort_projektbrief.md` is an onboarding brief
 (architecture, process order, design intentions), `TODO.md` is the roadmap, and `CHANGELOG.md`
 tracks releases.
 
@@ -470,14 +470,14 @@ Planned for upcoming releases (see `TODO.md`):
 - **Full English UI** — English command names shown in help and all runtime messages in EN mode
   (English aliases already work today).
 - **Real license activation** against a Merchant of Record + signed offline certificate.
-- **Release workflow**, and the renaming of the `bumble` command to `pollysort`.
+- **Release workflow**, and the renaming of the `pollysort` command to `pollysort`.
 
 ---
 
 ## FAQ
 
-**Why is the command `bumble` and not `pollysort`?**
-The project was renamed to PollySort during the beta; the executable is still `bumble` for now
+**Why is the command `pollysort` and not `pollysort`?**
+The project was renamed to PollySort during the beta; the executable is still `pollysort` for now
 and will be renamed in a later release.
 
 **Does it delete my files?**

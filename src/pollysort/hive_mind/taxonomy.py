@@ -47,7 +47,7 @@ class Taxonomy:
         resp = "\n".join(f"{_toml_val(k)} = {_toml_val(v)}"
                          for k, v in self.responsibility.items())
         self.path.write_text(
-            "# Bumble Beebliothek — taxonomy.toml (LEBENDES Gedächtnis, §14.2)\n"
+            "# PollySort — taxonomy.toml (LEBENDES Gedächtnis, §14.2)\n"
             "# Wächst über den hive.toml-Seed hinaus. Nicht von Hand nötig zu pflegen.\n\n"
             f"categories = {_toml_val(self.categories)}\n\n"
             f"[responsibility]\n{resp}\n",

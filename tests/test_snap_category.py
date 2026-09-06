@@ -4,10 +4,10 @@ einrasten — es entstehen keine Ordner außerhalb der vorgeschlagenen Menge.
 
 from __future__ import annotations
 
-from bumble.assigner import assign
-from bumble.config import HiveSeed
-from bumble.heuristics import snap_category
-from bumble.hive_mind import HiveMind, Taxonomy
+from pollysort.assigner import assign
+from pollysort.config import HiveSeed
+from pollysort.heuristics import snap_category
+from pollysort.hive_mind import HiveMind, Taxonomy
 
 
 def test_snap_exact_and_case():
@@ -59,7 +59,7 @@ def test_assign_unknown_label_without_match_becomes_review(tmp_path):
 
 
 def test_prompt_builds_strict_and_free(monkeypatch):
-    from bumble.llm.client import OpenRouterClient
+    from pollysort.llm.client import OpenRouterClient
     strict = OpenRouterClient("k", "m", "e", ["rechnungen", "vertraege"])
     parts = strict._build_content(text="hallo", file_path=None)
     txt = parts[0]["text"]

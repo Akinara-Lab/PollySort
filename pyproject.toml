@@ -56,15 +56,15 @@ full = ["pollysort[extract]"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [project.scripts]
-bumble = "bumble.repl:main"          # interaktive Konsole (primär)
-bumble-cli = "bumble.cli:app"        # Scripting-/Skript-CLI (sekundär)
+pollysort = "pollysort.repl:main"          # interaktive Konsole (primär)
+pollysort-cli = "pollysort.cli:app"        # Scripting-/Skript-CLI (sekundär)
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bumble"]
+packages = ["src/pollysort"]
 
 [tool.ruff]
 line-length = 110

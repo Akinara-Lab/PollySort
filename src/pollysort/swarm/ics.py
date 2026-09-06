@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-PRODID = "-//Bumble Beebliothek//Pollen-Uhr//DE"
+PRODID = "-//PollySort//Pollen-Uhr//DE"
 
 
 def _escape(text: str) -> str:
@@ -28,7 +28,7 @@ def _date_compact(iso_date: str) -> str | None:
         return None
 
 
-def build_ics(termine, *, name: str = "Bumble Beebliothek — Pollen-Kalender") -> str:
+def build_ics(termine, *, name: str = "PollySort — Pollen-Kalender") -> str:
     """Eine Liste ``Termin`` als iCalendar-String (RFC 5545) rendern."""
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     lines = [
@@ -50,7 +50,7 @@ def build_ics(termine, *, name: str = "Bumble Beebliothek — Pollen-Kalender") 
         summary = titel if titel.lower().startswith("deadline") else f"Deadline: {titel}"
         lines += [
             "BEGIN:VEVENT",
-            f"UID:{tid}@bumble-beebliothek",
+            f"UID:{tid}@pollysort",
             f"DTSTAMP:{stamp}",
             f"DTSTART;VALUE=DATE:{tag}",
             f"SUMMARY:{_escape(summary)}",

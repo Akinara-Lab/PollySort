@@ -8,7 +8,7 @@ Use GitHub's private reporting instead:
 [**Report a vulnerability**](https://github.com/Akinara-Lab/PollySort/security/advisories/new).
 Only the maintainers can see it.
 
-Please include: what you found, how to reproduce it, which version (`bumble doctor` prints
+Please include: what you found, how to reproduce it, which version (`pollysort doctor` prints
 it), and what you think the impact is.
 
 We aim to acknowledge within a few working days and to keep you updated while we work on a

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble import config
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.models import Status
-from bumble.pipeline import Context, run_cycle
+from pollysort import config
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.models import Status
+from pollysort.pipeline import Context, run_cycle
 
 
 def _ctx(hive: Path, seed: HiveSeed | None = None) -> Context:
@@ -37,7 +37,7 @@ def test_confidence_learns_and_thresholds(tmp_path):
     run_cycle(ctx, mode="index")
 
     # 21. Rechnung wird mit >= 0.75 automatisch zugeordnet
-    from bumble.assigner import assign
+    from pollysort.assigner import assign
     vec = ctx.client.embed("Rechnung Nr 999 ACME Betrag 99900 EUR UST zahlbar")
     a = assign(embedding=vec, llm_kategorie="rechnungen", hive=ctx.mind, taxonomy=ctx.taxonomy)
     assert a.kategorie == "rechnungen"
@@ -58,7 +58,7 @@ def test_assign_moves_centroid(tmp_path):
     row = ctx.store.query()[0]
 
     before = ctx.mind.count("vertraege")
-    from bumble.review import apply_correction
+    from pollysort.review import apply_correction
     apply_correction(ctx, row["id"], "vertraege", mode="index", source="assign")
     assert ctx.mind.count("vertraege") == before + 1          # Zentroid verschoben
     assert (config.honig(hive) / "korrekturen.jsonl").exists()
@@ -85,7 +85,7 @@ def test_sweep_detects_drift(tmp_path):
     _rechnung(hive, 1)
     run_cycle(ctx, mode="index")                 # bleibt lose im Root liegen
 
-    from bumble.sweeper import sweep
+    from pollysort.sweeper import sweep
     (hive / "rechnung_1.txt").unlink()           # verschwunden
     (hive / "Rechnungen").mkdir(exist_ok=True)   # neu: direkt in einen Kategorie-Ordner gelegt
     (hive / "Rechnungen" / "direkt.txt").write_text(
@@ -103,7 +103,7 @@ def test_undertaker_roundtrip(tmp_path):
     run_cycle(ctx, mode="index")
     row = ctx.store.query()[0]
 
-    from bumble.undertaker import buried_candidates, bury, resurrect, undertake
+    from pollysort.undertaker import buried_candidates, bury, resurrect, undertake
     dest = undertake(hive, ctx.store, row["id"])
     assert dest and dest.exists() and dest.parent.name == "papierkorb"
     assert ctx.store.by_id(row["id"])["status"] == Status.QUARANTINED.value
@@ -125,10 +125,10 @@ def test_reflection_and_suggest(tmp_path):
             f"Foerderantrag {i} Zuschuss Antrag Behoerde foerderung", encoding="utf-8")
     run_cycle(ctx, mode="index")
 
-    from bumble.hive_mind.reflection import Reflection
+    from pollysort.hive_mind.reflection import Reflection
     proposals = Reflection(hive).reflect(ctx.store, ctx.mind)
     assert any(p.kind == "new" for p in proposals)
 
-    from bumble.recommender import suggest
+    from pollysort.recommender import suggest
     hints = suggest(ctx, "para")
     assert hints and any("Dynamisch" in h for h in hints)

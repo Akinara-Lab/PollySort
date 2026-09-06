@@ -214,8 +214,8 @@ class OpenRouterClient:
         self.usage = Usage()
         self._headers = {
             "Authorization": f"Bearer {api_key}",
-            "HTTP-Referer": "https://github.com/nik/bumble-beebliothek",
-            "X-Title": "Bumble Beebliothek",
+            "HTTP-Referer": "https://github.com/Akinara-Lab/PollySort",
+            "X-Title": "PollySort",
         }
 
     # -- Analyse --------------------------------------------------------------

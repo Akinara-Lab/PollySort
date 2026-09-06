@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble import config
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.pipeline import Context, run_cycle
-from bumble.store import Store
+from pollysort import config
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.pipeline import Context, run_cycle
+from pollysort.store import Store
 
 
 def _make_hive(tmp_path: Path) -> Path:

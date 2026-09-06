@@ -21,7 +21,7 @@ uv venv --python 3.12
 uv pip install -e ".[extract,dev]"
 
 .venv/Scripts/python.exe -m pytest -q            # must be green
-.venv/Scripts/python.exe -m ruff check src Beehive.py tests   # must be clean
+.venv/Scripts/python.exe -m ruff check src polly.py tests   # must be clean
 ```
 
 Both run in CI across {Windows, macOS, Linux} x {Python 3.12, 3.13}. A red build will not

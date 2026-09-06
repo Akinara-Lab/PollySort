@@ -55,12 +55,12 @@ fi
 
 # 5) Ergebnis prüfen.
 say "Prüfe Installation …"
-if command -v bumble >/dev/null 2>&1; then
-  ok "Befehl 'bumble' verfügbar — $(bumble-cli --version 2>/dev/null || echo 'bereit')"
-  say "Fertig! Starte das Tool mit:  bumble"
+if command -v pollysort >/dev/null 2>&1; then
+  ok "Befehl 'pollysort' verfügbar — $(pollysort-cli --version 2>/dev/null || echo 'bereit')"
+  say "Fertig! Starte das Tool mit:  pollysort"
 else
-  err "'bumble' ist noch nicht im PATH."
+  err "'pollysort' ist noch nicht im PATH."
   echo "   Tipp: Terminal neu öffnen, oder 'pipx ensurepath' (bzw. 'uv tool update-shell')"
-  echo "   ausführen und erneut versuchen. Alternativ direkt: $PY Beehive.py"
+  echo "   ausführen und erneut versuchen. Alternativ direkt: $PY polly.py"
   exit 1
 fi

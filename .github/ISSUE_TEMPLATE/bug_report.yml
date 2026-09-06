@@ -21,7 +21,7 @@ body:
     attributes:
       label: How can we reproduce it?
       placeholder: |
-        1. bumble "C:\some\folder"
+        1. pollysort "C:\some\folder"
         2. type 'sortiere'
         3. ...
     validations:
@@ -29,7 +29,7 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: Output of `bumble doctor`
+      label: Output of `pollysort doctor`
       description: Tells us your Python version, AI provider and database state.
       render: text
     validations:

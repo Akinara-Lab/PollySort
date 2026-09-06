@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import bumble.i18n as i18n
+import pollysort.i18n as i18n
 
 
 def test_language_switch_and_fallback():
@@ -42,7 +42,7 @@ def test_placeholders_match_across_languages():
 
 
 def test_english_aliases_exist():
-    from bumble.repl import BeehiveShell
+    from pollysort.repl import BeehiveShell
     # Englische Befehls-Aliase zeigen auf dieselben Handler wie die deutschen.
     assert BeehiveShell.do_sort is BeehiveShell.do_sortiere
     assert BeehiveShell.do_preview is BeehiveShell.do_vorschau

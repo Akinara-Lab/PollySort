@@ -36,7 +36,7 @@ jobs:
 
       # Linting.
       - name: Ruff
-        run: uv run ruff check src Beehive.py tests
+        run: uv run ruff check src polly.py tests
 
       # Tests.
       - name: Pytest

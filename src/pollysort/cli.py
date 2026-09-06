@@ -47,7 +47,7 @@ def main(
     version: bool = typer.Option(False, "--version", help="Version anzeigen."),
 ):
     if version:
-        typer.echo(f"bumble {__version__}")
+        typer.echo(f"pollysort {__version__}")
         raise typer.Exit()
     _STATE.update(quiet=quiet, plain=plain, no_emoji=no_emoji, json=json_out, offline=offline)
 
@@ -116,7 +116,7 @@ def init(
 
     config.save_config(cfg)
     Journal(hive_path).init_header(hive_path)
-    con.honey("Ordner bereit. Dateien hineinlegen und 'bumble scan --mode move' ausführen.", "🍯")
+    con.honey("Ordner bereit. Dateien hineinlegen und 'pollysort-cli scan --mode move' ausführen.", "🍯")
     if cfg.llm_provider == "openrouter":
         con.ask("Hinweis: In Stufe 1 werden Dokumentinhalte zur Analyse an OpenRouter "
                 "übertragen (§17). Vertrauliches via .beeignore/exclude ausnehmen.", "⚠️")
@@ -211,7 +211,7 @@ def status(hive: str | None = typer.Option(None, "--hive")):
     for st, n in sorted(counts.items()):
         con.raw(f"    {st:<13} {n}")
     if counts.get("needs_review"):
-        con.ask(f"{counts['needs_review']} offene Rückfrage(n) → 'bumble review'")
+        con.ask(f"{counts['needs_review']} offene Rückfrage(n) → 'pollysort-cli review'")
 
 
 @app.command("list")
@@ -391,7 +391,7 @@ def bury(
     for p in candidates:
         con.raw(f"    🗑️ {p.name}")
     if not confirm:
-        con.ask("Nichts gelöscht. Zum Ausführen: 'bumble bury --confirm'.")
+        con.ask("Nichts gelöscht. Zum Ausführen: 'pollysort-cli bury --confirm'.")
         raise typer.Exit(0)
     answer = typer.prompt(f'Wirklich {len(candidates)} Dateien endgültig löschen? Tippe "'
                           f'{len(candidates)}"')
@@ -449,7 +449,7 @@ def hive_review(hive: str | None = typer.Option(None, "--hive")):
         return
     for p in proposals:
         con.raw(f"    [{p.slug}] {p.describe()}")
-    con.info("Übernehmen mit: bumble hive approve <slug>", "🐣")
+    con.info("Übernehmen mit: pollysort-cli hive approve <slug>", "🐣")
 
 
 @hive_app.command("approve")
@@ -506,7 +506,7 @@ def export(
         outp.write_text(_json.dumps(rows, ensure_ascii=False, indent=2, default=str),
                         encoding="utf-8")
     else:
-        lines = ["# 🐝 Bumble Beebliothek — Export", ""]
+        lines = ["# 🐝 PollySort — Export", ""]
         for r in rows:
             lines += [f"## {r.get('title') or r['filename']}",
                       f"- Kategorie: {r.get('kategorie')}  |  Status: {r.get('status')}  "
@@ -537,14 +537,14 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
 
 @app.command()
 def shell(hive: str | None = typer.Option(None, "--hive")):
-    """Interaktive Bienenstock-Konsole (REPL) — Befehle ohne 'bumble'-Präfix (§19.1)."""
+    """Interaktive Bienenstock-Konsole (REPL) — Befehle ohne 'pollysort'-Präfix (§19.1)."""
     con = _con()
     _resolve_or_exit(con, hive)
-    con.honey("🐝 bumble-Shell. Befehle direkt eingeben ('help', 'exit').", "🐝")
+    con.honey("🐝 pollysort-Shell. Befehle direkt eingeben ('help', 'exit').", "🐝")
     import shlex
     while True:
         try:
-            raw = input("🐝 bumble> ").strip()
+            raw = input("🐝 pollysort> ").strip()
         except (EOFError, KeyboardInterrupt):
             break
         if raw in ("exit", "quit", "q"):

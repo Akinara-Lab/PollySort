@@ -1,6 +1,6 @@
 """Reflection & Elder Bee (§14.3) — neue Kategorien vorschlagen & Merges (Human-in-the-Loop).
 
-Vorschläge landen als JSON in ``hive_mind/reflections/`` und warten auf ``bumble hive approve``
+Vorschläge landen als JSON in ``hive_mind/reflections/`` und warten auf ``pollysort-cli hive approve``
 — NIE automatisch ins laufende Schema.
 """
 

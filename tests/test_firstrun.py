@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from bumble import firstrun, i18n
+from pollysort import firstrun, i18n
 
 
 class FakeConsole:
@@ -192,8 +192,8 @@ def test_ollama_probe_is_lazy_and_cached(monkeypatch):
     überhaupt das Banner erschien. Jetzt wird erst geprüft, wenn jemand die Antwort
     braucht — und danach für die Sitzung gemerkt.
     """
-    import bumble.llm.client as client
-    from bumble.repl import BeehiveShell
+    import pollysort.llm.client as client
+    from pollysort.repl import BeehiveShell
 
     calls: list[int] = []
     monkeypatch.setattr(client, "ollama_available", lambda *_a, **_k: calls.append(1) or True)
@@ -214,8 +214,8 @@ def test_yes_no_defaults_and_english_answers(monkeypatch):
     """[J/n] und [j/N] müssen sich unterscheiden — und 'yes' muss im EN-Modus wirken."""
     import builtins
 
-    from bumble.console import BeeConsole
-    from bumble.repl import BeehiveShell
+    from pollysort.console import BeeConsole
+    from pollysort.repl import BeehiveShell
 
     sh = BeehiveShell.__new__(BeehiveShell)
     sh.con = BeeConsole(quiet=True)

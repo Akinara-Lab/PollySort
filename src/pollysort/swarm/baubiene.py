@@ -84,7 +84,7 @@ class Baubiene:
         p = self._charter_path(ch.kategorie)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(
-            "# Bumble Beebliothek — Project Charter (Stufe 2 / Wabenbau, §v0.3)\n\n"
+            "# PollySort — Project Charter (Stufe 2 / Wabenbau, §v0.3)\n\n"
             "[projekt]\n"
             f"kategorie   = {_toml_val(ch.kategorie)}\n"
             f"name        = {_toml_val(ch.name)}\n"

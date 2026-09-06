@@ -4,17 +4,33 @@ Alle nennenswerten Änderungen an **PollySort** (Developed by Akinara).
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
-Interne Metaphern (Bienen/Waben/Honig) und der Paketname `bumble` bleiben bewusst bestehen —
+Interne Metaphern (Bienen/Waben/Honig) und der Paketname `pollysort` bleiben bewusst bestehen —
 sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
+
+### Geändert — Paket-Rebranding auf `pollysort`
+- **Paket `bumble` → `pollysort`.** Der Produktname und der Code-Name sind endlich dieselben.
+  Bewusst **jetzt**, vor dem ersten PyPI-Release: danach wäre der Wechsel ein Bruch für jede
+  bestehende Installation.
+- **Befehle:** `bumble` → **`pollysort`**, `bumble-cli` → **`pollysort-cli`**.
+- **Repo-Starter:** `Beehive.py` → **`polly.py`** (nicht `pollysort.py` — eine gleichnamige
+  Datei neben dem Paket würde beim Start aus dem Repo den Import überschatten).
+- **Globale Ablage:** `~/.beehive` → **`~/.pollysort`**. Eine vorhandene alte Ablage wird beim
+  ersten Start **einmalig übernommen** — sie wird **kopiert, nie verschoben und nie gelöscht**;
+  eine Notiz `UEBERNOMMEN.txt` erklärt, was passiert ist. Neue Env-Variable `POLLYSORT_HOME`;
+  der Altname `BEEHIVE_HOME` wird weiterhin akzeptiert, damit bestehende Skripte nicht brechen.
+- **Der versteckte Projektordner `.honig/` bleibt unverändert** — er liegt in den Ordnern der
+  Nutzer, und ein Rename dort hieße, in fremden Daten aufzuräumen.
+- Alle verbliebenen „Bumble Beebliothek"-Strings gezogen: ICS-`PRODID` und Kalendername,
+  OpenRouter-`X-Title` und `HTTP-Referer`, Charter-, Export- und Config-Header, Docstrings.
 
 ### Geändert — Open Core (Apache-2.0)
 - **Lizenz von Fair-Code auf [Apache-2.0](LICENSE) umgestellt.** PollySort ist damit echtes,
   OSI-anerkanntes Open Source. Grund: Der Wert des Projekts für Akinara liegt in Sichtbarkeit
   und Vertrauen, nicht in Lizenzumsatz — den trägt später das kommerzielle Web-Cockpit.
 - **Lizenz-Gate vollständig aus dem Kern entfernt** (`licensing.py`, `lizenz`,
-  `bumble-cli activate`, Doctor-Lizenzzeile, Projektzähler). Es gibt keine Freigrenze mehr.
+  `pollysort-cli activate`, Doctor-Lizenzzeile, Projektzähler). Es gibt keine Freigrenze mehr.
 - **Ultra Swarm (`sortiere turbo`) ist jetzt frei** — vorher lizenzpflichtig.
 - `NOTICE`, `TRADEMARK.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
   Issue-/PR-Vorlagen ergänzt. `LICENSE-KONZEPT.md` entfällt (Fair-Code-Modell hinfällig).
@@ -44,11 +60,12 @@ sichtbar ist der Produktname PollySort.
   für die Sitzung gemerkt.
 
 ### Qualität
-- **144 Tests grün** (vorher 124), `ruff` clean. Neu: `test_firstrun.py` (20) und
-  `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate).
+- **153 Tests grün** (vorher 124), `ruff` clean. Neu: `test_firstrun.py` (20),
+  `test_doctor.py` (5, inkl. Wächter gegen ein zurückkehrendes Lizenz-Gate) und
+  `test_rename_migration.py` (9 — vor allem: die alte Ablage wird kopiert, nicht verschoben).
 - i18n-Wächter: jeder Katalog-Eintrag muss DE **und** EN haben, mit identischen Platzhaltern.
 - **Wheel-Build erstmals real verifiziert** (`uv build` → Installation in frischem venv →
-  `bumble` und `bumble-cli doctor` laufen). Damit ist der letzte offene Beta-SOLL-Punkt erledigt.
+  `pollysort` und `pollysort-cli doctor` laufen). Damit ist der letzte offene Beta-SOLL-Punkt erledigt.
 
 ## [0.4.0b1] — 2026-07-15 — erste öffentliche Beta
 
@@ -78,12 +95,12 @@ Stufe 2, Rebranding auf PollySort) und macht das Paket beta-tauglich.
 - **Offline-Heuristik** ausgebaut: 254 Begriffe über 12 Kategorien; nahtloser Mid-Run-Fallback
   (≥ 3 KI-Fehler in Folge → Rest des Laufs offline).
 - **CI-Matrix** (`.github/workflows/ci.yml`: ruff + pytest auf {Windows, macOS, Ubuntu} × {3.12, 3.13}).
-- **Installationsanleitung** in der README (clone → `pipx install ".[extract]"` → `bumble`).
+- **Installationsanleitung** in der README (clone → `pipx install ".[extract]"` → `pollysort`).
 
 ### Geändert
-- **Rebranding** des sichtbaren Namens: *Bumble Beebliothek* → *BumbleNara* → **PollySort**
-  (neues ASCII-Banner, „Developed by Akinara", alle sichtbaren Titel, README). Paketname `bumble`,
-  Befehle (`bumble`/`bumble-cli`), `~/.beehive` und `.honig` bleiben bewusst unverändert.
+- **Rebranding** des sichtbaren Namens: *PollySort* → *BumbleNara* → **PollySort**
+  (neues ASCII-Banner, „Developed by Akinara", alle sichtbaren Titel, README). Paketname `pollysort`,
+  Befehle (`pollysort`/`pollysort-cli`), `~/.beehive` und `.honig` bleiben bewusst unverändert.
 - **Paket-Metadaten** für die Beta: Distributionsname `pollysort`, Version `0.4.0b1`, Autor „Akinara".
 - **Hilfe** zeigt jetzt die Optionen von `thema [dunkel|hell|auto]` und `ansicht [statisch|log]`
   (vorher verschluckt), plus `gedaechtnis [approve|neu]`.
@@ -130,7 +147,7 @@ Stufe 2, Rebranding auf PollySort) und macht das Paket beta-tauglich.
 - Migration eines v0.1-Stocks auf den aktuellen Stand ohne Datenverlust verifiziert (QA-Runde 3+4).
 
 ### [0.2.0] — 2026-07-08 — Deployment & lokale KI
-- Paketierung für `pipx` / `uv tool install` (Entry-Points `bumble`, `bumble-cli`).
+- Paketierung für `pipx` / `uv tool install` (Entry-Points `pollysort`, `pollysort-cli`).
 - Kern-Dependencies entschlackt (Extraktion via Extra `[extract]`).
 - Lokale KI über Ollama (`/v1`-API). QA-Runden 1+2: BUG-1…4 + OPT-1…6 behoben.
 

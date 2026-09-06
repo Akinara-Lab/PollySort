@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble import config
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.pipeline import Context, run_cycle
+from pollysort import config
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.pipeline import Context, run_cycle
 
 
 def _ctx(hive: Path, seed: HiveSeed | None = None) -> Context:
@@ -61,7 +61,7 @@ def test_apply_without_cache_still_works(tmp_path):
 # ---- Phase 4: Mid-Run-Fallback auf Offline-Heuristik ----------------------
 def test_midrun_fallback_to_offline(tmp_path):
     """Reißt die KI mitten im Lauf wiederholt ab, sortiert der REST heuristisch weiter."""
-    from bumble.llm.client import LLMError, OfflineClient, Usage
+    from pollysort.llm.client import LLMError, OfflineClient, Usage
 
     class FlakyClient:
         def __init__(self):
@@ -95,7 +95,7 @@ def test_midrun_fallback_to_offline(tmp_path):
 # ---- neu auf bereits konfiguriertem Ordner: .honig sichern statt löschen ----
 def test_reset_honig_backs_up_without_deleting(tmp_path):
     """`neu` → 'Katalog frisch starten' sichert das alte .honig (löscht nichts)."""
-    from bumble.repl import BeehiveShell
+    from pollysort.repl import BeehiveShell
 
     sh = BeehiveShell.__new__(BeehiveShell)     # ohne __init__ (keine globale Config-Kopplung)
     sh.con = BeeConsole(quiet=True)
@@ -120,7 +120,7 @@ def test_ask_aborts_on_abort_word(monkeypatch):
 
     import pytest
 
-    from bumble.repl import AbortAction, BeehiveShell
+    from pollysort.repl import AbortAction, BeehiveShell
 
     sh = BeehiveShell.__new__(BeehiveShell)
     sh.con = BeeConsole(quiet=True)

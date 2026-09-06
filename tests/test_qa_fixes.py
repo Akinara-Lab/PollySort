@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.heuristics import classify
-from bumble.hive_mind import HiveMind
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.models import Status
-from bumble.pipeline import Context, run_cycle
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.heuristics import classify
+from pollysort.hive_mind import HiveMind
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.models import Status
+from pollysort.pipeline import Context, run_cycle
 
 
 def _ctx(hive: Path, seed: HiveSeed | None = None) -> Context:
@@ -75,7 +75,7 @@ def test_bury_purges_catalog(tmp_path):
     run_cycle(ctx, mode="index")
     bee_id = ctx.store.query()[0]["id"]
 
-    from bumble.undertaker import bury, undertake
+    from pollysort.undertaker import bury, undertake
     undertake(hive, ctx.store, bee_id)
     assert ctx.store.by_id(bee_id)["status"] == Status.QUARANTINED.value
 

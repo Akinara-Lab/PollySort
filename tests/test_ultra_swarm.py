@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.pipeline import Context, run_cycle
+from pollysort.config import AppConfig, HiveSeed
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.pipeline import Context, run_cycle
 
 
 def _ctx(hive: Path) -> Context:

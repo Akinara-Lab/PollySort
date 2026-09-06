@@ -81,7 +81,7 @@ class Flugrouten:
 
 def default_path() -> Path:
     """Global, im Benutzerprofil — bewusst NICHT im Projekt-.honig/ (Wachssiegel)."""
-    return config.BEEHIVE_HOME / "flugrouten.toml"
+    return config.POLLYSORT_HOME / "flugrouten.toml"
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     d, e, c = fr.discord, fr.email, fr.calendar
     content = (
-        "# Bumble Beebliothek — Flugrouten der Wächterbienen (§v0.3)\n"
+        "# PollySort — Flugrouten der Wächterbienen (§v0.3)\n"
         "# 🔒 Wachssiegel: Zugangsdaten. Wird NIE an ein LLM übergeben oder im Klartext geloggt.\n"
         "# Secrets via Env überschreibbar: BEEHIVE_DISCORD_TOKEN, BEEHIVE_EMAIL_PASSWORD.\n\n"
         "[discord]\n"

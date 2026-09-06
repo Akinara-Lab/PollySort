@@ -10,13 +10,13 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from bumble.config import AppConfig, HiveSeed, pretty_category
-from bumble.console import BeeConsole
-from bumble.journal import Journal
-from bumble.llm.client import OfflineClient
-from bumble.models import Status
-from bumble.pipeline import Context, run_cycle
-from bumble.sweeper import sweep
+from pollysort.config import AppConfig, HiveSeed, pretty_category
+from pollysort.console import BeeConsole
+from pollysort.journal import Journal
+from pollysort.llm.client import OfflineClient
+from pollysort.models import Status
+from pollysort.pipeline import Context, run_cycle
+from pollysort.sweeper import sweep
 
 
 def _ctx(hive: Path, seed: HiveSeed | None = None) -> Context:

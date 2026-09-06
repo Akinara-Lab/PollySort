@@ -1,7 +1,7 @@
-"""Der Daemon — ``bumble buzz`` (§10.3). Vereint Flugloch-Autosort + Intervall-Sweep.
+"""Der Daemon — ``pollysort buzz`` (§10.3). Vereint Flugloch-Autosort + Intervall-Sweep.
 
 Beide Rhythmen sind unabhängig schaltbar; der laufende Daemon liest die Config je Runde
-neu, sodass ``bumble autosort on/off`` / ``bumble sweep-timer on/off`` ohne Neustart wirken.
+neu, sodass ``pollysort autosort on/off`` / ``pollysort sweep-timer on/off`` ohne Neustart wirken.
 Ein echter ``watchdog``-Observer sorgt (wo verfügbar) für sofortige Reaktion; die
 Poll-Schleife ist der robuste Fallback für Netz-Volumes (§10.1).
 """

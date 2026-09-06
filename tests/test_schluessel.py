@@ -11,7 +11,7 @@ import types
 import httpx
 import pytest
 
-from bumble.llm.client import (
+from pollysort.llm.client import (
     LLMAuthError,
     LLMError,
     OpenRouterClient,
@@ -66,7 +66,7 @@ def test_expired_key_raises_autherror_without_retry(monkeypatch):
         calls["sleep"] += 1
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    monkeypatch.setattr("bumble.llm.client.time.sleep", count_sleep)
+    monkeypatch.setattr("pollysort.llm.client.time.sleep", count_sleep)
 
     client = OpenRouterClient(api_key=KEY, model="m", embed_model="e", categories=["x"])
     with pytest.raises(LLMAuthError) as ei:
@@ -87,7 +87,7 @@ def test_transient_500_is_retried(monkeypatch):
         return _resp(500)
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    monkeypatch.setattr("bumble.llm.client.time.sleep", lambda s: None)
+    monkeypatch.setattr("pollysort.llm.client.time.sleep", lambda s: None)
 
     client = OpenRouterClient(api_key=KEY, model="m", embed_model="e", categories=["x"])
     with pytest.raises(LLMError) as ei:

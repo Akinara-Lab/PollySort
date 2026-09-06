@@ -1,7 +1,7 @@
-"""Bumble Beebliothek — interaktive Bienenstock-Konsole (REPL).
+"""PollySort — interaktive Bienenstock-Konsole (REPL).
 
-Der eigentliche Konsolen-Code. Nach der Installation startet ihn der Befehl ``bumble``;
-aus dem Repo heraus ``python Beehive.py``. Beide Wege rufen ``main()`` auf.
+Der eigentliche Konsolen-Code. Nach der Installation startet ihn der Befehl ``pollysort``;
+aus dem Repo heraus ``python polly.py``. Beide Wege rufen ``main()`` auf.
 
 Ein Projekt ist ein Ordner, dessen lose Dateien der Posteingang sind — 'sortiere' (oder 's')
 räumt sie in Kategorie-Ordner ein. Alles Generierte liegt versteckt in EINEM Ordner '.honig'.
@@ -15,15 +15,15 @@ import shlex
 import sys
 from pathlib import Path
 
-from bumble import __version__, config, i18n
-from bumble.config import DEFAULT_CATEGORIES, HiveSeed
-from bumble.console import BeeConsole, resolve_theme
-from bumble.guards import IgnoreMatcher
-from bumble.journal import Journal
-from bumble.llm import build_client
-from bumble.lock import QueenLock, QueenLockError
-from bumble.pipeline import Context, run_cycle
-from bumble.scout import walk
+from pollysort import __version__, config, i18n
+from pollysort.config import DEFAULT_CATEGORIES, HiveSeed
+from pollysort.console import BeeConsole, resolve_theme
+from pollysort.guards import IgnoreMatcher
+from pollysort.journal import Journal
+from pollysort.llm import build_client
+from pollysort.lock import QueenLock, QueenLockError
+from pollysort.pipeline import Context, run_cycle
+from pollysort.scout import walk
 
 # Pfeiltasten-Historie & Zeilenbearbeitung. Unter Windows via pyreadline3, sonst GNU readline.
 try:
@@ -66,8 +66,8 @@ class _AiProbe:
         self.last_reason: str | None = None
 
     def __call__(self, finding) -> tuple[str, list[str]]:
-        from bumble.extractor import extract
-        from bumble.models import Status
+        from pollysort.extractor import extract
+        from pollysort.models import Status
         a, status, reason = extract(finding, self._client, max_file_mb=100)
         if status != Status.INDEXED:
             self.errors += 1
@@ -86,7 +86,7 @@ class BeehiveShell(cmd.Cmd):
         self._theme_pref = _cfg.theme                 # dark | light | auto (Nutzer-Voreinstellung)
         self.con = BeeConsole(theme=resolve_theme(_cfg.theme))
         self._static_view = _cfg.static_view          # statische Ansicht (kein Log-Scrolling)
-        from bumble import i18n
+        from pollysort import i18n
         i18n.set_language(getattr(_cfg, "language", "de"))   # UI-Sprache (de|en)
         self.hive: Path | None = hive
         self.offline = True
@@ -180,9 +180,9 @@ class BeehiveShell(cmd.Cmd):
     def _load_history(self) -> Path | None:
         if readline is None:
             return None
-        path = config.BEEHIVE_HOME / "history"
+        path = config.POLLYSORT_HOME / "history"
         try:
-            config.BEEHIVE_HOME.mkdir(parents=True, exist_ok=True)
+            config.POLLYSORT_HOME.mkdir(parents=True, exist_ok=True)
             if path.exists():
                 readline.read_history_file(str(path))
             readline.set_history_length(500)
@@ -218,12 +218,12 @@ class BeehiveShell(cmd.Cmd):
     def _global_onboarding(self) -> None:
         """Einmalige Grundeinrichtung VOR den Projekten: Sprache → Darstellung → KI.
 
-        Der Ablauf selbst liegt in :mod:`bumble.firstrun` (dort ohne Terminal testbar);
+        Der Ablauf selbst liegt in :mod:`pollysort.firstrun` (dort ohne Terminal testbar);
         hier wird nur verdrahtet und das Ergebnis persistiert. Die Flugrouten-Frage ist
         bewusst NICHT mehr Teil des Erststarts: ohne Projekt gibt es noch keine Deadlines,
         über die jemand benachrichtigt werden könnte — der Hinweis steht jetzt im Überblick.
         """
-        from bumble import firstrun
+        from pollysort import firstrun
         cfg = config.load_config()
         if cfg.onboarded:
             # Bestandsnutzer: Einrichtung steht schon — nur die ersten Handgriffe nachreichen.
@@ -306,7 +306,7 @@ class BeehiveShell(cmd.Cmd):
                     self._show_inbox()
 
     def _show_inbox(self) -> None:
-        from bumble import i18n
+        from pollysort import i18n
         n = self._inbox_count()
         if n:
             self.con.honey(i18n.t("inbox.some", n=n), "📥")
@@ -336,7 +336,7 @@ class BeehiveShell(cmd.Cmd):
         from rich.text import Text
 
         # Die wichtigsten Kürzel gleich oben — der Rest ist gruppiert darunter.
-        from bumble import i18n
+        from pollysort import i18n
         self.con.info(i18n.t("help.shortcuts"), "⌨️")
         groups = {
             "🐝 Täglich benötigt": [
@@ -460,7 +460,7 @@ class BeehiveShell(cmd.Cmd):
         """scan — den ganzen Ordner auf manuelle Änderungen prüfen (verschoben/geändert/neu)
         und aus manuellen Verschiebungen ZWISCHEN Waben lernen (Selbstlern-Schleife)."""
         ctx = self._ctx()
-        from bumble.sweeper import sweep
+        from pollysort.sweeper import sweep
         try:
             with QueenLock(ctx.hive):
                 report = sweep(ctx, mode="index")
@@ -510,7 +510,7 @@ class BeehiveShell(cmd.Cmd):
                cache: dict | None = None, announce: bool = True, workers: int = 1):
         """Einen Sortier-Lauf ausführen und die Summary zurückgeben (oder None bei Lock-Fehler)."""
         ctx = self._ctx()
-        from bumble.wachstafel import Wachstafel
+        from pollysort.wachstafel import Wachstafel
         if announce and Wachstafel(self.hive).exists():
             self.con.bloom("Spurbienen fliegen aus (unter Beachtung der gelernten "
                            "Wachstafel-Regeln) …", "🐝")
@@ -599,7 +599,7 @@ class BeehiveShell(cmd.Cmd):
     def _deadlines_wachen(self) -> None:
         """Fällige Deadlines prüfen; bei aktiven Flugrouten echt versenden (Anti-Spam via Flag)."""
         try:
-            from bumble.swarm import Waechterbiene
+            from pollysort.swarm import Waechterbiene
             Waechterbiene(self._ctx()).deadlines_pruefen(innerhalb_tage=7)
         except Exception:
             pass          # der Terminwächter darf die Eingangs-Wache nie stören
@@ -613,7 +613,7 @@ class BeehiveShell(cmd.Cmd):
 
         Funktioniert aus jeder Ebene und bricht keinen Teil ab, wenn einer scheitert.
         """
-        from bumble import i18n
+        from pollysort import i18n
         # Wie am Anfang: Banner (Name) zeigen, damit 'home' sich wie der Startbildschirm anfühlt.
         self.con.raw(BANNER, style="honey")
         self.con.info(f"v{__version__} · 'hilfe' zeigt alle Befehle", "🐝")
@@ -625,7 +625,7 @@ class BeehiveShell(cmd.Cmd):
             self.con.info(f"Projekt: {seed.name or self.hive.name}  ·  {self.hive}", "📂")
             self.con.info(f"Modus: {seed.provider} · Überwachung: {seed.watch}", "🧠")
             try:
-                from bumble.store import Store
+                from pollysort.store import Store
                 counts = Store(self.hive).status_counts()
             except Exception:
                 counts = {}
@@ -641,7 +641,7 @@ class BeehiveShell(cmd.Cmd):
                 self.con.error(f"{counts['error']} mit Fehler → 'liste error'")
             # Anstehende Deadlines des Schwarms (nie den Home-Überblick abbrechen lassen).
             try:
-                from bumble.swarm import Koenigin
+                from pollysort.swarm import Koenigin
                 faellig = Koenigin(self._ctx()).schwarm_status().get("deadlines_faellig", 0)
                 if faellig:
                     self.con.ask(f"{faellig} Deadline(s) in ≤ 7 Tagen → 'kalender'")
@@ -662,7 +662,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_status(self, _arg: str) -> None:
         """status — Überblick: lose Dateien, sortierte Einträge, offene Fälle."""
-        from bumble.store import Store
+        from pollysort.store import Store
         counts = Store(self.hive).status_counts()
         seed = config.load_seed(self.hive)
         self.con.info(f"Ordner: {self.hive}", "📂")
@@ -682,8 +682,8 @@ class BeehiveShell(cmd.Cmd):
 
     def do_liste(self, arg: str) -> None:
         """liste [kategorie|status] — sortierte Einträge auflisten."""
-        from bumble.models import Status
-        from bumble.store import Store
+        from pollysort.models import Status
+        from pollysort.store import Store
         arg = arg.strip().lower()
         store = Store(self.hive)
         if arg in {s.value for s in Status}:
@@ -698,7 +698,7 @@ class BeehiveShell(cmd.Cmd):
         if not arg.strip():
             self.con.ask("Nutzung: suche <wort>")
             return
-        from bumble.store import Store
+        from pollysort.store import Store
         self._table(Store(self.hive).query(keyword=arg.strip()))
 
     # ------------------------------------------------------------------ #
@@ -707,7 +707,7 @@ class BeehiveShell(cmd.Cmd):
     def do_rueckfragen(self, _arg: str) -> None:
         """rueckfragen — unsichere Dateien gebündelt & interaktiv zuordnen."""
         ctx = self._ctx()
-        from bumble.review import review
+        from pollysort.review import review
         try:
             with QueenLock(ctx.hive):
                 review(ctx, mode="move")
@@ -723,7 +723,7 @@ class BeehiveShell(cmd.Cmd):
             self.con.ask("Nutzung: zuordnen <id> <kategorie>")
             return
         ctx = self._ctx()
-        from bumble.review import apply_correction
+        from pollysort.review import apply_correction
         old = apply_correction(ctx, parts[0], parts[1], mode="move", source="assign")
         if old is None:
             self.con.error(f"Kein Eintrag '{parts[0]}'.")
@@ -733,7 +733,7 @@ class BeehiveShell(cmd.Cmd):
 
     def _reflektieren(self, ctx, *, laut: bool = True) -> list:
         """Königin liest die Korrekturen und ritzt Regeln in die Wachstafel (RISE + ACE)."""
-        from bumble.swarm import Koenigin
+        from pollysort.swarm import Koenigin
         if laut:
             self.con.bloom("Die Königin studiert die Korrekturen und ritzt neue Regeln "
                            "in die Wachstafel …", "🐝")
@@ -749,8 +749,8 @@ class BeehiveShell(cmd.Cmd):
     def do_reflektiere(self, _arg: str) -> None:
         """reflektiere — Regeln aus deinen Korrekturen zeigen und nach Rückfrage ritzen."""
         ctx = self._ctx()
-        from bumble.feedback import Feedback
-        from bumble.wachstafel import Wachstafel
+        from pollysort.feedback import Feedback
+        from pollysort.wachstafel import Wachstafel
         wt = Wachstafel(ctx.hive)
         rules, n = wt.vorschau(Feedback(ctx.hive), categories=ctx.taxonomy.categories)
         if not rules:
@@ -773,7 +773,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_wachstafel(self, arg: str) -> None:
         """wachstafel [leeren] — gelernte Projekt-Regeln zeigen (oder verwerfen)."""
-        from bumble.wachstafel import Wachstafel
+        from pollysort.wachstafel import Wachstafel
         wt = Wachstafel(self.hive)
         if arg.strip().lower() in ("leeren", "loeschen", "löschen", "clear"):
             if not wt.exists():
@@ -797,7 +797,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_doctor(self, _arg: str) -> None:
         """doctor — Health-Check: Interpreter, KI-Provider, Datenbank, Extras, Gedächtnis."""
-        from bumble.doctor import run_checks
+        from pollysort.doctor import run_checks
         icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
         self.con.rule("🩺 Doctor")
         for label, status, detail in run_checks(self.hive):
@@ -805,7 +805,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_sprache(self, arg: str) -> None:
         """sprache <de|en> — UI-Sprache umschalten (auch: language, lang)."""
-        from bumble import i18n
+        from pollysort import i18n
         choice = arg.strip().lower()
         if choice not in ("de", "en", "deutsch", "english", "englisch"):
             self.con.ask(i18n.t("lang.usage"))
@@ -840,11 +840,11 @@ class BeehiveShell(cmd.Cmd):
         """gedaechtnis [approve <slug> | neu] — Kategorien/Vorschläge zeigen; 'neu' baut das
         Gedächtnis mit dem aktuellen Embedding-Modell neu auf (nach einem Modellwechsel)."""
         ctx = self._ctx()
-        from bumble.hive_mind.reflection import Reflection
+        from pollysort.hive_mind.reflection import Reflection
         refl = Reflection(ctx.hive)
         parts = shlex.split(arg)
         if len(parts) == 2 and parts[0] == "approve":
-            from bumble.migrate import approve
+            from pollysort.migrate import approve
             p = refl.get(parts[1])
             if not p:
                 self.con.error(f"Kein Vorschlag '{parts[1]}'.")
@@ -869,8 +869,8 @@ class BeehiveShell(cmd.Cmd):
     def _reindex_gedaechtnis(self, ctx) -> None:
         """'gedaechtnis neu' — alle einsortierten Einträge mit dem aktuellen Embedding-Modell
         neu einbetten (F1-Remedy). Fragt vorher nach; online kostet es je Eintrag einen Call."""
-        from bumble.models import Status
-        from bumble.pipeline import reindex_memory
+        from pollysort.models import Status
+        from pollysort.pipeline import reindex_memory
         total = len(ctx.store.query(status=Status.ASSIGNED.value))
         if total == 0:
             self.con.info("Kein einsortierter Bestand — nichts neu einzubetten.", "🧠")
@@ -892,7 +892,7 @@ class BeehiveShell(cmd.Cmd):
     def do_empfehlung(self, arg: str) -> None:
         """empfehlung [para|johnny|dewey] — Ablage-Strategie + dynamische Hinweise."""
         ctx = self._ctx()
-        from bumble.recommender import suggest
+        from pollysort.recommender import suggest
         suggest(ctx, arg.strip() or "para")
 
     # ------------------------------------------------------------------ #
@@ -900,7 +900,7 @@ class BeehiveShell(cmd.Cmd):
     # ------------------------------------------------------------------ #
     def do_modell(self, arg: str) -> None:
         """modell [name|id|liste] — OpenRouter-Modell (Nektar-Sorte) im Betrieb wechseln."""
-        from bumble.config import NEKTAR_SORTEN
+        from pollysort.config import NEKTAR_SORTEN
         cfg = config.load_config()
         arg = arg.strip()
         if arg.lower() in ("liste", "list", "ls"):
@@ -946,7 +946,7 @@ class BeehiveShell(cmd.Cmd):
     def _schluessel_status(self) -> None:
         import os
 
-        from bumble.flugrouten import mask
+        from pollysort.flugrouten import mask
         self.con.rule("Nektar-Quelle (OpenRouter-Schlüssel)")
         env = os.environ.get("OPENROUTER_API_KEY")
         stored = config.load_credentials()
@@ -962,7 +962,7 @@ class BeehiveShell(cmd.Cmd):
                       "Entfernen: 'schluessel entfernen'", "🐝")
 
     def _schluessel_test(self) -> None:
-        from bumble.llm.client import verify_openrouter_key
+        from pollysort.llm.client import verify_openrouter_key
         key = config.load_credentials()
         if not key:
             self.con.info("Kein Schlüssel hinterlegt. 'schluessel setzen' weist einen aus.", "🔑")
@@ -977,7 +977,7 @@ class BeehiveShell(cmd.Cmd):
     def _schluessel_setzen(self) -> None:
         import os
 
-        from bumble.llm.client import verify_openrouter_key
+        from pollysort.llm.client import verify_openrouter_key
         if os.environ.get("OPENROUTER_API_KEY"):
             self.con.ask("Hinweis: OPENROUTER_API_KEY (Umgebungsvariable) hat Vorrang vor dem "
                          "gespeicherten Schlüssel und wird nicht überschrieben.")
@@ -1078,8 +1078,8 @@ class BeehiveShell(cmd.Cmd):
 
     def do_wabenbau(self, arg: str) -> None:
         """wabenbau [kategorie] — Stufe 2: aus einer Wabe ein Projekt bauen (Bienenstock.md)."""
-        from bumble.config import pretty_category
-        from bumble.swarm import Baubiene
+        from pollysort.config import pretty_category
+        from pollysort.swarm import Baubiene
         ctx = self._ctx()
         cats = ctx.taxonomy.categories
         kat = arg.strip().lower()
@@ -1115,7 +1115,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_kalender(self, arg: str) -> None:
         """kalender [melden] — Deadlines zeigen; 'kalender melden' schickt fällige Erinnerungen."""
-        from bumble.swarm import Waechterbiene
+        from pollysort.swarm import Waechterbiene
         w = Waechterbiene(self._ctx())
         offen = w.kalender.offen()
         if not offen:
@@ -1139,7 +1139,7 @@ class BeehiveShell(cmd.Cmd):
 
     def do_schwarm(self, _arg: str) -> None:
         """schwarm — Überblick über Königin & Bienen (Waben, offene Fälle, Projekte, Deadlines)."""
-        from bumble.swarm import Koenigin
+        from pollysort.swarm import Koenigin
         st = Koenigin(self._ctx()).schwarm_status()
         self.con.rule("Der Schwarm")
         self.con.info(f"👑 Königin orchestriert {st['waben']} Wabe(n) · "
@@ -1164,7 +1164,7 @@ class BeehiveShell(cmd.Cmd):
         elif sub in ("test", "testflug"):
             self._flugrouten_test()
         elif sub in ("aus", "off", "deaktivieren", "stopp"):
-            from bumble.flugrouten import Flugrouten, save_flugrouten
+            from pollysort.flugrouten import Flugrouten, save_flugrouten
             save_flugrouten(Flugrouten())
             self.con.info("Alle Flugrouten stillgelegt — die Wächterbienen bleiben im Stock.",
                           "🧭")
@@ -1174,7 +1174,7 @@ class BeehiveShell(cmd.Cmd):
     do_api = do_flugrouten
 
     def _flugrouten_status(self) -> None:
-        from bumble.flugrouten import load_flugrouten, mask
+        from pollysort.flugrouten import load_flugrouten, mask
         fr = load_flugrouten()
         self.con.rule("Flugrouten der Wächterbienen")
         if not fr.any_enabled() and not fr.calendar.enabled:
@@ -1193,8 +1193,8 @@ class BeehiveShell(cmd.Cmd):
                       "🐝")
 
     def _flugrouten_test(self) -> None:
-        from bumble.flugrouten import load_flugrouten
-        from bumble.swarm.kanaele import build_kanaele
+        from pollysort.flugrouten import load_flugrouten
+        from pollysort.swarm.kanaele import build_kanaele
         kanaele = build_kanaele(load_flugrouten())
         if not kanaele:
             self.con.info("Keine aktiven Flugrouten. 'flugrouten setup' weist welche aus.", "🧭")
@@ -1211,7 +1211,7 @@ class BeehiveShell(cmd.Cmd):
 
     def _flugrouten_setup(self) -> None:
         """Assistent: neue Flugrouten für die Wächterbienen ausweisen (Discord/E-Mail/Kalender)."""
-        from bumble.flugrouten import (
+        from pollysort.flugrouten import (
             EMAIL_PRESETS,
             CalendarConfig,
             DiscordConfig,
@@ -1287,7 +1287,7 @@ class BeehiveShell(cmd.Cmd):
     def do_papierkorb(self, arg: str) -> None:
         """papierkorb <id> — Eintrag in die Quarantäne verschieben (löscht nichts)."""
         ctx = self._ctx()
-        from bumble.undertaker import undertake
+        from pollysort.undertaker import undertake
         dest = undertake(ctx.hive, ctx.store, arg.strip())
         if dest:
             ctx.mind.forget(arg.strip())
@@ -1298,7 +1298,7 @@ class BeehiveShell(cmd.Cmd):
     def do_zurueckholen(self, arg: str) -> None:
         """zurueckholen <id> — Datei aus der Quarantäne zurückholen."""
         ctx = self._ctx()
-        from bumble.undertaker import resurrect
+        from pollysort.undertaker import resurrect
         dest = resurrect(ctx.hive, ctx.store, arg.strip())
         if dest:
             self.con.honey(f"Zurück im Ordner: {dest.name}")
@@ -1310,7 +1310,7 @@ class BeehiveShell(cmd.Cmd):
         Quarantäne (löscht nichts). So wird der Posteingang endlich sauber (BUG-9)."""
         import shutil
 
-        from bumble.mover import collision_safe_name
+        from pollysort.mover import collision_safe_name
         ctx = self._ctx()
         rows = [r for r in ctx.store.duplicate_rows() if Path(r["path"]).exists()]
         if not rows:
@@ -1327,7 +1327,7 @@ class BeehiveShell(cmd.Cmd):
         if not self._ja(f"{len(rows)} Dublette(n) in die Quarantäne verschieben? [j/N]: "):
             self.con.info("Abgebrochen.", "🐝")
             return
-        from bumble.config import honig
+        from pollysort.config import honig
         friedhof = honig(ctx.hive) / "papierkorb"
         friedhof.mkdir(parents=True, exist_ok=True)
         moved = 0
@@ -1347,8 +1347,8 @@ class BeehiveShell(cmd.Cmd):
 
     def do_leeren(self, _arg: str) -> None:
         """leeren — Quarantäne endgültig löschen (mit Rückbestätigung)."""
-        from bumble.store import Store
-        from bumble.undertaker import buried_candidates, bury
+        from pollysort.store import Store
+        from pollysort.undertaker import buried_candidates, bury
         candidates = buried_candidates(self.hive)
         if not candidates:
             self.con.info("Quarantäne ist leer.", "🐝")
@@ -1368,7 +1368,7 @@ class BeehiveShell(cmd.Cmd):
         """rueckflug — die letzte automatische Verschiebung rückgängig machen (undo)."""
         import shutil
 
-        from bumble.movelog import MoveLog
+        from pollysort.movelog import MoveLog
         ctx = self._ctx()
         last = MoveLog(ctx.hive).pop_last()
         if not last:
@@ -1381,7 +1381,7 @@ class BeehiveShell(cmd.Cmd):
             ctx.store.update_path(last["bee_id"], str(dst))
             # Zurückgeholte Datei ist wieder eine offene Frage: als needs_review markieren,
             # damit sie in 'status'/'rueckfragen' auftaucht und nicht still im Root verharrt.
-            from bumble.models import Status
+            from pollysort.models import Status
             ctx.store.set_status(last["bee_id"], Status.NEEDS_REVIEW)
         self.con.honey(f"Rückgängig: {src.name} → {dst.parent.name} (wieder offen)", "↩️")
 
@@ -1568,7 +1568,7 @@ class BeehiveShell(cmd.Cmd):
 
     def _scaffold_categories(self, hive: Path, categories: list[str]) -> int:
         """Die gewählten/vorgeschlagenen Kategorie-Ordner sichtbar im Projekt anlegen."""
-        from bumble.config import pretty_category
+        from pollysort.config import pretty_category
         made = 0
         for cat in categories:
             folder = hive / pretty_category(cat)
@@ -1622,8 +1622,8 @@ class BeehiveShell(cmd.Cmd):
 
     def _propose_categories(self, hive: Path, provider: str) -> list[str]:
         """Vorschlags-Modus: Dokumente scannen (KI wenn online) und Struktur vorschlagen."""
-        from bumble.config import pretty_category
-        from bumble.onboarding import propose_structure
+        from pollysort.config import pretty_category
+        from pollysort.onboarding import propose_structure
 
         ai_analyze = self._ai_analyzer(provider) if provider != "offline" else None
         self.con.bloom(i18n.t("su.scout.ai") if ai_analyze else i18n.t("su.scout.offline"), "🐝")
@@ -1680,11 +1680,11 @@ class BeehiveShell(cmd.Cmd):
             client = build_client(cfg, api_key, categories, [])
             suggestions = client.suggest_subrouting(categories)
         except Exception:
-            from bumble.heuristics import suggest_subrouting
+            from pollysort.heuristics import suggest_subrouting
             suggestions = suggest_subrouting(categories)
         if not suggestions:
             return {}
-        from bumble.config import pretty_category
+        from pollysort.config import pretty_category
         self.con.raw("  ↳ " + i18n.t("su.sub.q"))
         for cat, pattern in suggestions.items():
             self.con.raw(f"       {pretty_category(cat)} → {pattern}")
@@ -1712,7 +1712,7 @@ class BeehiveShell(cmd.Cmd):
         erzwingt eine frische Prüfung (wenn der Nutzer den Modus bewusst umstellt).
         """
         if refresh or self._ollama is None:
-            from bumble.llm.client import ollama_available
+            from pollysort.llm.client import ollama_available
             self._ollama = ollama_available()
         return bool(self._ollama)
 
@@ -1777,8 +1777,8 @@ class BeehiveShell(cmd.Cmd):
         cfg = config.load_config()
         cfg.llm_provider = seed.provider            # KI-Backend pro Projekt
         api_key = config.load_credentials() if seed.provider == "openrouter" else None
-        from bumble.feedback import Feedback
-        from bumble.wachstafel import Wachstafel
+        from pollysort.feedback import Feedback
+        from pollysort.wachstafel import Wachstafel
         few = Feedback(self.hive).few_shots()
         # Gelernte Projekt-Regeln (ACE) beim Sortieren beachten — strikt projektgebunden.
         wachstafel = Wachstafel(self.hive).text()
@@ -1864,7 +1864,7 @@ def _configure_console() -> None:
 
 
 def main() -> int:
-    """Einstiegspunkt der Konsole — vom Befehl ``bumble`` und von ``Beehive.py`` gerufen."""
+    """Einstiegspunkt der Konsole — vom Befehl ``pollysort`` und von ``polly.py`` gerufen."""
     _configure_console()
     shell = BeehiveShell(_startup_target())
     try:
