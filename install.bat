@@ -1,84 +1,45 @@
 @echo off
 REM ---------------------------------------------------------------------------
-REM PollySort - Installer (Windows)
-REM Prueft die Voraussetzungen und installiert das Tool isoliert (uv -^> pipx -^> pip).
-REM Nutzung: Doppelklick auf install.bat  ODER  im Terminal:  install.bat
+REM PollySort - Installer (Windows, Doppelklick-freundlich)
+REM
+REM Duenner Starter fuer install.ps1. Die eigentliche Arbeit macht PowerShell:
+REM nur dort laesst sich der Benutzer-PATH sauber und dauerhaft setzen, damit
+REM man danach ueberall einfach `pollysort` tippen kann.
+REM
+REM   Doppelklick auf install.bat   ODER   im Terminal:  install.bat
+REM   install.bat --dry-run         zeigt nur, was passieren wuerde
 REM ---------------------------------------------------------------------------
-setlocal enabledelayedexpansion
+setlocal
 cd /d "%~dp0"
 
-echo.
-echo ===  PollySort-Installer  ===
-echo.
+set "PS="
+where pwsh >nul 2>&1 && set "PS=pwsh"
+if not defined PS ( where powershell >nul 2>&1 && set "PS=powershell" )
 
-REM 1) Richtiger Ordner?
-if not exist "pyproject.toml" (
-  echo [X] pyproject.toml nicht gefunden - bitte install.bat im PollySort-Ordner ausfuehren.
-  goto :fail
-)
-echo [ok] Projektdateien gefunden
-
-REM 2) Python vorhanden? (py-Launcher bevorzugt, sonst python)
-set "PY="
-where py >nul 2>&1 && set "PY=py"
-if not defined PY ( where python >nul 2>&1 && set "PY=python" )
-if not defined PY (
-  echo [X] Python nicht gefunden. Bitte Python 3.12+ installieren:
-  echo     https://www.python.org/downloads/
-  goto :fail
+if not defined PS (
+  echo [X] Weder pwsh noch powershell gefunden.
+  echo     PowerShell gehoert zu Windows - bitte pruefen, ob es im PATH liegt.
+  echo     Alternativ in Git-Bash:  bash install.sh
+  echo.
+  pause
+  exit /b 1
 )
 
-REM 3) Python-Version 3.12+?
-%PY% -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"
-if errorlevel 1 (
-  echo [X] Python 3.12+ benoetigt. Bitte aktualisieren: https://www.python.org/downloads/
-  goto :fail
-)
-for /f "delims=" %%v in ('%PY% -c "import platform; print(platform.python_version())"') do set "PYV=%%v"
-echo [ok] Python !PYV! gefunden
+REM Argumente durchreichen: --dry-run / --no-path -^> -DryRun / -NoPath
+set "ARGS="
+:parse
+if "%~1"=="" goto run
+if /i "%~1"=="--dry-run" set "ARGS=%ARGS% -DryRun"
+if /i "%~1"=="--no-path" set "ARGS=%ARGS% -NoPath"
+if /i "%~1"=="-DryRun"   set "ARGS=%ARGS% -DryRun"
+if /i "%~1"=="-NoPath"   set "ARGS=%ARGS% -NoPath"
+shift
+goto parse
 
-REM 4) Bestes Installationswerkzeug waehlen: uv -^> pipx -^> pip
-echo.
-echo Installiere PollySort (mit Text-Extraktion [extract]) ...
-where uv >nul 2>&1
-if not errorlevel 1 (
-  echo [ok] uv erkannt
-  uv tool install --force ".[extract]"
-  goto :verify
-)
-where pipx >nul 2>&1
-if not errorlevel 1 (
-  echo [ok] pipx erkannt
-  pipx install --force ".[extract]"
-  goto :verify
-)
-echo [ok] Weder uv noch pipx gefunden - verwende pip (Benutzer-Installation)
-%PY% -m pip install --user ".[extract]"
+:run
+%PS% -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"%ARGS%
+set "RC=%ERRORLEVEL%"
 
-:verify
-echo.
-echo Pruefe Installation ...
-where pollysort >nul 2>&1
-if errorlevel 1 (
-  echo [!] 'pollysort' ist noch nicht im PATH.
-  echo     Tipp: Terminal neu oeffnen, oder 'pipx ensurepath' ausfuehren, dann erneut versuchen.
-  echo     Alternativ direkt starten:  %PY% polly.py
-  goto :end
-)
-echo [ok] Befehl 'pollysort' verfuegbar
-pollysort-cli --version
-echo.
-echo Fertig! Starte das Tool mit:  pollysort
-goto :end
-
-:fail
-echo.
-echo Installation abgebrochen.
 echo.
 pause
-exit /b 1
-
-:end
-echo.
-pause
-endlocal
+endlocal & exit /b %RC%

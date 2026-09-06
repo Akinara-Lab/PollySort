@@ -9,6 +9,21 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — Installer, die den PATH wirklich setzen
+- **`install.ps1`** (neu, Windows/PowerShell): trägt den Programm-Ordner dauerhaft in den
+  **Benutzer-PATH** ein — nie systemweit, keine Administratorrechte nötig. Idempotent: ein
+  zweiter Lauf legt keinen Doppeleintrag an. `install.bat` ist jetzt ein dünner Starter dafür
+  (Doppelklick funktioniert weiter), weil sich der PATH nur in PowerShell sauber setzen lässt.
+- **`install.sh`** (überarbeitet, Linux/macOS/Git-Bash): schreibt den PATH-Eintrag in die
+  Startdatei, die die Shell des Nutzers **tatsächlich liest** — `~/.zshrc`, `~/.bashrc`, unter
+  macOS `~/.bash_profile`, für fish `~/.config/fish/config.fish` (mit fish-eigener Syntax).
+  Der Block ist markiert, ein zweiter Lauf ergänzt nichts doppelt. Vorher meldete das Skript
+  nur, dass der PATH fehlt, und überließ es dem Nutzer.
+- Beide kennen **`--dry-run`** (zeigt nur, was passieren würde) und **`--no-path`**.
+- **Robuste Python-Erkennung:** Unter Windows sind `python3`/`python` oft nur
+  Microsoft-Store-Platzhalter, die beim Aufruf lediglich eine Werbemeldung ausgeben. Die
+  Installer erkennen das und nehmen den nächsten Kandidaten, statt daran zu scheitern.
+
 ### Geändert — Paket-Rebranding auf `pollysort`
 - **Paket `bumble` → `pollysort`.** Der Produktname und der Code-Name sind endlich dieselben.
   Bewusst **jetzt**, vor dem ersten PyPI-Release: danach wäre der Wechsel ein Bruch für jede

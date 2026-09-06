@@ -97,21 +97,36 @@ don't fit. PollySort is different:
 the **`pollysort`** command on your PATH on Windows, macOS and Linux without you having to manage
 virtual environments.
 
-> 💡 **Note on the command name.** During the beta the executable is still called **`pollysort`**
-> (and the scripting CLI **`pollysort-cli`**). The product is *PollySort*; the command will be
-> renamed in a later release.
+> 💡 **Two commands.** **`pollysort`** opens the interactive console (that is the one you
+> want). **`pollysort-cli`** is the scripting CLI for automation — `pollysort-cli doctor`,
+> `pollysort-cli scan --mode move`, and so on.
 
 ### Easiest: the installer script
 
-The repo ships an installer that **checks prerequisites** (project files present, Python 3.12+),
-picks the best available tool (`uv` → `pipx` → `pip`) and installs PollySort including the
-text-extraction extra:
+The repo ships installers that **check the prerequisites** (project files present, a real
+Python 3.12+ — not the Microsoft Store placeholder), pick the best available tool
+(`uv` → `pipx` → `pip --user`), install PollySort including the text-extraction extra, **and
+put the command on your PATH** so that afterwards you only ever type `pollysort`:
 
-- **Windows:** double-click **`install.bat`** — or run `install.bat` in a terminal.
-- **Linux / macOS / Git-Bash:** **`bash install.sh`** (run `chmod +x install.sh` first if needed).
+| Platform | Command |
+|---|---|
+| **Windows** | double-click **`install.bat`**, or `.\install.ps1` in PowerShell |
+| **Linux / macOS** | **`bash install.sh`** |
+| **Git-Bash on Windows** | **`bash install.sh`** |
 
-At the end the script reports whether the `pollysort` command is ready. If it says `pollysort` isn't
-on your PATH yet, restart the terminal or run `pipx ensurepath`.
+The PATH entry is written **for your user only** — never system-wide, and no administrator
+rights are needed. On Windows it goes into the user `Path` environment variable; on Linux and
+macOS into the startup file your shell actually reads (`~/.zshrc`, `~/.bashrc`,
+`~/.bash_profile` on macOS, or `~/.config/fish/config.fish`), inside a marked block so a second
+run does not duplicate it.
+
+Both installers accept:
+
+- `--dry-run` — show what would happen and change nothing.
+- `--no-path` — install but leave PATH alone (PowerShell: `-DryRun` / `-NoPath`).
+
+Open a new terminal afterwards so the PATH entry takes effect — or `source` the file the
+installer names.
 
 ### Manual install
 
@@ -124,8 +139,8 @@ cd pollysort
 pipx install ".[extract]"      # or:  uv tool install ".[extract]"
 
 # 3) Verify & launch
-pollysort doctor                  # health-check: Python, AI provider, DB, memory
-pollysort                         # open the interactive console
+pollysort-cli doctor           # health-check: Python, AI provider, DB, memory
+pollysort                      # open the interactive console
 ```
 
 The **`[extract]`** extra (DOCX/CSV/HTML → Markdown, MIME detection via libmagic) is

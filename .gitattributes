@@ -3,6 +3,7 @@
 
 # Windows-Skripte brauchen CRLF, sonst stolpert cmd.exe darüber.
 *.bat text eol=crlf
+*.ps1 text eol=crlf
 
 # Shell-Skripte müssen LF behalten, auch auf Windows-Checkouts.
 *.sh text eol=lf
