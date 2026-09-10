@@ -110,6 +110,33 @@ def ollama_available(endpoint: str = "http://localhost:11434") -> bool:
         return False
 
 
+def ollama_models(endpoint: str = "http://localhost:11434") -> list[str] | None:
+    """Welche Modelle hat der lokale Ollama-Server gezogen? ``None`` = nicht erreichbar.
+
+    Die Namen kommen mit Tag zurück (``qwen3.5:9b``, ``nomic-embed-text-v2-moe:latest``);
+    :func:`ollama_has_model` vergleicht deshalb tag-tolerant. Gedacht für ``doctor``: Ein
+    fehlendes Embedding-Modell fällt sonst nie auf — das Gedächtnis lernt dann einfach
+    still nichts dazu.
+    """
+    try:
+        r = httpx.get(f"{endpoint.rstrip('/')}/api/tags", timeout=PING_TIMEOUT)
+        if r.status_code != 200:
+            return None
+        return [str(m.get("name", "")) for m in r.json().get("models", [])]
+    except Exception:
+        return None
+
+
+def ollama_has_model(name: str, models: list[str]) -> bool:
+    """``nomic-embed-text-v2-moe`` trifft auch ``nomic-embed-text-v2-moe:latest`` —
+    ``:latest`` ist Ollamas stiller Standard-Tag. Ein Name ohne Tag passt auf jeden Tag."""
+    want = name.lower().removesuffix(":latest")
+    for m in (x.lower().removesuffix(":latest") for x in models):
+        if m == want or (":" not in want and m.split(":", 1)[0] == want):
+            return True
+    return False
+
+
 class Usage:
     """Grobe Kosten-/Token-Buchführung pro Lauf (§16)."""
 

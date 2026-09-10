@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pollysort.i18n as i18n
 from pollysort import doctor
 from pollysort.config import AppConfig
+from pollysort.llm import client as client_mod
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "pollysort"
 
@@ -23,6 +25,7 @@ def test_doctor_runs_without_network(monkeypatch):
     labels = {c[0] for c in checks}
     assert {"Python", "KI-Provider"} <= labels
     assert "Lizenz" not in labels, "Der Kern ist Apache-2.0 — es gibt keinen Lizenzstatus mehr"
+    assert "Modelle" not in labels, "Der Modell-Check gilt nur für Ollama"
     # Jeder Check hat einen gültigen Status.
     assert all(status in ("ok", "warn", "fail") for _, status, _ in checks)
 
@@ -36,6 +39,67 @@ def test_doctor_survives_a_broken_check(monkeypatch):
     monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="offline"))
     checks = doctor.run_checks(None)
     assert checks, "Der Doctor muss trotzdem ein Ergebnis liefern"
+
+
+def test_doctor_speaks_english(monkeypatch):
+    monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="offline"))
+    i18n.set_language("en")
+    try:
+        checks = {c[0]: c for c in doctor.run_checks(None)}
+    finally:
+        i18n.set_language("de")
+    assert {"AI provider", "Database", "Memory"} <= set(checks)
+    assert checks["AI provider"][2] == "offline (heuristics, free)"
+    assert checks["Database"][2] == "no project active"
+
+
+# --------------------------------------------------------------------------- #
+#  Ollama: sind die Modelle wirklich gezogen?
+# --------------------------------------------------------------------------- #
+def _ollama(monkeypatch, models):
+    monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="ollama"))
+    monkeypatch.setattr(client_mod, "ollama_available", lambda *_a, **_k: models is not None)
+    monkeypatch.setattr(client_mod, "ollama_models", lambda *_a, **_k: models)
+    return {c[0]: c for c in doctor.run_checks(None)}
+
+
+def test_doctor_reports_missing_embedding_model(monkeypatch):
+    """Fehlt das Embedding-Modell, lernt das Gedächtnis still nichts dazu — der Doctor
+    muss das sagen, mit dem passenden pull-Befehl."""
+    checks = _ollama(monkeypatch, ["qwen3.5:9b"])
+    _, status, detail = checks["Modelle"]
+    assert status == "warn"
+    assert "ollama pull nomic-embed-text-v2-moe" in detail
+    assert "Gedächtnis" in detail                    # sagt auch, WAS ohne das Modell fehlt
+
+
+def test_doctor_fails_without_chat_model(monkeypatch):
+    checks = _ollama(monkeypatch, ["nomic-embed-text-v2-moe:latest"])
+    _, status, detail = checks["Modelle"]
+    assert status == "fail"
+    assert "ollama pull qwen3.5:9b" in detail
+
+
+def test_doctor_models_ok_with_latest_tag(monkeypatch):
+    checks = _ollama(monkeypatch, ["qwen3.5:9b", "nomic-embed-text-v2-moe:latest"])
+    assert checks["Modelle"][1] == "ok"
+    assert checks["KI-Provider"][1] == "ok"
+
+
+def test_doctor_skips_model_check_when_server_is_down(monkeypatch):
+    """Server aus → das meldet der Provider-Check; ein zweiter Fehler wäre nur Lärm."""
+    checks = _ollama(monkeypatch, None)
+    assert "Modelle" not in checks
+    assert checks["KI-Provider"][1] == "warn"
+
+
+def test_ollama_has_model_is_tag_tolerant():
+    has = client_mod.ollama_has_model
+    assert has("nomic-embed-text-v2-moe", ["nomic-embed-text-v2-moe:latest"])
+    assert has("qwen3.5:9b", ["qwen3.5:9b"])
+    assert not has("qwen3.5:9b", ["qwen3.5:4b"])
+    assert has("qwen3.5", ["qwen3.5:4b"])           # ohne Tag gefragt → jeder Tag passt
+    assert not has("qwen3.5:9b", [])
 
 
 # --------------------------------------------------------------------------- #

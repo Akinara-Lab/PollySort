@@ -155,6 +155,29 @@ def _score(blob: str, cat: str) -> int:
     return punkte
 
 
+def classify_scored(stem: str, text: str, ext: str, *,
+                    allowed: list[str] | None = None) -> tuple[str, int]:
+    """Wie :func:`classify`, liefert aber auch die Punktzahl des Gewinners mit.
+
+    0 Punkte heißt: Die Kategorie kam nur über den Dateityp (``TYPE_CATEGORY``) oder gar
+    nicht zustande. Der Assigner braucht die Punkte, um eine heuristische Zweitmeinung nur
+    dann gelten zu lassen, wenn sie auf einem spezifischen Begriff fußt — ein einzelnes
+    „beleg" (5 Punkte) soll kein Dokument einsortieren.
+    """
+    blob = f"{stem} {text}".lower()
+    cats = list(RULES.keys()) if allowed is None else allowed
+    bewertet = [(_score(blob, c), c) for c in cats if c and c != "_unassigned"]
+    bewertet = [(s, c) for s, c in bewertet if s > 0]
+    if bewertet:
+        # Bei Gleichstand entscheidet der Name alphabetisch — reproduzierbar statt zufällig.
+        punkte, kat = max(bewertet, key=lambda sc: (sc[0], -ord(sc[1][0])))
+        return kat, punkte
+    for cat, exts in TYPE_CATEGORY.items():
+        if ext in exts and (allowed is None or cat in allowed):
+            return cat, 0
+    return "_unassigned", 0
+
+
 def classify(stem: str, text: str, ext: str, *, allowed: list[str] | None = None) -> str:
     """Die am BESTEN passende Kategorie raten (``allowed`` = nur Projekt-Kategorien).
 
@@ -164,17 +187,7 @@ def classify(stem: str, text: str, ext: str, *, allowed: list[str] | None = None
     wegen „Gutschriften", eine Reisekostenabrechnung wegen „laut Beleg". Jetzt wird
     bewertet und die stärkste Übereinstimmung gewinnt.
     """
-    blob = f"{stem} {text}".lower()
-    cats = list(RULES.keys()) if allowed is None else allowed
-    bewertet = [(_score(blob, c), c) for c in cats if c and c != "_unassigned"]
-    bewertet = [(s, c) for s, c in bewertet if s > 0]
-    if bewertet:
-        # Bei Gleichstand entscheidet der Name alphabetisch — reproduzierbar statt zufällig.
-        return max(bewertet, key=lambda sc: (sc[0], -ord(sc[1][0])))[1]
-    for cat, exts in TYPE_CATEGORY.items():
-        if ext in exts and (allowed is None or cat in allowed):
-            return cat
-    return "_unassigned"
+    return classify_scored(stem, text, ext, allowed=allowed)[0]
 
 
 def snap_category(label: str, known: list[str]) -> str | None:

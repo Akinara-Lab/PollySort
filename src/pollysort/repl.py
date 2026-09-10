@@ -120,24 +120,22 @@ class BeehiveShell(cmd.Cmd):
         self.con.header(self._header_status())
 
     def _header_status(self) -> str:
-        label = self.hive.name if self.hive else "kein Projekt"
+        label = self.hive.name if self.hive else i18n.t("header.noproject")
         parts = [label]
         if self.hive:
             try:
                 seed = config.load_seed(self.hive)
-                parts.append(f"Modus {seed.provider}")
+                parts.append(i18n.t("header.mode", provider=seed.provider))
                 n = self._inbox_count()
-                parts.append(f"{n} lose" if n else "aufgeräumt")
+                parts.append(i18n.t("header.loose", n=n) if n else i18n.t("header.tidy"))
             except Exception:
                 pass
-        if self._theme_pref == "auto":
-            parts.append(f"Thema auto·{self.con.theme_name}")
-        else:
-            parts.append(f"Thema {self.con.theme_name}")
+        theme = f"auto·{self.con.theme_name}" if self._theme_pref == "auto" else self.con.theme_name
+        parts.append(i18n.t("header.theme", theme=theme))
         return "  ·  ".join(parts)
 
     def _sync_prompt(self) -> None:
-        label = self.hive.name if self.hive else "kein Projekt"
+        label = self.hive.name if self.hive else i18n.t("header.noproject")
         self.prompt = f"🐝 {label} ▸ "
 
     # ------------------------------------------------------------------ #
@@ -276,7 +274,7 @@ class BeehiveShell(cmd.Cmd):
         """Ohne aktives Projekt nur Projekt-Befehle zulassen (statt eines Fehlers)."""
         name = line.strip().split(" ", 1)[0].lower() if line.strip() else ""
         if self.hive is None and name not in self._NO_PROJECT_OK:
-            self.con.ask("Kein Projekt aktiv. 'neu' legt eins an, 'wechsel' öffnet ein bestehendes.")
+            self.con.ask(i18n.t("noproject.hint"))
             return ""
         return line
 
@@ -289,25 +287,24 @@ class BeehiveShell(cmd.Cmd):
             self.offline = seed.provider == "offline"
             config.register_project(hive)
             config.remember_last_hive(hive)
-            self.con.info(f"Projekt: {seed.name or hive.name}  ·  {hive}", "📂")
-            self.con.info(f"Modus: {seed.provider} · Kategorien: {', '.join(seed.categories)}",
-                          "🧠")
+            self.con.info(i18n.t("open.project", name=seed.name or hive.name, path=hive), "📂")
+            self.con.info(i18n.t("open.mode", provider=seed.provider,
+                                 cats=", ".join(seed.categories)), "🧠")
             self._show_inbox()
             # Eingangs-Verhalten beim Öffnen anwenden (§ Überwachung).
             if seed.watch == "move" and self._inbox_count():
-                self.con.info("Sortiere neue Dateien …", "⚡")
+                self.con.info(i18n.t("open.sorting_new"), "⚡")
                 self._cycle(mode="move")
             elif seed.watch != "off" and self._inbox_count():
-                self.con.info(f"Überwachung aktiv ({seed.watch}). 'wache' für Dauerbetrieb.", "👀")
+                self.con.info(i18n.t("open.watch_active", watch=seed.watch), "👀")
         else:
-            self.con.info(f"Ordner: {hive}", "📂")
-            self.con.ask("Dieses Projekt ist noch nicht eingerichtet.")
-            ans = self._ask("Jetzt einrichten? [J/n]: ")
-            if ans.strip().lower() in ("", "j", "ja", "y"):
+            self.con.info(i18n.t("open.folder", path=hive), "📂")
+            self.con.ask(i18n.t("open.not_setup"))
+            if self._ja_default(i18n.t("open.setup_now")):
                 self._run_setup(hive)
             else:
                 self.offline = True
-                self.con.info("Ok. 'setup' startet die Einrichtung, wann du willst.", "🐝")
+                self.con.info(i18n.t("open.setup_later"), "🐝")
                 if greet:
                     self._show_inbox()
 
@@ -334,68 +331,85 @@ class BeehiveShell(cmd.Cmd):
         return False
 
     def default(self, line: str) -> None:
-        self.con.error(f"Unbekannt: {line!r}. 'hilfe' zeigt alle Befehle.")
+        """Unbekannter Befehl — mit Vorschlag, wenn ein bekannter Name nah dran liegt
+        („sortire" → „sortiere"). Deutsche wie englische Namen zählen."""
+        import difflib
+        word = line.strip().split(" ", 1)[0].lower()
+        names = sorted({n[3:] for n in self.get_names()
+                        if n.startswith("do_") and n != "do_EOF" and len(n) > 4})
+        near = difflib.get_close_matches(word, names, n=3, cutoff=0.6)
+        if near:
+            options = " / ".join(f"'{n}'" for n in near)
+            self.con.error(i18n.t("unknown.suggest", line=repr(line), options=options))
+        else:
+            self.con.error(i18n.t("unknown.cmd", line=repr(line)))
+
+    # Hilfe-Tabelle: (deutscher Name, englischer Name, Schlüssel der Beschreibung). Die
+    # UI-Sprache entscheidet, welcher Name gezeigt wird — funktionieren tun immer beide.
+    # Ein Test prüft, dass jeder genannte Name auch wirklich ein Befehl ist.
+    _HELP: dict[str, list[tuple[str, str, str]]] = {
+        "help.group.daily": [
+            ("home  (start)", "home  (start)", "help.d.home"),
+            ("sortiere  (s)", "sort  (s)", "help.d.sort"),
+            ("vorschau  (v)", "preview  (v)", "help.d.preview"),
+            ("rueckfragen  (r)", "review  (r)", "help.d.review"),
+            ("status", "status", "help.d.status"),
+            ("liste [kategorie]", "list [category]", "help.d.list"),
+            ("suche <wort>", "search <word>", "help.d.search"),
+        ],
+        "help.group.situational": [
+            ("wache", "watch", "help.d.watch"),
+            ("sortiere turbo [N]", "sort turbo [N]", "help.d.turbo"),
+            ("scan  (sweep)", "scan  (sweep)", "help.d.scan"),
+            ("importiere <ordner>", "import <folder>", "help.d.import"),
+            ("zuordnen <id> <kat>", "assign <id> <cat>", "help.d.assign"),
+            ("unterordner <kat> <muster>", "subfolder <cat> <pattern>", "help.d.subfolder"),
+            ("dubletten [aufraeumen]", "duplicates [cleanup]", "help.d.duplicates"),
+            ("papierkorb <id> · leeren", "trash <id> · empty", "help.d.trash"),
+            ("zurueckholen <id> · rueckflug", "restore <id> · undo", "help.d.restore"),
+            ("fortschritt", "progress", "help.d.progress"),
+            ("wabenbau [kategorie]", "charter [category]", "help.d.charter"),
+            ("kalender [melden] · schwarm", "calendar [notify] · swarm", "help.d.calendar"),
+            ("empfehlung [para|..]", "recommend [para|..]", "help.d.recommend"),
+        ],
+        "help.group.pro": [
+            ("neu [pfad] · wechsel [nr]", "new [path] · switch [n]", "help.d.new"),
+            ("projekte · setup", "projects · setup", "help.d.projects"),
+            ("modus <offline|ollama|online>", "mode <offline|ollama|online>", "help.d.mode"),
+            ("modell [name|liste]", "model [name|list]", "help.d.model"),
+            ("schluessel [test|setzen|entfernen]", "key [test|set|remove]", "help.d.key"),
+            ("flugrouten [setup|test]", "routes [setup|test]", "help.d.routes"),
+            ("reflektiere · wachstafel [leeren]", "reflect · rules [clear]", "help.d.reflect"),
+            ("gedaechtnis [approve|neu]", "memory [approve|rebuild]", "help.d.memory"),
+            ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
+            ("doctor", "doctor", "help.d.doctor"),
+            ("sprache <de|en>", "language <de|en>", "help.d.language"),
+            ("thema [dunkel|hell|auto]", "theme [dark|light|auto]", "help.d.theme"),
+            ("ansicht [statisch|log]", "view [static|log]", "help.d.view"),
+            ("hilfe · exit", "help · exit", "help.d.help"),
+        ],
+    }
 
     def do_hilfe(self, _arg: str) -> None:
-        """Alle Befehle mit Kurzbeschreibung anzeigen."""
+        """Alle Befehle mit Kurzbeschreibung anzeigen — in der aktiven Sprache."""
         from rich.table import Table
         from rich.text import Text
 
+        from pollysort.heuristics import datums_muster
+        english = i18n.get_language() == "en"
         # Die wichtigsten Kürzel gleich oben — der Rest ist gruppiert darunter.
-        from pollysort import i18n
         self.con.info(i18n.t("help.shortcuts"), "⌨️")
-        groups = {
-            "🐝 Täglich benötigt": [
-                ("home  (start)", "Zurück zum Start-/Zuhause-Bildschirm (Übersicht)"),
-                ("sortiere  (s)", "Lose Dateien in Kategorie-Ordner einräumen"),
-                ("vorschau  (v)", "Erst zeigen, dann direkt anwenden [J/n]"),
-                ("rueckfragen (r)", "Unsichere Fälle schnell selbst zuordnen"),
-                ("status", "Was liegt hier, was ist schon sortiert?"),
-                ("liste [kategorie]", "Sortierte Einträge auflisten"),
-                ("suche <wort>", "Nach Stichwort suchen"),
-            ],
-            "🎯 Für bestimmte Anwendungsfälle": [
-                ("wache", "Eingang in Echtzeit überwachen (watchdog)"),
-                ("sortiere turbo [N]", "Ultra Swarm — viele Dateien parallel"),
-                ("scan  (sweep)", "Ganzen Ordner prüfen; aus manuellen Moves lernen"),
-                ("importiere <ordner>", "Aus einem anderen Ordner hierher sortieren"),
-                ("zuordnen <id> <kat>", "Zuordnung korrigieren (Gedächtnis lernt)"),
-                ("unterordner <kat> <muster>", "Dynamische Unterordner, z. B. {jahr}/{monat}"),
-                ("dubletten [aufraeumen]", "Erkannte Dubletten zeigen / in die Quarantäne"),
-                ("papierkorb <id> / leeren", "In Quarantäne / endgültig löschen"),
-                ("zurueckholen <id> · rueckflug", "Aus Quarantäne zurück · letzten Move rückgängig"),
-                ("fortschritt", "Wie weit ist dein Bienenstock? Stufe, Abzeichen, Serie"),
-                ("wabenbau [kategorie]", "Aus einer Wabe ein Projekt bauen (Bienenstock.md)"),
-                ("kalender [melden] · schwarm", "Deadlines / Schwarm-Überblick"),
-                ("empfehlung [para|..]", "Ablage-Strategie + Hinweise"),
-            ],
-            "🛠️ Für Profis": [
-                ("neu [pfad] · wechsel [nr]", "Projekt anlegen · zu anderem wechseln"),
-                ("projekte · setup", "Alle Projekte · aktuelles neu einrichten"),
-                ("modus <offline|ollama|online>", "KI-Backend für dieses Projekt"),
-                ("modell [name|liste]", "OpenRouter-Modell wechseln (Nektar-Sorte)"),
-                ("schluessel [test|setzen]", "OpenRouter-Schlüssel prüfen / erneuern"),
-                ("flugrouten [setup|test]", "Discord/E-Mail der Wächterbienen (opt-in)"),
-                ("reflektiere · wachstafel", "Meta-Learning: Regeln ableiten / zeigen"),
-                ("gedaechtnis [approve|neu]", "Kategorien/Vorschläge · 'neu' = Reindex n. Modellwechsel"),
-                ("person <name> <kat,..>", "Zuständigkeit im Hintergrund setzen"),
-                ("doctor", "Health-Check: Python, KI-Provider, Datenbank, Gedächtnis"),
-                ("sprache <de|en>", "UI-Sprache umschalten (language / lang)"),
-                ("thema [dunkel|hell|auto]", "Dark/Light; 'auto' = tags dunkel, abends hell"),
-                ("ansicht [statisch|log]", "Statische Selbst-Ansicht oder klassisches Log"),
-                ("hilfe / exit", "Diese Hilfe / Konsole verlassen"),
-            ],
-        }
-        for title, rows in groups.items():
-            self.con.rule(title)
+        for group_key, rows in self._HELP.items():
+            self.con.rule(i18n.t(group_key))
             table = Table(show_header=False, box=None, padding=(0, 3, 0, 0))
             table.add_column(no_wrap=True)
             table.add_column(overflow="fold")
-            for name, desc in rows:
-                table.add_row(Text(name, style="honey"), Text(desc))
+            for de_name, en_name, desc_key in rows:
+                desc = i18n.t(desc_key, pattern=datums_muster())
+                table.add_row(Text(en_name if english else de_name, style="honey"), Text(desc))
             self.con.raw(table)
-        self.con.info("Tipp: In Abfragen (z. B. Setup) bricht 'abbruch' oder 'bye' die Aktion ab.",
-                      "🐝")
+        self.con.info(i18n.t("help.tip"), "🐝")
+        self.con.info(i18n.t("help.names"), "🌐")
 
     do_help = do_hilfe
 
@@ -656,14 +670,15 @@ class BeehiveShell(cmd.Cmd):
         from pollysort import i18n
         # Wie am Anfang: Banner (Name) zeigen, damit 'home' sich wie der Startbildschirm anfühlt.
         self.con.raw(BANNER, style="honey")
-        self.con.info(f"v{__version__} · 'hilfe' zeigt alle Befehle", "🐝")
+        self.con.info(i18n.t("home.version", version=__version__), "🐝")
         self.con.rule(i18n.t("home.title"))
         if self.hive is None:
             self.con.info(i18n.t("home.noproject"), "🐝")
         else:
             seed = config.load_seed(self.hive)
-            self.con.info(f"Projekt: {seed.name or self.hive.name}  ·  {self.hive}", "📂")
-            self.con.info(f"Modus: {seed.provider} · Überwachung: {seed.watch}", "🧠")
+            self.con.info(i18n.t("open.project", name=seed.name or self.hive.name,
+                                 path=self.hive), "📂")
+            self.con.info(i18n.t("home.mode", provider=seed.provider, watch=seed.watch), "🧠")
             try:
                 from pollysort.store import Store
                 counts = Store(self.hive).status_counts()
@@ -671,20 +686,20 @@ class BeehiveShell(cmd.Cmd):
                 counts = {}
             inbox = self._inbox_count()
             if inbox:
-                self.con.honey(f"{inbox} lose Datei(en) → 'sortiere'", "📥")
+                self.con.honey(i18n.t("home.inbox", n=inbox), "📥")
             sorted_n = counts.get("assigned", 0) + counts.get("indexed", 0)
             if sorted_n:
-                self.con.honey(f"{sorted_n} Datei(en) sortiert/erfasst", "🍯")
+                self.con.honey(i18n.t("home.sorted", n=sorted_n), "🍯")
             if counts.get("needs_review"):
-                self.con.ask(f"{counts['needs_review']} unsicher → 'rueckfragen'")
+                self.con.ask(i18n.t("home.review", n=counts["needs_review"]))
             if counts.get("error"):
-                self.con.error(f"{counts['error']} mit Fehler → 'liste error'")
+                self.con.error(i18n.t("home.error", n=counts["error"]))
             # Anstehende Deadlines des Schwarms (nie den Home-Überblick abbrechen lassen).
             try:
                 from pollysort.swarm import Koenigin
                 faellig = Koenigin(self._ctx()).schwarm_status().get("deadlines_faellig", 0)
                 if faellig:
-                    self.con.ask(f"{faellig} Deadline(s) in ≤ 7 Tagen → 'kalender'")
+                    self.con.ask(i18n.t("home.deadlines", n=faellig))
             except Exception:
                 pass
         # Projektliste (nummeriert, aktives markiert) — der Sprungbrett-Teil.
@@ -692,8 +707,7 @@ class BeehiveShell(cmd.Cmd):
             projects = config.list_projects()
             if projects:
                 self._print_projects(projects)          # zieht die 'Projekte'-Überschrift selbst
-                self.con.info("Wechseln:  wechsel <nr>   ·   Neu:  neu <pfad>   ·   Hilfe:  hilfe",
-                              "🐝")
+                self.con.info(i18n.t("home.nav"), "🐝")
         except Exception:
             pass
 
@@ -705,20 +719,20 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.store import Store
         counts = Store(self.hive).status_counts()
         seed = config.load_seed(self.hive)
-        self.con.info(f"Ordner: {self.hive}", "📂")
-        self.con.info(f"Modus: {seed.provider} · Überwachung: {seed.watch}", "🧠")
+        self.con.info(i18n.t("open.folder", path=self.hive), "📂")
+        self.con.info(i18n.t("home.mode", provider=seed.provider, watch=seed.watch), "🧠")
         inbox = self._inbox_count()
         if inbox:
-            self.con.honey(f"{inbox} lose Datei(en) → 'sortiere'", "📥")
+            self.con.honey(i18n.t("home.inbox", n=inbox), "📥")
         sorted_n = counts.get("assigned", 0) + counts.get("indexed", 0)
         if sorted_n:
-            self.con.honey(f"{sorted_n} Datei(en) sortiert/erfasst", "🍯")
+            self.con.honey(i18n.t("home.sorted", n=sorted_n), "🍯")
         if counts.get("needs_review"):
-            self.con.ask(f"{counts['needs_review']} unsicher → 'rueckfragen'")
+            self.con.ask(i18n.t("home.review", n=counts["needs_review"]))
         if counts.get("error"):
-            self.con.error(f"{counts['error']} mit Fehler → 'liste error'")
+            self.con.error(i18n.t("home.error", n=counts["error"]))
         if not (inbox or sorted_n or counts):
-            self.con.info("Noch nichts passiert. Leg Dateien hier ab und tippe 'sortiere'.", "🐝")
+            self.con.info(i18n.t("status.nothing"), "🐝")
 
     def do_liste(self, arg: str) -> None:
         """liste [kategorie|status] — sortierte Einträge auflisten."""
@@ -1171,7 +1185,7 @@ class BeehiveShell(cmd.Cmd):
             self.con.raw(f"   {mark} {t.faellig}  {t.titel}  ({wann})")
         # Ansicht sendet NICHT; nur die Wächterbienen 'summen' (Konsole). Echt-Versand:
         # 'kalender melden' oder automatisch beim 'wache'-Dienst.
-        senden = arg.strip().lower() in ("melden", "send", "ausfliegen")
+        senden = arg.strip().lower() in ("melden", "send", "notify", "ausfliegen")
         due = w.deadlines_pruefen(innerhalb_tage=7, senden=senden)
         if not due:
             self.con.info("Nichts Dringendes in den nächsten 7 Tagen. 🍯", "🐝")
@@ -1557,7 +1571,7 @@ class BeehiveShell(cmd.Cmd):
         return None
 
     def _print_projects(self, projects: list[Path]) -> None:
-        self.con.rule("Projekte")
+        self.con.rule(i18n.t("projects.title"))
         for i, p in enumerate(projects, 1):
             try:
                 name = config.load_seed(p).name or p.name
@@ -1942,6 +1956,9 @@ class BeehiveShell(cmd.Cmd):
     do_routes = do_flugrouten
     do_reflect = do_reflektiere
     do_rules = do_wachstafel
+    do_swarm = do_schwarm
+    do_charter = do_wabenbau
+    do_find = do_suche
 
 
 def _startup_target() -> Path | None:
@@ -1981,7 +1998,7 @@ def main() -> int:
         shell.cmdloop()
     except KeyboardInterrupt:
         shell.con.raw("")
-        shell.con.info("Abgebrochen. 🐝", "🐝")
+        shell.con.info(i18n.t("main.aborted"), "🐝")
     finally:
         shell.con.reset_terminal_colors()   # Terminal-Standardfarben wiederherstellen
     return 0

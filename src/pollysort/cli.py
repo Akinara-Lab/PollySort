@@ -16,7 +16,7 @@ for _stream in (sys.stdout, sys.stderr):
 import typer
 from rich.table import Table
 
-from . import __version__, config
+from . import __version__, config, i18n
 from .console import BeeConsole
 from .journal import Journal
 from .llm import build_client
@@ -34,6 +34,12 @@ _STATE: dict = {"quiet": False, "plain": False, "no_emoji": False, "json": False
 
 
 def _con() -> BeeConsole:
+    # Dieselbe UI-Sprache wie die Konsole — sonst antwortet `pollysort-cli doctor` einem
+    # englischen Nutzer auf Deutsch.
+    try:
+        i18n.set_language(config.load_config().language)
+    except Exception:
+        pass
     return BeeConsole(quiet=_STATE["quiet"], plain=_STATE["plain"], no_emoji=_STATE["no_emoji"])
 
 
@@ -527,7 +533,7 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
         hive_path = None
     from .doctor import run_checks
     icon = {"ok": "✅", "warn": "⚠️", "fail": "❌"}
-    con.info("PollySort — Health-Check", "🩺")
+    con.info(i18n.t("doctor.cli_title"), "🩺")
     worst = 0
     for label, status, detail in run_checks(hive_path):
         con.raw(f"  {icon.get(status, '•')}  {label:<12} {detail}")

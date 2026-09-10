@@ -295,7 +295,7 @@ below list the **English alias** first and the original **German** name in paren
 | `trash <id>` / `empty` (`papierkorb` / `leeren`) | Quarantine / permanently delete (with confirmation) |
 | `restore <id>` (`zurueckholen`) | Bring a file back from quarantine (into its category) |
 | `undo` (`rueckflug`) | Reverse the last move |
-| `wabenbau [category]` | Turn a category into a **project**: charter, stakeholders, deadlines |
+| `charter [category]` (`wabenbau`) | Turn a category into a **project**: charter, stakeholders, deadlines |
 | `calendar [notify]` (`kalender [melden]`) | Show deadlines · send due reminders via the notification routes |
 | `swarm` (`schwarm`) | Overview: Queen & bees (combs, open cases, projects, deadlines) |
 | `recommend [para\|johnny\|dewey]` (`empfehlung`) | Filing-strategy suggestions + dynamic hints |
@@ -378,8 +378,9 @@ included, no activation needed.
 ```
 
 The Markdown entries start with YAML front-matter and open straight in Obsidian, Logseq or
-Notion. Global settings (last project, credentials, project registry) live under `~/.beehive/`,
-outside your working folders (relocatable via `BEEHIVE_HOME`).
+Notion. Global settings (last project, credentials, project registry) live under
+`~/.pollysort/`, outside your working folders (relocatable via `POLLYSORT_HOME`). An old
+`~/.beehive/` from earlier versions is migrated automatically — copied, never deleted.
 
 > The hidden folder is named `.honig` ("honey") and categories are internally called "combs"
 > (`Waben`) — part of the tool's bee theme. You never need to touch these names.
@@ -433,7 +434,7 @@ project:
   service; anti-spam included).
 
 > 🔒 **Credential seal:** notification credentials live **only** locally in
-> `~/.beehive/flugrouten.toml` (chmod 600, env override possible), **never** in the project and
+> `~/.pollysort/flugrouten.toml` (chmod 600, env override possible), **never** in the project and
 > **never** in an LLM prompt. Discord/SMTP calls run completely independently of the AI;
 > sensitive fields are masked in `log.jsonl`. No notifications are sent without your setup.
 

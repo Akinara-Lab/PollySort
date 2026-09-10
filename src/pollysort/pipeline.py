@@ -328,7 +328,19 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
         if vec is None:
             vec = ctx.client.embed(entry.embedding_text())
         a = assign(embedding=vec, llm_kategorie=analysis.kategorie,
-                   hive=ctx.mind, taxonomy=ctx.taxonomy)
+                   hive=ctx.mind, taxonomy=ctx.taxonomy,
+                   analysis_text=entry.embedding_text())
+        if a.quelle == "zweitmeinung":
+            # Sichtbar machen, dass hier nicht das Modell entschieden hat, sondern die
+            # Heuristik auf dessen eigener Zusammenfassung — Vertrauen braucht
+            # Nachvollziehbarkeit, auch im Journal.
+            from .config import pretty_category
+            con.info(i18n.t("pl.second_opinion", name=f.path.name,
+                            label=analysis.kategorie or "—",
+                            cat=pretty_category(a.kategorie)), "🔎")
+            if not dry_run:
+                ctx.journal.event("zweitmeinung", file=f.path.name,
+                                  label=analysis.kategorie, kategorie=a.kategorie)
         entry.funktion.kategorie = a.kategorie
         entry.confidence = a.confidence
         entry.zustaendigkeit = a.zustaendigkeit

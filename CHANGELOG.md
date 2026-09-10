@@ -9,6 +9,31 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — Zweitmeinung, Modell-Prüfung, Tippfehler-Vorschläge (2026-09-10)
+- **Zweitmeinung der Heuristik** (`assigner.py`): Rastet das Modell-Label auf keine
+  Projekt-Kategorie ein (das Modell antwortet etwa „gehaltsabrechnung" für eine
+  Reisekostenabrechnung), schaut die Offline-Heuristik auf die Zusammenfassung, die das
+  Modell selbst geschrieben hat. Steht dort ein spezifischer Fachbegriff, wird einsortiert
+  statt nachgefragt. Greift **nur** bei einem unbrauchbaren Label, nie gegen eine
+  Entscheidung des Modells — und wird in Konsole und Journal als Quelle ausgewiesen.
+- **`doctor` prüft im Ollama-Modus, ob Analyse- und Embedding-Modell gezogen sind.** Fehlt
+  das Embedding-Modell, sortiert PollySort zwar, aber das Gedächtnis lernt still nichts
+  dazu — jeder Lauf bleibt ein Kaltstart. Jetzt steht der passende `ollama pull`-Befehl
+  in der Ausgabe; fehlt das Analyse-Modell, ist es ein `fail`.
+- **Tippfehler-Vorschläge:** „sortire" → „Meintest du 'sortiere' / 'sort'?" — deutsche wie
+  englische Namen zählen.
+- Aliase, die das README schon versprach, die es aber nicht gab: `swarm`, `charter` (für
+  `wabenbau`), `find`, `calendar notify`.
+
+### Geändert — der Alltagspfad spricht die gewählte Sprache
+- `hilfe`/`help` ist datengetrieben und zeigt in Englisch die englischen Befehlsnamen
+  (`sort  (s)` statt `sortiere  (s)`), inklusive `{year}/{month}`. Ein Test stellt sicher,
+  dass jeder in der Hilfe genannte Name auch ein echter Befehl ist.
+- Projekt öffnen, Kopfzeile/Prompt, `home`, `status`, `doctor` (REPL **und** CLI) sind
+  zweisprachig.
+- README: `~/.beehive/` → `~/.pollysort/`, `BEEHIVE_HOME` → `POLLYSORT_HOME` — der Text war
+  seit dem Paket-Rename veraltet.
+
 ### Hinzugefügt — Release-Workflow und CLA
 - **`.github/workflows/release.yml`**: Tag → bauen → auf allen drei Betriebssystemen aus dem
   **Wheel** installieren und starten → GitHub-Release. Bewusst dreistufig: Ein Wheel, das
