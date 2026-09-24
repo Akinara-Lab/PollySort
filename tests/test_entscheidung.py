@@ -419,3 +419,54 @@ def test_altes_gedaechtnis_bekommt_modell_je_vektor(tmp_path):
     assert [e[0] for e in mind.eintraege(neu)] == ["b"], "Stufe A sieht nur den neuen Vektor"
     mind.forget("a")
     assert mind.mismatch(neu) is None
+
+
+# --------------------------------------------------------------------------- #
+#  analysiere <id> (F2) — ein falsch eingeordneter Altfall
+# --------------------------------------------------------------------------- #
+def _shell_mit_projekt(tmp_path, monkeypatch, antwort: bool):
+    from pollysort.repl import BeehiveShell
+    hive = tmp_path / "hive"
+    hive.mkdir()
+    config.write_seed(hive, HiveSeed(categories=list(CATS), provider="offline"))
+    (hive / "auszug.txt").write_text("KONTOAUSZUG Nr. 3/2026\nSaldo 1.234,00 EUR\nIBAN DE12",
+                                     encoding="utf-8")
+    sh = BeehiveShell.__new__(BeehiveShell)
+    sh.con = BeeConsole(quiet=True)
+    sh.hive = hive
+    monkeypatch.setattr(sh, "_ja_default", lambda _p: antwort, raising=False)
+    ctx = sh._ctx()
+    run_cycle(ctx, mode="move")
+    bee = ctx.store.query()[0]["id"]
+    from pollysort.review import apply_correction
+    apply_correction(ctx, bee, "rechnungen")          # Altfall: falsch eingeordnet
+    return sh, hive, bee
+
+
+def test_analysiere_ordnet_nach_rueckfrage_neu_ein(tmp_path, monkeypatch):
+    sh, hive, bee = _shell_mit_projekt(tmp_path, monkeypatch, antwort=True)
+    sh.do_analysiere(bee)
+    from pollysort.store import Store
+    row = Store(hive).by_id(bee)
+    assert row["kategorie"] == "kontoauszuege"
+    assert (hive / "Kontoauszuege" / "auszug.txt").exists()
+
+
+def test_analysiere_ohne_zustimmung_bleibt_alles_liegen(tmp_path, monkeypatch):
+    sh, hive, bee = _shell_mit_projekt(tmp_path, monkeypatch, antwort=False)
+    sh.do_reanalyze(bee)
+    from pollysort.store import Store
+    assert Store(hive).by_id(bee)["kategorie"] == "rechnungen"
+    assert (hive / "Rechnungen" / "auszug.txt").exists()
+
+
+def test_kalender_schreibt_die_ics_auch_ohne_termine(tmp_path):
+    from pollysort.repl import BeehiveShell
+    hive = tmp_path / "hive"
+    hive.mkdir()
+    config.write_seed(hive, HiveSeed(provider="offline"))
+    sh = BeehiveShell.__new__(BeehiveShell)
+    sh.con = BeeConsole(quiet=True)
+    sh.hive = hive
+    sh.do_kalender("")
+    assert (config.honig(hive) / "kalender.ics").exists()

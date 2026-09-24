@@ -11,6 +11,7 @@ Konsole).
 
 from __future__ import annotations
 
+from .. import i18n
 from .kalender import Kalender, Termin
 
 
@@ -46,10 +47,11 @@ class Waechterbiene:
 
     def _melden(self, t: Termin, *, senden: bool) -> None:
         tage = t.tage_bis()
-        wann = f"in {tage} Tag(en)" if tage >= 0 else f"{-tage} Tag(e) überfällig"
         con = getattr(self.ctx, "console", None)
         if con is not None:
-            con.ask(f"Wächterbienen summen: '{t.titel}' ist {wann} fällig ({t.faellig}).", "🔔")
+            # Früher: „'Miete' ist 3 Tag(e) überfällig fällig" — zwei Sätze, zwei Schlüssel.
+            key = "wb.due" if tage >= 0 else "wb.overdue"
+            con.ask(i18n.t(key, title=t.titel, n=abs(tage), date=t.faellig), "🔔")
         # Journal: NUR Metadaten (keine Credentials).
         self.ctx.journal.event("waechter_reminder", termin=t.id, projekt=t.projekt,
                                faellig=t.faellig, tage=tage,
@@ -63,21 +65,21 @@ class Waechterbiene:
         """Über alle Flugrouten echt versenden — mit bienenthematischer Quittung."""
         con = getattr(self.ctx, "console", None)
         tage = t.tage_bis()
-        wann = "überfällig" if tage < 0 else f"in {tage} Tagen"
+        wann = i18n.t("wb.when_overdue") if tage < 0 else i18n.t("wb.when_in", n=tage)
         titel = f"Deadline: {t.titel}"
-        text = f"Fällig am {t.faellig} ({wann})."
+        text = i18n.t("wb.mail", date=t.faellig, when=wann)
         erfolg_gesamt = True
         for k in self.kanaele:
             try:
                 k.senden(titel, text)
                 if con is not None:
                     stock = getattr(k, "STOCK", f"{k.name}-Wabe")
-                    con.honey(f"Wächterbienen haben die {stock} erfolgreich informiert!", "🐝")
+                    con.honey(i18n.t("r.routes.test_ok", target=stock), "🐝")
                 self.ctx.journal.event("waechter_versand", kanal=k.name, termin=t.id, erfolg=True)
             except Exception as exc:      # KanalError o. ä. — Text enthält bewusst kein Secret
                 erfolg_gesamt = False
                 if con is not None:
-                    con.error(f"Wächterbiene kehrt vom {k.name}-Flug zurück: {exc}")
+                    con.error(i18n.t("wb.back", name=k.name, err=exc))
                 self.ctx.journal.event("waechter_versand", kanal=k.name, termin=t.id, erfolg=False)
         if erfolg_gesamt:
             self.kalender.markiere_gemeldet(t.id)   # erst nach Erfolg → kein Doppel-Versand
@@ -89,13 +91,12 @@ class Waechterbiene:
         ok: list[str] = []
         for k in self.kanaele:
             try:
-                k.senden("Bienentanz-Testflug",
-                         "🐝 Hallo vom Bienenstock! Diese Flugroute steht bereit.")
+                k.senden(i18n.t("wb.test_title"), i18n.t("wb.test_text"))
                 ok.append(k.name)
                 if con is not None:
                     stock = getattr(k, "STOCK", f"{k.name}-Wabe")
-                    con.honey(f"Wächterbienen haben die {stock} erfolgreich informiert!", "🐝")
+                    con.honey(i18n.t("r.routes.test_ok", target=stock), "🐝")
             except Exception as exc:
                 if con is not None:
-                    con.error(f"Flugroute {k.name} blockiert: {exc}")
+                    con.error(i18n.t("r.routes.blocked", name=k.name, err=exc))
         return ok

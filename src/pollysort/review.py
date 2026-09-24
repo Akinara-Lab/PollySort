@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from . import i18n
 from .models import Status
 from .mover import collision_safe_name
 from .pipeline import Context
@@ -104,30 +105,30 @@ def review(ctx: Context, *, mode: str = "move",
     con = ctx.console
     rows = ctx.store.query(status="needs_review")
     if not rows:
-        con.info("Keine offenen Rückfragen. 🎉", "🐝")
+        con.info(i18n.t("rv.none"), "🐝")
         return 0
 
-    con.rule(f"{len(rows)} offene Rückfrage(n)")
+    con.rule(i18n.t("rv.title", n=len(rows)))
     known = ", ".join(ctx.taxonomy.categories)
     corrected = 0
     for i, row in enumerate(rows, 1):
         con.raw(f"\n[{i}/{len(rows)}] {row['filename']}  (conf {row.get('confidence') or 0:.2f})")
-        con.raw(f"    Titel: {row.get('title')}")
-        con.raw(f"    Funktion: {row.get('funktion')}")
-        con.raw(f"    Vorschlag: {row.get('kategorie')}   |   bekannt: {known}")
-        answer = ask("    Kategorie eingeben ([s]kip, [v]iew, [q]uit): ").strip()
+        con.raw(i18n.t("rv.titel", title=row.get("title")))
+        con.raw(i18n.t("rv.funktion", f=row.get("funktion")))
+        con.raw(i18n.t("rv.vorschlag", cat=row.get("kategorie"), known=known))
+        answer = ask(i18n.t("rv.prompt")).strip()
         if answer.lower() in ("s", ""):
             continue
         if answer.lower() == "q":
             break
         if answer.lower() in ("v", "o"):
             open_file(row["path"])
-            answer = ask("    Kategorie eingeben ([s]kip): ").strip()
+            answer = ask(i18n.t("rv.prompt2")).strip()
             if answer.lower() in ("s", ""):
                 continue
         old = apply_correction(ctx, row["id"], answer, mode=mode, source="review")
         if old is not None:
             corrected += 1
             con.honey(f"{row['filename']}: {old} → {answer.lower()}", "🍯")
-    con.info(f"{corrected} Rückfrage(n) beantwortet.", "🐝")
+    con.info(i18n.t("rv.done", n=corrected), "🐝")
     return corrected

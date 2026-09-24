@@ -291,7 +291,8 @@ below list the **English alias** first and the original **German** name in paren
 | `scan` (`sweep`) | Check the whole folder for manual changes (moved/changed/new/gone) and **learn from hand-moves** — free, no AI call |
 | `import <folder>` (`importiere`) | Sort files from another folder into here |
 | `assign <id> <cat>` (`zuordnen`) | Correct an assignment (memory learns) |
-| `subfolder <cat> <pattern\|off>` (`unterordner`) | Dynamic subfolders per category, e.g. `{jahr}/{monat}` (year/month) |
+| `reanalyze <id>` (`analysiere`) | Re-analyse one entry — asks before re-filing it |
+| `subfolder <cat> <pattern\|off>` (`unterordner`) | Dynamic subfolders per category, e.g. `{year}/{month}` — dated by the document's own date (e.g. invoice date), not by a due date |
 | `duplicates [cleanup]` (`dubletten [aufraeumen]`) | Show detected duplicates · move them to quarantine |
 | `trash <id>` / `empty` (`papierkorb` / `leeren`) | Quarantine / permanently delete (with confirmation) |
 | `restore <id>` (`zurueckholen`) | Bring a file back from quarantine (into its category) |

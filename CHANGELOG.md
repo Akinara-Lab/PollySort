@@ -9,6 +9,28 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Geändert — alle offenen Punkte aus TEIL 3 der TODO
+- **Vollständig zweisprachig:** alle 155 Befehlsmeldungen der Konsole und die Ausgaben von
+  Rückfragen, Daemon, Wächter-/Baubienen, Scan und Empfehlungen laufen über `i18n.t()`. Ein
+  Test verhindert, dass neue feste Texte dazukommen. Offen bleiben nur die Hilfetexte der
+  Skript-CLI.
+- **Unterordner nach dem echten Dokumentdatum:** beschriftetes Datum („Rechnungsdatum:",
+  „Kontoauszug vom 3. März 2026") schlägt Dateiname und erstes Datum; Fristen und Zeiträume
+  („zahlbar bis", „Leistungszeitraum") zählen nicht mehr. Vorher landete eine Rechnung im Monat
+  ihrer Zahlungsfrist.
+- **`doctor` meldet die GPU-Belegung** (warnt, wenn das Modell teilweise auf der CPU läuft) und
+  die Ollama-Version.
+- **Neu: `analysiere <id>` / `reanalyze <id>`** — einen Altfall neu analysieren; fragt, bevor
+  umsortiert wird, und lernt dann daraus.
+- **`kalender` schreibt die abonnierbare `.ics` jedes Mal neu** — auch wenn alles erledigt ist.
+
+### Behoben
+- **Konsolidierung wählte den engeren Namen:** 4× „arbeitsvertraege" + 3× „vertraege" wurden
+  ein Ordner „Arbeitsvertraege" — samt Mietverträgen. Jetzt gewinnt der Name, der alle deckt.
+- Wächterbienen: „ist 3 Tag(e) überfällig fällig" → zwei saubere Sätze.
+- Empfehlungen verwiesen auf nicht existierende Befehle und trugen noch „Beebliothek".
+- Der Sweep-Bericht nannte „LLM-Calls · ~0,0000 €" auch im Sparmodus.
+
 ### Geändert — die Modi heißen jetzt Sparmodus · Lokal · Cloud
 - **Sparmodus** (bisher „offline"): reine Heuristik — sofort, kostenlos, läuft auf jedem
   Rechner. **Lokal** (bisher „ollama"): KI auf dem eigenen Rechner. **Cloud** (bisher

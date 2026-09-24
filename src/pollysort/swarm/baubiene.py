@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .. import i18n
 from ..config import _toml_val, honig, pretty_category
 from .kalender import Kalender
 
@@ -147,26 +148,24 @@ class Baubiene:
         path = write_ics(honig(self.hive) / "kalender.ics", termine)
         con = getattr(self.ctx, "console", None)
         if con is not None and termine:
-            con.honey("Baubienen haben den Pollen-Kalender synchronisiert "
-                      f"({len(termine)} Termin(e) → kalender.ics).", "🐝")
+            con.honey(i18n.t("bb.synced", n=len(termine)), "🐝")
         return path
 
     def _rueckfragen(self, kategorie: str, ch: Charter, ask: Callable[[str], str]) -> None:
         """Proaktiv fehlende Charter-Infos bei den Beteiligten erfragen."""
         con = self.ctx.console
-        wer = ", ".join(ch.stakeholder) or "noch niemand zuständig"
-        con.info(f"Baubienen bauen die Wabe '{pretty_category(kategorie)}' — Stakeholder: {wer}",
-                 "🛠️")
+        wer = ", ".join(ch.stakeholder) or i18n.t("bb.nobody")
+        con.info(i18n.t("bb.building", cat=pretty_category(kategorie), who=wer), "🛠️")
         if not ch.stakeholder:
-            antwort = ask("    🐝 Wer ist zuständig? (Namen, kommagetrennt, leer=offen): ").strip()
+            antwort = ask(i18n.t("bb.who")).strip()
             personen = [p.strip() for p in antwort.split(",") if p.strip()]
             if personen:
                 ch.stakeholder = personen
                 self.ctx.taxonomy.set_persons(kategorie, personen)   # ins Gedächtnis lernen
         if not ch.ziel:
-            ch.ziel = ask("    🎯 Projektziel (1 Satz, leer=später): ").strip()
+            ch.ziel = ask(i18n.t("bb.goal")).strip()
         if not ch.deadline:
-            ch.deadline = ask("    📅 Deadline (JJJJ-MM-TT, leer=keine): ").strip()
+            ch.deadline = ask(i18n.t("bb.deadline")).strip()
 
     def _render_md(self, kategorie: str, ch: Charter) -> None:
         """Die Project Charter als Bienenstock.md in den Waben-Ordner schreiben."""

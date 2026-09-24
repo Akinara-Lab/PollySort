@@ -59,7 +59,10 @@ def test_doctor_speaks_english(monkeypatch):
 def _ollama(monkeypatch, models):
     monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="ollama"))
     monkeypatch.setattr(client_mod, "ollama_available", lambda *_a, **_k: models is not None)
+    monkeypatch.setattr(client_mod, "ollama_version",
+                        lambda *_a, **_k: "0.34.2" if models is not None else None)
     monkeypatch.setattr(client_mod, "ollama_models", lambda *_a, **_k: models)
+    monkeypatch.setattr(client_mod, "ollama_geladen", lambda *_a, **_k: None)
     return {c[0]: c for c in doctor.run_checks(None)}
 
 
@@ -131,3 +134,39 @@ def test_ultra_swarm_is_free():
     src = inspect.getsource(BeehiveShell.do_sortiere)
     assert "workers = 10" in src, "Turbo muss weiterhin parallelisieren"
     assert "licens" not in src.lower(), "Turbo darf an keiner Lizenz mehr hängen"
+
+
+# --------------------------------------------------------------------------- #
+#  GPU-Belegung (2026-09-24): Ein halb auf der CPU geladenes Modell soll auffallen
+# --------------------------------------------------------------------------- #
+def _lokal(monkeypatch, geladen):
+    import pollysort.llm.client as cm
+    monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="ollama"))
+    monkeypatch.setattr(cm, "ollama_geladen", lambda *_a, **_k: geladen)
+    monkeypatch.setattr(cm, "ollama_version", lambda *_a, **_k: "0.34.2")
+    monkeypatch.setattr(cm, "ollama_models", lambda *_a, **_k: None)
+    return {c[0]: c for c in doctor.run_checks(None)}
+
+
+def test_gpu_check_warnt_bei_teilweise_cpu(monkeypatch):
+    checks = _lokal(monkeypatch, [{"name": "qwen3.5:9b", "size": 8_500, "size_vram": 4_930,
+                                   "context_length": 65536}])
+    assert checks["GPU"][1] == "warn"
+    assert "42 %" in checks["GPU"][2] and "65536" in checks["GPU"][2]
+
+
+def test_gpu_check_ganz_auf_der_grafikkarte(monkeypatch):
+    checks = _lokal(monkeypatch, [{"name": "qwen3.5:9b", "size": 5_500, "size_vram": 5_500,
+                                   "context_length": 4096}])
+    assert checks["GPU"][1] == "ok" and "4096" in checks["GPU"][2]
+
+
+def test_gpu_check_ohne_grafikkarte_ist_kein_fehler(monkeypatch):
+    checks = _lokal(monkeypatch, [{"name": "qwen3.5:9b", "size": 6_100, "size_vram": 0}])
+    assert checks["GPU"][1] == "ok"
+
+
+def test_gpu_check_schweigt_ohne_server_und_in_anderen_modi(monkeypatch):
+    assert "GPU" not in _lokal(monkeypatch, None)
+    monkeypatch.setattr(doctor.config, "load_config", lambda: AppConfig(llm_provider="offline"))
+    assert "GPU" not in {c[0] for c in doctor.run_checks(None)}

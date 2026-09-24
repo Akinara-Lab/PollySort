@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import i18n
 from .guards import IgnoreMatcher
 from .models import Status
 from .pipeline import Context, CycleSummary, ingest
@@ -53,7 +54,7 @@ def sweep(ctx: Context, *, mode: str = "index", report_only: bool = False,
     store = ctx.store
     matcher = IgnoreMatcher(ctx.hive, extra=ctx.seed.exclude)
 
-    con.info("Prüfe den ganzen Ordner auf manuelle Änderungen …", "🧹")
+    con.info(i18n.t("sw.checking"), "🧹")
     findings = scout(walk([ctx.hive], matcher, recursive=True))
     cur_by_path = {str(f.path): f for f in findings}
     cur_by_hash: dict[str, list] = {}
@@ -151,21 +152,26 @@ def _learn_from_move(ctx, r, new_path, report) -> None:
                         kategorie_neu=new_cat, quelle="manuell")
     report.learned += 1
     report.details.append(
-        f"🧠 gelernt: {Path(new_path).name}  {old_cat or '—'} → {new_cat}")
+        i18n.t("sw.learned_one", name=Path(new_path).name, old=old_cat or "—", new=new_cat))
 
 
 def _print_report(ctx: Context, r: SweepReport) -> None:
     con = ctx.console
-    con.rule("Sweep-Bericht")
-    line = (f"📋  🆕 {r.new} neu · ✏️ {r.changed} geändert · 🔀 {r.moved} verschoben · "
-            f"🗑️ {r.missing} verschwunden · ⚠️ {r.errors} Fehler")
+    con.rule(i18n.t("sw.title"))
+    line = i18n.t("sw.line", new=r.new, changed=r.changed, moved=r.moved, missing=r.missing,
+                  errors=r.errors)
     if r.learned:
-        line += f" · 🧠 {r.learned} gelernt"
+        line += i18n.t("sw.learned", n=r.learned)
     con.raw(line)
     for d in r.details[:40]:
         con.raw(f"    {d}")
-    con.info(f"Nichts wurde von uns gelöscht. {r.llm_calls} LLM-Calls, ~{r.est_cost_eur:.4f} €.",
-             "🐝")
+    # Ehrlich bleiben wie im Sortierlauf: Kosten nur, wo es welche gibt (Cloud).
+    schluss = i18n.t("sw.safe")
+    if r.llm_calls and getattr(ctx.cfg, "llm_provider", "") == "openrouter":
+        schluss += i18n.t("sw.calls_cost", n=r.llm_calls, cost=f"{r.est_cost_eur:.4f}")
+    elif r.llm_calls:
+        schluss += i18n.t("sw.calls", n=r.llm_calls)
+    con.info(schluss, "🐝")
     ctx.journal.entry("Sweep-Bericht", [
         f"neu: {r.new}", f"geändert: {r.changed}", f"verschoben: {r.moved}",
         f"verschwunden: {r.missing}", f"fehler: {r.errors}",

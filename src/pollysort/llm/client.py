@@ -139,6 +139,30 @@ def ollama_models(endpoint: str = OLLAMA_ENDPOINT) -> list[str] | None:
         return None
 
 
+def ollama_version(endpoint: str = OLLAMA_ENDPOINT) -> str | None:
+    """Versionsnummer des lokalen Ollama-Servers (``None`` = nicht erreichbar)."""
+    try:
+        r = httpx.get(f"{endpoint.rstrip('/')}/api/version", timeout=PING_TIMEOUT)
+        return str(r.json().get("version")) if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
+def ollama_geladen(endpoint: str = OLLAMA_ENDPOINT) -> list[dict] | None:
+    """Welche Modelle Ollama gerade im Speicher hat — mit ``size`` (gesamt) und
+    ``size_vram`` (davon auf der Grafikkarte). ``None`` = nicht erreichbar.
+
+    Daran erkennt ``doctor``, wenn ein Modell teilweise auf der CPU läuft: am 2026-09-24
+    lud Ollama 0.34 das 9B mit 65 536 Tokens Kontext — 42 % landeten auf der CPU, und
+    PollySort wurde still langsamer. Seitdem soll so etwas sofort auffallen.
+    """
+    try:
+        r = httpx.get(f"{endpoint.rstrip('/')}/api/ps", timeout=PING_TIMEOUT)
+        return list(r.json().get("models", [])) if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
 def ollama_has_model(name: str, models: list[str]) -> bool:
     """``nomic-embed-text-v2-moe`` trifft auch ``nomic-embed-text-v2-moe:latest`` —
     ``:latest`` ist Ollamas stiller Standard-Tag. Ein Name ohne Tag passt auf jeden Tag."""

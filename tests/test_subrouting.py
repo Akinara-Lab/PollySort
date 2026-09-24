@@ -110,3 +110,53 @@ def test_pipeline_sorts_into_subfolder(tmp_path):
     # relativ zur Wabe: 2026/07/<datei>
     rel = hits[0].relative_to(hive / "Rechnungen")
     assert rel.parts[:2] == ("2026", "07")
+
+
+# --------------------------------------------------------------------------- #
+#  Das echte Dokumentdatum (2026-09-24)
+# --------------------------------------------------------------------------- #
+import pytest  # noqa: E402
+
+from pollysort.heuristics import dokument_datum  # noqa: E402
+
+
+@pytest.mark.parametrize("text, erwartet", [
+    ("RECHNUNG Nr. 4\nzahlbar bis 30.10.2026\nRechnungsdatum: 2026-10-10", "2026-10-10"),
+    ("Leistungszeitraum: 01.09.2026 – 30.09.2026\nDatum: 05.10.2026", "2026-10-05"),
+    ("Kontoauszug vom 3. März 2026\nSaldo", "2026-03-03"),
+    ("Invoice date: July 14, 2026\nDue: 2026-08-14", "2026-07-14"),
+    ("Musterstadt, 14.07.2026\nSehr geehrte Damen und Herren", "2026-07-14"),
+    ("Kündigung fällig bis 31.12.2026\nIhr Vertrag vom 01.02.2026", "2026-02-01"),
+])
+def test_dokument_datum(text, erwartet):
+    assert dokument_datum(text).isoformat() == erwartet
+
+
+def test_dokument_datum_ohne_datum_oder_unsinn():
+    assert dokument_datum("Keine Zahl hier") is None
+    assert dokument_datum("Artikel 31.13.2026 und 1850-01-01") is None
+
+
+def test_unterordner_folgt_dem_rechnungsdatum(tmp_path):
+    """Früher gewann das erste Datum — hier die Zahlungsfrist im Oktober."""
+    f = tmp_path / "rechnung.txt"
+    f.write_text("RECHNUNG\nzahlbar bis 15.10.2026\nRechnungsdatum: 28.09.2026", encoding="utf-8")
+    e = _entry(tmp_path, "rechnung.txt", "rechnungen")
+    assert target_dir(tmp_path, e, {"rechnungen": "{jahr}/{monat}"}) == \
+        tmp_path / "Rechnungen" / "2026" / "09"
+
+
+def test_beschriftetes_datum_schlaegt_den_dateinamen(tmp_path):
+    f = tmp_path / "scan_2026-11-02.txt"
+    f.write_text("Rechnungsdatum: 2026-10-10\nBetrag", encoding="utf-8")
+    e = _entry(tmp_path, "scan_2026-11-02.txt", "rechnungen")
+    assert target_dir(tmp_path, e, {"rechnungen": "{jahr}/{monat}"}) == \
+        tmp_path / "Rechnungen" / "2026" / "10"
+
+
+def test_dateiname_schlaegt_ein_unbeschriftetes_datum(tmp_path):
+    f = tmp_path / "beleg_2026-05-20.txt"
+    f.write_text("Irgendwas 01.01.2025 notiert", encoding="utf-8")
+    e = _entry(tmp_path, "beleg_2026-05-20.txt", "rechnungen")
+    assert target_dir(tmp_path, e, {"rechnungen": "{jahr}/{monat}"}) == \
+        tmp_path / "Rechnungen" / "2026" / "05"

@@ -140,6 +140,35 @@ def _gleichbedeutend(a: str, b: str) -> bool:
     return fa is not None and fa == fb
 
 
+def _deckt(a: str, b: str) -> bool:
+    """Beschreibt der Name ``a`` auch alle Dokumente, die ``b`` hießen?
+
+    Ja, wenn ``a`` der Kopf des Kompositums ist („vertraege" deckt „arbeitsvertraege"), sein
+    Präfix („steuer" deckt „steuerbescheide") oder seine RULES-Familie („spesen" deckt
+    „reisekostenabrechnungen"). Umgekehrt nie: „arbeitsvertraege" beschreibt keinen Mietvertrag.
+    """
+    return (a == b or _kompositum_mit_kopf(b, a) or (len(a) >= 5 and b.startswith(a))
+            or _familie(b) == a)
+
+
+def _gruppenname(mitglieder: list[str], anzahl: dict[str, int]) -> str:
+    """Der Name für eine Gruppe gleichbedeutender Labels (Regel 4 konsequent angewandt).
+
+    Bis 2026-09-24 gewann schlicht das häufigste Label. Im Ollama-Lauf hießen 4 Verträge
+    „arbeitsvertraege" und 3 „vertraege" — alle 7, darunter 3 Mietverträge, landeten in
+    einem Ordner „Arbeitsvertraege". Jetzt gewinnt der Name, der ALLE deckt; unter mehreren
+    der häufigste. Deckt keiner alle, die gemeinsame Familie — und erst dann der häufigste.
+    """
+    reihenfolge = sorted(mitglieder, key=lambda k: (-anzahl[k], k))
+    for kandidat in reihenfolge:
+        if all(_deckt(kandidat, m) for m in mitglieder):
+            return kandidat
+    familien = {_familie(m) for m in mitglieder}
+    if len(familien) == 1 and None not in familien:
+        return familien.pop()
+    return reihenfolge[0]
+
+
 def _ist_oberbegriff_von(ober: str, unter: str) -> bool:
     kinder = OBERBEGRIFFE.get(ober.strip().lower())
     if kinder is None:
@@ -179,17 +208,23 @@ def konsolidieren(labels: dict[str, int], *,
     mindest = max(2, min(mindest, gesamt // 4))
 
     # -- Regel 7: Synonyme und Wortstämme zusammenlegen ----------------------
-    # Das jeweils häufigste Label gewinnt den Namen — es ist das, was das Modell
-    # am häufigsten für richtig hielt.
-    zusammen: dict[str, int] = {}
+    # Erst die Gruppen bilden (verglichen wird mit dem häufigsten Label der Gruppe), dann
+    # den Namen wählen, der ALLE Mitglieder deckt (_gruppenname, Regel 4).
+    gruppen: dict[str, list[str]] = {}
     for label in sorted(rein, key=lambda k: (-rein[k], k)):
-        for ziel in zusammen:
-            if _gleichbedeutend(label, ziel):
-                zusammen[ziel] += rein[label]
-                protokoll.append(f"'{label}' → '{ziel}' (dasselbe gemeint)")
+        for kopf in gruppen:
+            if _gleichbedeutend(label, kopf):
+                gruppen[kopf].append(label)
                 break
         else:
-            zusammen[label] = rein[label]
+            gruppen[label] = [label]
+    zusammen: dict[str, int] = {}
+    for mitglieder in gruppen.values():
+        name = _gruppenname(mitglieder, rein)
+        zusammen[name] = zusammen.get(name, 0) + sum(rein[m] for m in mitglieder)
+        for m in mitglieder:
+            if m != name:
+                protokoll.append(f"'{m}' → '{name}' (dasselbe gemeint)")
 
     # -- Regel 3: kein Oberbegriff neben seinem Unterbegriff ------------------
     for ober in sorted(zusammen, key=lambda k: -zusammen[k]):

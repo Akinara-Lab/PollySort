@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from . import config as cfgmod
+from . import i18n
 from .lock import QueenLock, QueenLockError
 from .pipeline import Context, run_cycle
 from .sweeper import sweep
@@ -60,11 +61,11 @@ def run_daemon(
     """
     ctx0 = build_ctx()
     con = ctx0.console
-    con.honey("Königin erwacht – Daemon läuft. (Strg-C beendet)", "🟢")
+    con.honey(i18n.t("dm.start"), "🟢")
     if _HAVE_WATCHDOG:
-        con.info("Flugloch-Wache aktiv (watchdog + Fallback-Poll).", "🛡️")
+        con.info(i18n.t("dm.watchdog"), "🛡️")
     else:
-        con.info("watchdog nicht verfügbar → reiner Poll-Modus.", "🛡️")
+        con.info(i18n.t("dm.poll"), "🛡️")
 
     wake = threading.Event()
     observer = _start_observer(hive, wake)
@@ -81,13 +82,13 @@ def run_daemon(
             if use_sweep and cfg.sweep_auto and time.monotonic() >= next_sweep:
                 _guarded(lambda c: sweep(c, mode=mode), build_ctx, None, con, want_ctx=True)
                 next_sweep = time.monotonic() + cfg.sweep_interval_minutes * 60
-                con.info(f"Nächster Auto-Sweep in {cfg.sweep_interval_minutes} min", "⏱️")
+                con.info(i18n.t("dm.next", m=cfg.sweep_interval_minutes), "⏱️")
 
             cycles += 1
             wake.wait(timeout=cfg.flugloch_poll_seconds)
             wake.clear()
     except KeyboardInterrupt:  # pragma: no cover
-        con.info("Daemon beendet.", "🐝")
+        con.info(i18n.t("dm.stop"), "🐝")
     finally:
         if observer:  # pragma: no cover
             observer.stop()
@@ -110,4 +111,4 @@ def _guarded(fn, build_ctx, mode, con, want_ctx: bool = False) -> None:
     except QueenLockError:
         pass  # anderer Schreiber aktiv → nächste Runde
     except Exception as exc:  # Daemon läuft weiter (§16)
-        con.error(f"Daemon-Schritt fehlgeschlagen: {exc}")
+        con.error(i18n.t("dm.failed", err=exc))

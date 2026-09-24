@@ -41,10 +41,11 @@ def _provider_check(hive: Path | None) -> Check:
     if provider == "offline":
         return (label, "ok", i18n.t("doctor.prov.offline"))
     if provider == "ollama":
-        from .llm.client import OLLAMA_ENDPOINT, ollama_available
-        reachable = ollama_available(cfg.llm_endpoint or OLLAMA_ENDPOINT)
-        return (label, "ok" if reachable else "warn",
-                i18n.t("doctor.prov.ollama_ok" if reachable else "doctor.prov.ollama_down"))
+        from .llm.client import OLLAMA_ENDPOINT, ollama_version
+        version = ollama_version(cfg.llm_endpoint or OLLAMA_ENDPOINT)
+        if version is None:
+            return (label, "warn", i18n.t("doctor.prov.ollama_down"))
+        return (label, "ok", i18n.t("doctor.prov.ollama_ok", version=version))
     # openrouter
     key = config.load_credentials()
     if not key:
@@ -84,6 +85,35 @@ def _models_check(hive: Path | None) -> Check | None:
     if OLLAMA_MODEL in missing:
         return (label, "fail", detail)          # ohne Analyse-Modell läuft gar nichts
     return (label, "warn", detail + i18n.t("doctor.models.embed_note"))
+
+
+def _gpu_check(hive: Path | None) -> Check | None:
+    """Nur im Modus Lokal: Läuft das Analyse-Modell ganz auf der Grafikkarte?
+
+    ``None`` = trifft nicht zu (anderer Modus, Server aus) — das melden andere Checks.
+    Ganz auf der CPU ist auf Rechnern ohne Grafikkarte normal; *teilweise* auf der CPU ist
+    fast immer ein Zeichen, dass Ollama das Modell zu groß geladen hat (Kontext) oder ein
+    früherer CPU-Lauf das Modell noch belegt.
+    """
+    provider, cfg = _provider_for(hive)
+    if provider != "ollama":
+        return None
+    from .llm.client import OLLAMA_ENDPOINT, OLLAMA_MODEL, ollama_geladen
+    geladen = ollama_geladen(cfg.llm_endpoint or OLLAMA_ENDPOINT)
+    if geladen is None:
+        return None
+    label = i18n.t("doctor.gpu")
+    m = next((x for x in geladen if str(x.get("name", "")).split(":latest")[0] == OLLAMA_MODEL), None)
+    if m is None:
+        return (label, "ok", i18n.t("doctor.gpu.idle", model=OLLAMA_MODEL))
+    gesamt, vram = int(m.get("size") or 0), int(m.get("size_vram") or 0)
+    ctx = m.get("context_length", "?")
+    if gesamt and vram >= gesamt * 0.99:
+        return (label, "ok", i18n.t("doctor.gpu.full", model=OLLAMA_MODEL, ctx=ctx))
+    if vram <= 0:
+        return (label, "ok", i18n.t("doctor.gpu.cpu", model=OLLAMA_MODEL, ctx=ctx))
+    cpu = round(100 * (gesamt - vram) / gesamt) if gesamt else 0
+    return (label, "warn", i18n.t("doctor.gpu.partial", model=OLLAMA_MODEL, cpu=cpu, ctx=ctx))
 
 
 def _db_check(hive: Path | None) -> Check:
@@ -139,7 +169,8 @@ def _memory_check(hive: Path | None) -> Check:
 def run_checks(hive: Path | None) -> list[Check]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles);
     ``None`` heißt „trifft auf diese Umgebung nicht zu" und wird ausgelassen."""
-    checks = (_py_check, _provider_check, _models_check, _db_check, _extras_check, _memory_check)
+    checks = (_py_check, _provider_check, _models_check, _gpu_check, _db_check, _extras_check,
+              _memory_check)
     out: list[Check] = []
     for fn in checks:
         try:

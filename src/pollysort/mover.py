@@ -21,9 +21,7 @@ _DATE_RES = [
 ]
 
 
-def _entry_date(entry: BeeEntry) -> datetime:
-    """Bestes verfügbares Datum: aus dem Dokument, sonst Katalog-Zeitpunkt, sonst heute."""
-    blob = f"{entry.filename} {entry.content.title} {entry.content.summary}"
+def _aus_regex(blob: str) -> datetime | None:
     for rx, _ in _DATE_RES:
         m = rx.search(blob)
         if m:
@@ -31,10 +29,50 @@ def _entry_date(entry: BeeEntry) -> datetime:
                 return datetime(int(m.group("y")), int(m.group("m")), int(m.group("d")))
             except ValueError:
                 continue
+    return None
+
+
+def _entry_date(entry: BeeEntry) -> datetime:
+    """Bestes verfügbares Datum für ``{jahr}/{monat}``-Unterordner.
+
+    Reihenfolge (2026-09-24): beschriftetes Datum im Dokument („Rechnungsdatum:") → Datum im
+    Dateinamen → erstes Datum im Dokument, das keine Frist ist → Titel/Zusammenfassung →
+    Katalog-Zeitpunkt. Gelesen wird die Datei nur, weil ein Unterordner-Muster das verlangt.
+    """
+    from .extractor import auszug
+    from .heuristics import _DATUM_LABEL, dokument_datum
+
+    text = None
+    try:
+        if entry.path and Path(entry.path).exists():
+            text = auszug(Path(entry.path), entry.mime_type, limit=3000)
+    except Exception:
+        text = None
+    doc = dokument_datum(text) if text else None
+    if doc is not None and text and _beschriftet(text, doc, _DATUM_LABEL):
+        return datetime(doc.year, doc.month, doc.day)
+    aus_name = _aus_regex(entry.filename)
+    if aus_name is not None:
+        return aus_name
+    if doc is not None:
+        return datetime(doc.year, doc.month, doc.day)
+    aus_eintrag = _aus_regex(f"{entry.content.title} {entry.content.summary}")
+    if aus_eintrag is not None:
+        return aus_eintrag
     try:
         return datetime.fromisoformat((entry.scanned_at or "").replace("Z", ""))
     except (ValueError, AttributeError):
         return datetime.now()
+
+
+def _beschriftet(text: str, doc, label_re) -> bool:
+    """Stand das gefundene Dokumentdatum hinter einer Beschriftung wie „Rechnungsdatum:"?"""
+    from .heuristics import _DATUMSFORMEN, _datum_aus
+    for rx in _DATUMSFORMEN:
+        for mm in rx.finditer(text[:3000]):
+            if _datum_aus(mm) == doc and label_re.search(text[max(0, mm.start() - 40):mm.start()]):
+                return True
+    return False
 
 
 def resolve_subpath(pattern: str, entry: BeeEntry) -> str:

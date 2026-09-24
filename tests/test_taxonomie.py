@@ -147,3 +147,30 @@ def test_mindestgroesse_richtet_sich_nach_dem_bestand():
     # Und die Untergrenze fällt nie unter zwei — sonst überlebt jeder Einzelfall.
     winzig, _ = konsolidieren({"rechnungen": 3, "versicherung": 1})
     assert set(winzig) == {"rechnungen"}
+
+
+# --------------------------------------------------------------------------- #
+#  Der Name muss alle Dokumente decken (2026-09-24, aus einem echten Ollama-Lauf)
+# --------------------------------------------------------------------------- #
+def test_kopf_des_kompositums_gewinnt_den_namen():
+    """4× „arbeitsvertraege" + 3× „vertraege" (darunter Mietverträge) — vorher hieß der
+    Ordner „Arbeitsvertraege", und die Mietverträge lagen darin."""
+    ergebnis, protokoll = konsolidieren({"arbeitsvertraege": 4, "vertraege": 3, "protokolle": 4})
+    assert ergebnis == {"vertraege": 7, "protokolle": 4}
+    assert "'arbeitsvertraege' → 'vertraege' (dasselbe gemeint)" in protokoll
+
+
+def test_praefix_gewinnt_den_namen():
+    ergebnis, _ = konsolidieren({"steuerbescheide": 4, "steuer": 1, "rechnungen": 5})
+    assert ergebnis == {"rechnungen": 5, "steuer": 5}
+
+
+def test_haeufigerer_engerer_name_verliert_gegen_den_kopf():
+    ergebnis, _ = konsolidieren({"eingangsrechnungen": 10, "rechnungen": 2})
+    assert list(ergebnis) == ["rechnungen"]
+
+
+def test_ein_einziges_label_behaelt_seinen_namen():
+    """Nur wenn beide Namen vorkommen, ist der engere zu eng — allein bleibt er stehen."""
+    ergebnis, _ = konsolidieren({"arbeitsvertraege": 6, "protokolle": 4})
+    assert "arbeitsvertraege" in ergebnis

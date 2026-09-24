@@ -539,8 +539,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "low-power (heuristics, free)",
     },
     "doctor.prov.ollama_ok": {
-        "de": "Lokal · Ollama erreichbar",
-        "en": "local · Ollama reachable",
+        "de": "Lokal · Ollama {version} erreichbar",
+        "en": "local · Ollama {version} reachable",
     },
     "doctor.prov.ollama_down": {
         "de": "Lokal · Ollama NICHT erreichbar (Server starten)",
@@ -638,6 +638,968 @@ _CATALOG: dict[str, dict[str, str]] = {
               "(heuristics, free, no crash).",
     },
     "doctor.prov.cloud": {"de": "Cloud · OpenRouter: {reason}", "en": "cloud · OpenRouter: {reason}"},
+    # Doctor — liegt das Modell auf der Grafikkarte? (2026-09-24)
+    "doctor.gpu": {
+        "de": "GPU",
+        "en": "GPU",
+    },
+    "doctor.gpu.full": {
+        "de": "{model}: ganz auf der Grafikkarte · Kontext {ctx}",
+        "en": "{model}: fully on the GPU · context {ctx}",
+    },
+    "doctor.gpu.cpu": {
+        "de": "{model}: läuft auf der CPU (Kontext {ctx}) — normal ohne Grafikkarte; sonst 'ollama "
+              "stop {model}', dann lädt es beim nächsten Lauf neu",
+        "en": "{model}: running on the CPU (context {ctx}) — normal without a GPU; otherwise 'ollama "
+              "stop {model}' and it reloads on the next run",
+    },
+    "doctor.gpu.partial": {
+        "de": "{model}: {cpu} % auf der CPU (Kontext {ctx}) → deutlich langsamer. 'ollama stop "
+              "{model}' — beim nächsten Lauf lädt PollySort es passend neu",
+        "en": "{model}: {cpu} % on the CPU (context {ctx}) → much slower. 'ollama stop {model}' — "
+              "PollySort reloads it properly on the next run",
+    },
+    "doctor.gpu.idle": {
+        "de": "{model} ist gerade nicht geladen (lädt beim ersten Lauf)",
+        "en": "{model} is not loaded right now (loads on the first run)",
+    },
+    # REPL — alle Befehlsmeldungen (2026-09-24)
+    "r.preview.apply": {
+        "de": "Änderungen jetzt anwenden? [J/n]: ",
+        "en": "Apply the changes now? [Y/n]: ",
+    },
+    "r.watch.on": {
+        "de": "Wache aktiv — {mode}, {action}. Strg-C beendet.",
+        "en": "Watch active — {mode}, {action}. Ctrl-C stops.",
+    },
+    "r.reflect.title": {
+        "de": "Vorgeschlagene Regeln",
+        "en": "Proposed rules",
+    },
+    "r.reflect.confirm": {
+        "de": "Diese Regeln in die Wachstafel ritzen? [J/n]: ",
+        "en": "Save these rules? [Y/n]: ",
+    },
+    "r.rules.title": {
+        "de": "Wachstafel — gelernte Projekt-Regeln",
+        "en": "Rules — learned project rules",
+    },
+    "r.mem.cats": {
+        "de": "Kategorien: {cats}",
+        "en": "Categories: {cats}",
+    },
+    "r.mem.rebuild": {
+        "de": "Baut das Gedächtnis für {n} Eintrag/Einträge mit dem aktuellen Modell ({model}) neu auf.",
+        "en": "Rebuilds the memory for {n} entr(y/ies) with the current model ({model}).",
+    },
+    "r.model.set": {
+        "de": "Nektar gewechselt — die Königin sammelt jetzt von: {model}",
+        "en": "Model switched — now using: {model}",
+    },
+    "r.key.title": {
+        "de": "Nektar-Quelle (OpenRouter-Schlüssel)",
+        "en": "API key (OpenRouter)",
+    },
+    "r.key.usage": {
+        "de": "Prüfen: 'schluessel test' · Erneuern: 'schluessel setzen' · Entfernen: 'schluessel "
+              "entfernen'",
+        "en": "Check: 'key test' · Renew: 'key set' · Remove: 'key remove'",
+    },
+    "r.key.testing": {
+        "de": "Spähbiene prüft die Nektar-Quelle bei OpenRouter …",
+        "en": "Checking the key with OpenRouter …",
+    },
+    "r.key.new": {
+        "de": "Neue Nektar-Quelle ausweisen (ersetzt den bisherigen Schlüssel).",
+        "en": "Enter a new key (replaces the current one).",
+    },
+    "r.key.testing_new": {
+        "de": "Spähbiene prüft die neue Nektar-Quelle …",
+        "en": "Checking the new key …",
+    },
+    "r.charter.building": {
+        "de": "Baubienen schwärmen aus für die Wabe '{cat}' …",
+        "en": "Builder bees set out for '{cat}' …",
+    },
+    "r.charter.built": {
+        "de": "Bienenstock.md gebaut → {path}",
+        "en": "Bienenstock.md built → {path}",
+    },
+    "r.cal.title": {
+        "de": "Bienen-Kalender",
+        "en": "Calendar",
+    },
+    "r.swarm.title": {
+        "de": "Der Schwarm",
+        "en": "The swarm",
+    },
+    "r.swarm.queen": {
+        "de": "👑 Königin orchestriert {waben} Wabe(n) · {docs} Dokument(e)",
+        "en": "👑 The queen coordinates {waben} categor(y/ies) · {docs} document(s)",
+    },
+    "r.swarm.scouts": {
+        "de": "   🐝 Spurbienen:   {assigned} einsortiert · {review} Rückfrage(n) · {errors} Fehler",
+        "en": "   🐝 Scout bees:   {assigned} filed · {review} to review · {errors} error(s)",
+    },
+    "r.swarm.builders": {
+        "de": "   🛠️ Baubienen:    {n} Projekt-Charter (Stufe 2)",
+        "en": "   🛠️ Builder bees: {n} project charter(s) (stage 2)",
+    },
+    "r.swarm.guards": {
+        "de": "   🔔 Wächterbienen: {n} Deadline(s) in ≤ 7 Tagen",
+        "en": "   🔔 Guard bees:   {n} deadline(s) within 7 days",
+    },
+    "r.routes.title": {
+        "de": "Flugrouten der Wächterbienen",
+        "en": "Notification routes",
+    },
+    "r.routes.local": {
+        "de": "🔒 Zugangsdaten bleiben lokal — kein LLM sieht sie je. 'flugrouten test' prüft.",
+        "en": "🔒 Credentials stay local — no LLM ever sees them. 'routes test' checks.",
+    },
+    "r.routes.testing": {
+        "de": "Wächterbienen fliegen zum Testflug aus …",
+        "en": "Guard bees are out on a test flight …",
+    },
+    "r.routes.setup_title": {
+        "de": "Flugrouten ausweisen",
+        "en": "Set up notification routes",
+    },
+    "r.routes.where": {
+        "de": "Wohin sollen die Wächterbienen bei fälligen Deadlines fliegen?",
+        "en": "Where should reminders go when deadlines are due?",
+    },
+    "r.routes.local2": {
+        "de": "🔒 Alle Zugangsdaten bleiben strikt lokal — kein LLM bekommt sie je zu sehen.",
+        "en": "🔒 All credentials stay strictly local — no LLM ever sees them.",
+    },
+    "r.routes.ask_discord": {
+        "de": "  🎮 Discord-Flugroute einrichten? [j/N]: ",
+        "en": "  🎮 Set up Discord? [y/N]: ",
+    },
+    "r.routes.ask_email": {
+        "de": "  📧 E-Mail-Flugroute einrichten? [j/N]: ",
+        "en": "  📧 Set up e-mail? [y/N]: ",
+    },
+    "r.routes.ask_cal": {
+        "de": "  📅 Kalender-Flugroute anlegen? (Struktur, Sync folgt) [j/N]: ",
+        "en": "  📅 Add a calendar route? (structure only, sync comes later) [y/N]: ",
+    },
+    "r.routes.saved": {
+        "de": "Flugrouten gesichert (nur lokal, chmod 600). Testflug: 'flugrouten test'.",
+        "en": "Routes saved (local only, chmod 600). Test: 'routes test'.",
+    },
+    "r.dup.title": {
+        "de": "{n} Dublette(n)",
+        "en": "{n} duplicate(s)",
+    },
+    "r.dup.moved": {
+        "de": "{n} Dublette(n) in der Quarantäne — endgültig löschen erst mit 'leeren'.",
+        "en": "{n} duplicate(s) in quarantine — delete for good only with 'empty'.",
+    },
+    "r.trash.deleted": {
+        "de": "{n} Datei(en) endgültig gelöscht.",
+        "en": "{n} file(s) deleted for good.",
+    },
+    "r.undo.ok": {
+        "de": "Rückgängig: {name} → {folder} (wieder offen)",
+        "en": "Undone: {name} → {folder} (open again)",
+    },
+    "r.projects.nav": {
+        "de": "Wechseln mit:  wechsel <nr>   ·   Neu:  neu <pfad>",
+        "en": "Switch with:  switch <n>   ·   New:  new <path>",
+    },
+    "r.key.saved_short": {
+        "de": "     Key gespeichert (chmod 600).",
+        "en": "     Key saved (chmod 600).",
+    },
+    "r.preview.none": {
+        "de": "Nichts verändert — die Vorschau bleibt eine Vorschau.",
+        "en": "Nothing changed — the preview stays a preview.",
+    },
+    "r.import.usage": {
+        "de": "Nutzung: importiere <ordner>",
+        "en": "Usage: import <folder>",
+    },
+    "r.import.nofolder": {
+        "de": "Kein Ordner: {path}",
+        "en": "Not a folder: {path}",
+    },
+    "r.scan.learned": {
+        "de": "{n} manuelle Verschiebung(en) als Korrektur verstanden — die Königin lernt daraus.",
+        "en": "{n} manual move(s) understood as corrections — the queen learns from them.",
+    },
+    "r.sub.title": {
+        "de": "Dynamische Unterordner",
+        "en": "Dynamic subfolders",
+    },
+    "r.sub.removed": {
+        "de": "Unterordner für '{cat}' entfernt.",
+        "en": "Subfolders for '{cat}' removed.",
+    },
+    "r.sub.set": {
+        "de": "'{cat}' → {pattern}  (greift beim nächsten Sortieren)",
+        "en": "'{cat}' → {pattern}  (applies from the next sort)",
+    },
+    "r.cycle.rules": {
+        "de": "Spurbienen fliegen aus (unter Beachtung der gelernten Wachstafel-Regeln) …",
+        "en": "Scout bees are out (following the learned rules) …",
+    },
+    "r.cycle.keyhint": {
+        "de": "Falls der OpenRouter-Schlüssel abgelaufen ist: 'schluessel test' prüft ihn, "
+              "'schluessel setzen' erneuert ihn.",
+        "en": "If the OpenRouter key has expired: 'key test' checks it, 'key set' renews it.",
+    },
+    "r.search.usage": {
+        "de": "Nutzung: suche <wort>",
+        "en": "Usage: search <word>",
+    },
+    "r.assign.usage": {
+        "de": "Nutzung: zuordnen <id> <kategorie>",
+        "en": "Usage: assign <id> <category>",
+    },
+    "r.noentry": {
+        "de": "Kein Eintrag '{id}'.",
+        "en": "No entry '{id}'.",
+    },
+    "r.assign.ok": {
+        "de": "{id}: {old} → {new} ✓ (Gedächtnis lernt)",
+        "en": "{id}: {old} → {new} ✓ (memory learns)",
+    },
+    "r.reflect.working": {
+        "de": "Die Königin studiert die Korrekturen und ritzt neue Regeln in die Wachstafel …",
+        "en": "The queen studies your corrections and derives new rules …",
+    },
+    "r.reflect.saved_n": {
+        "de": "Wachstafel aktualisiert — {n} gelernte Regel(n). Ansehen: 'wachstafel'.",
+        "en": "Rules updated — {n} learned rule(s). View: 'rules'.",
+    },
+    "r.reflect.few": {
+        "de": "Noch zu wenig Nektar-Feedback für neue Regeln — korrigiere weiter mit 'zuordnen'.",
+        "en": "Not enough feedback for new rules yet — keep correcting with 'assign'.",
+    },
+    "r.reflect.rule": {
+        "de": "    • [honey]{kw}[/honey] → Wabe [honey]{kat}[/honey]  _(aus {cnt} Korrektur(en){alt})_",
+        "en": "• [honey]{kw}[/honey] → category [honey]{kat}[/honey]  _(from {cnt} "
+              "correction(s){alt})_",
+    },
+    "r.reflect.saved": {
+        "de": "Wachstafel aktualisiert — {n} Regel(n). Ansehen: 'wachstafel'.",
+        "en": "Rules updated — {n} rule(s). View: 'rules'.",
+    },
+    "r.reflect.discarded": {
+        "de": "Verworfen — die Wachstafel bleibt unverändert.",
+        "en": "Discarded — the rules stay unchanged.",
+    },
+    "r.rules.cleared": {
+        "de": "Wachstafel abgewischt — die gelernten Regeln sind verworfen.",
+        "en": "Rules cleared — the learned rules are discarded.",
+    },
+    "r.rules.none": {
+        "de": "Noch keine Wachstafel. 'reflektiere' ritzt Regeln aus deinen Korrekturen ('zuordnen').",
+        "en": "No rules yet. 'reflect' derives rules from your corrections ('assign').",
+    },
+    "r.person.usage": {
+        "de": "Nutzung: person <name> <kategorie,kategorie>",
+        "en": "Usage: person <name> <category,category>",
+    },
+    "r.mem.drift": {
+        "de": "Embedding-Modell hat sich geändert (Gedächtnis: {drift}). Alte Vektoren matchen nicht "
+              "mehr — 'gedaechtnis neu' baut es neu auf.",
+        "en": "The embedding model has changed (memory: {drift}). Old vectors no longer match — "
+              "'memory rebuild' rebuilds it.",
+    },
+    "r.mem.approve": {
+        "de": "Übernehmen mit:  gedaechtnis approve <slug>",
+        "en": "Accept with:  memory approve <slug>",
+    },
+    "r.mem.empty": {
+        "de": "Kein einsortierter Bestand — nichts neu einzubetten.",
+        "en": "Nothing filed yet — nothing to re-embed.",
+    },
+    "r.mem.cost": {
+        "de": "Das erzeugt pro Eintrag einen (günstigen) Embedding-Call.",
+        "en": "This makes one (cheap) embedding call per entry.",
+    },
+    "r.mem.confirm": {
+        "de": "Jetzt neu aufbauen? [J/n]: ",
+        "en": "Rebuild now? [Y/n]: ",
+    },
+    "r.model.title": {
+        "de": "Nektar-Sorten (OpenRouter-Modelle)",
+        "en": "Models (OpenRouter)",
+    },
+    "r.model.any": {
+        "de": "Auch beliebige IDs möglich:  modell <provider/modell-id>",
+        "en": "Any ID works too:  model <provider/model-id>",
+    },
+    "r.model.current": {
+        "de": "Aktuelle Nektar-Sorte: {model}",
+        "en": "Current model: {model}",
+    },
+    "r.model.usage": {
+        "de": "Wechseln:  modell <name|id>   ·   Sorten:  modell liste",
+        "en": "Switch:  model <name|id>   ·   List:  model list",
+    },
+    "r.key.env": {
+        "de": "Aus Umgebungsvariable OPENROUTER_API_KEY ({masked}) — hat Vorrang.",
+        "en": "From environment variable OPENROUTER_API_KEY ({masked}) — takes precedence.",
+    },
+    "r.key.none_test": {
+        "de": "Kein Schlüssel hinterlegt. 'schluessel setzen' weist einen aus.",
+        "en": "No key stored. 'key set' adds one.",
+    },
+    "r.key.valid": {
+        "de": "Nektar-Quelle offen — der Schlüssel ist gültig. 🍯",
+        "en": "Key accepted — it's valid. 🍯",
+    },
+    "r.key.invalid": {
+        "de": "Schlüssel {reason} — erneuern mit 'schluessel setzen'.",
+        "en": "Key {reason} — renew with 'key set'.",
+    },
+    "r.key.env_note": {
+        "de": "Hinweis: OPENROUTER_API_KEY (Umgebungsvariable) hat Vorrang vor dem gespeicherten "
+              "Schlüssel und wird nicht überschrieben.",
+        "en": "Note: OPENROUTER_API_KEY (environment variable) takes precedence over the stored key "
+              "and is not overwritten.",
+    },
+    "r.key.unchanged": {
+        "de": "Abgebrochen — Schlüssel unverändert.",
+        "en": "Cancelled — key unchanged.",
+    },
+    "r.key.saved": {
+        "de": "Schlüssel gültig & gespeichert ({path}, chmod 600).",
+        "en": "Key valid & saved ({path}, chmod 600).",
+    },
+    "r.key.new_invalid": {
+        "de": "Der neue Schlüssel {reason}.",
+        "en": "The new key {reason}.",
+    },
+    "r.key.save_anyway": {
+        "de": "     Trotzdem speichern (ungeprüft)? [j/N]: ",
+        "en": "     Save anyway (unchecked)? [y/N]: ",
+    },
+    "r.key.none": {
+        "de": "Kein Schlüssel hinterlegt.",
+        "en": "No key stored.",
+    },
+    "r.key.remove_confirm": {
+        "de": "Schlüssel wirklich entfernen? (Cloud-Projekte fallen in den Sparmodus zurück) [j/N]: ",
+        "en": "     Really remove the key? (cloud projects fall back to low-power mode) [y/N]: ",
+    },
+    "r.cancelled": {
+        "de": "Abgebrochen.",
+        "en": "Cancelled.",
+    },
+    "r.key.env_still": {
+        "de": "Achtung: OPENROUTER_API_KEY (Umgebungsvariable) ist weiter gesetzt und aktiv — im "
+              "Terminal/Profil entfernen, falls gewünscht.",
+        "en": "Heads-up: OPENROUTER_API_KEY (environment variable) is still set and active — remove "
+              "it from your terminal/profile if you want.",
+    },
+    "r.key.removed": {
+        "de": "Schlüssel entfernt — Cloud-Projekte laufen jetzt im Sparmodus (Heuristik).",
+        "en": "Key removed — cloud projects now run in low-power mode (heuristics).",
+    },
+    "r.theme.auto_set": {
+        "de": "Thema: Automatik — tagsüber Dunkel, abends Hell. Jetzt aktiv: {name}. 🎨",
+        "en": "Theme: automatic — dark by day, light in the evening. Active now: {name}. 🎨",
+    },
+    "r.theme.set": {
+        "de": "Thema gewechselt — {name}-Modus. 🎨",
+        "en": "Theme switched — {name} mode. 🎨",
+    },
+    "r.view.tty": {
+        "de": "Hinweis: die statische Ansicht wirkt nur im echten Terminal (bei Pipe/CI bleibt es "
+              "beim Log).",
+        "en": "Note: the static view only works in a real terminal (piped/CI output stays a log).",
+    },
+    "r.charter.which": {
+        "de": "Welche Wabe zum Projekt ausbauen?",
+        "en": "Which category should become a project?",
+    },
+    "r.charter.cancel": {
+        "de": "Abgebrochen — keine Wabe gewählt.",
+        "en": "Cancelled — no category chosen.",
+    },
+    "r.charter.unknown": {
+        "de": "'{cat}' ist (noch) keine bekannte Wabe — baue trotzdem.",
+        "en": "'{cat}' isn't a known category (yet) — building anyway.",
+    },
+    "r.charter.tasks": {
+        "de": "{n} offene Aufgabe(n) in der Wabe:",
+        "en": "{n} open task(s) in this category:",
+    },
+    "r.charter.done": {
+        "de": "Wabe komplett — nichts bleibt offen!",
+        "en": "Category complete — nothing left open!",
+    },
+    "r.charter.deadline": {
+        "de": "Deadline im Bienen-Kalender vermerkt: {date}",
+        "en": "Deadline noted in the calendar: {date}",
+    },
+    "r.cal.empty": {
+        "de": "Der Bienen-Kalender ist leer. Deadlines setzt 'wabenbau'.",
+        "en": "The calendar is empty. 'charter' sets deadlines.",
+    },
+    "r.cal.nothing": {
+        "de": "Nichts Dringendes in den nächsten 7 Tagen. 🍯",
+        "en": "Nothing urgent in the next 7 days. 🍯",
+    },
+    "r.swarm.foragers": {
+        "de": "   🍯 Sammelbienen (gelernte Ablage-Orte):",
+        "en": "   🍯 Forager bees (learned filing places):",
+    },
+    "r.routes.none": {
+        "de": "Noch keine Flugrouten ausgewiesen. 'flugrouten setup' richtet welche ein.",
+        "en": "No notification routes yet. 'routes setup' sets some up.",
+    },
+    "r.routes.discord": {
+        "de": "   🎮 Discord: aktiv · Channel {channel} · Token {token}",
+        "en": "   🎮 Discord: active · channel {channel} · token {token}",
+    },
+    "r.routes.email": {
+        "de": "   📧 E-Mail: aktiv · {addr} · {provider} ({host}:{port}) · Pass {pw}",
+        "en": "   📧 E-mail: active · {addr} · {provider} ({host}:{port}) · pass {pw}",
+    },
+    "r.routes.calendar": {
+        "de": "   📅 Kalender: vorgemerkt ({kind})",
+        "en": "   📅 Calendar: planned ({kind})",
+    },
+    "r.routes.none_active": {
+        "de": "Keine aktiven Flugrouten. 'flugrouten setup' weist welche aus.",
+        "en": "No active notification routes. 'routes setup' adds some.",
+    },
+    "r.routes.providers": {
+        "de": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Benutzerdefiniert",
+        "en": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Custom",
+    },
+    "r.routes.cal_ok": {
+        "de": "Kalender-Flugroute vorgemerkt.",
+        "en": "Calendar route noted.",
+    },
+    "r.trash.moved": {
+        "de": "→ Quarantäne (nicht gelöscht): {name}",
+        "en": "→ quarantine (not deleted): {name}",
+    },
+    "r.restore.ok": {
+        "de": "Zurück im Ordner: {name}",
+        "en": "Back in its folder: {name}",
+    },
+    "r.restore.none": {
+        "de": "Nichts zurückzuholen.",
+        "en": "Nothing to restore.",
+    },
+    "r.dup.none": {
+        "de": "Keine Dubletten im Eingang. ✨",
+        "en": "No duplicates in the inbox. ✨",
+    },
+    "r.dup.row": {
+        "de": "    🛡️ {name}  — Original: {orig} ({cat})",
+        "en": "    🛡️ {name}  — original: {orig} ({cat})",
+    },
+    "r.dup.hint": {
+        "de": "'dubletten aufraeumen' verschiebt sie in die Quarantäne (papierkorb — nichts wird "
+              "gelöscht).",
+        "en": "'duplicates cleanup' moves them to quarantine (trash — nothing is deleted).",
+    },
+    "r.dup.confirm": {
+        "de": "{n} Dublette(n) in die Quarantäne verschieben? [j/N]: ",
+        "en": "Move {n} duplicate(s) to quarantine? [y/N]: ",
+    },
+    "r.trash.empty": {
+        "de": "Quarantäne ist leer.",
+        "en": "Quarantine is empty.",
+    },
+    "r.undo.none": {
+        "de": "Nichts rückgängig zu machen.",
+        "en": "Nothing to undo.",
+    },
+    "r.projects.notfound": {
+        "de": "Projekt '{name}' nicht gefunden. 'projekte' zeigt die Liste.",
+        "en": "Project '{name}' not found. 'projects' shows the list.",
+    },
+    "r.projects.none": {
+        "de": "Noch keine Projekte. 'neu' legt eins an.",
+        "en": "No projects yet. 'new' creates one.",
+    },
+    "r.nohits": {
+        "de": "Keine Treffer.",
+        "en": "No matches.",
+    },
+    "r.watch.stop": {
+        "de": "Wache beendet.",
+        "en": "Watch stopped.",
+    },
+    "r.rules.nothing": {
+        "de": "Es gibt noch keine Wachstafel zum Abwischen.",
+        "en": "There are no rules to clear yet.",
+    },
+    "r.rules.confirm": {
+        "de": "Alle gelernten Regeln wirklich verwerfen? [j/N]: ",
+        "en": "Really discard all learned rules? [y/N]: ",
+    },
+    "r.rules.kept": {
+        "de": "Abgebrochen — die Wachstafel bleibt.",
+        "en": "Cancelled — the rules stay.",
+    },
+    "r.mem.noprop": {
+        "de": "Kein Vorschlag '{slug}'.",
+        "en": "No proposal '{slug}'.",
+    },
+    "r.key.stored": {
+        "de": "Hinterlegt: {masked}   ({path})",
+        "en": "Stored: {masked}   ({path})",
+    },
+    "r.key.none_status": {
+        "de": "Kein Schlüssel hinterlegt — Sparmodus und Lokal gehen, Cloud nicht.",
+        "en": "No key stored — low-power and local mode work, cloud mode doesn't.",
+    },
+    "r.key.prompt_new": {
+        "de": "     🔑 Neuer OpenRouter-API-Key (leer = abbrechen): ",
+        "en": "     🔑 New OpenRouter API key (empty = cancel): ",
+    },
+    "r.key.saved_unchecked": {
+        "de": "Gespeichert — bei Bedarf 'schluessel test'.",
+        "en": "Saved — run 'key test' if needed.",
+    },
+    "r.key.not_saved": {
+        "de": "Nicht gespeichert — bisheriger Schlüssel bleibt.",
+        "en": "Not saved — the current key stays.",
+    },
+    "r.theme.auto_now": {
+        "de": "Thema: Automatik (tags dunkel, abends hell) — gerade {name}. Wechseln: 'thema dunkel | "
+              "hell | auto'.",
+        "en": "Theme: automatic (dark by day, light in the evening) — currently {name}. Switch: "
+              "'theme dark | light | auto'.",
+    },
+    "r.theme.now": {
+        "de": "Thema: {name}-Modus. Wechseln: 'thema dunkel | hell | auto'.",
+        "en": "Theme: {name} mode. Switch: 'theme dark | light | auto'.",
+    },
+    "r.view.now": {
+        "de": "Aktuelle Ansicht: {name}. Wechseln: 'ansicht statisch' | 'ansicht log'.",
+        "en": "Current view: {name}. Switch: 'view static' | 'view log'.",
+    },
+    "r.charter.none": {
+        "de": "Noch keine Waben da — erst 'sortiere'.",
+        "en": "No categories yet — run 'sort' first.",
+    },
+    "r.cal.noroutes": {
+        "de": "Keine Flugrouten aktiv — 'flugrouten setup' schaltet den Versand frei.",
+        "en": "No notification routes active — 'routes setup' enables sending.",
+    },
+    "r.routes.test_ok": {
+        "de": "Wächterbienen haben die {target} erfolgreich informiert!",
+        "en": "The guard bees reached {target}!",
+    },
+    "r.routes.discord_ok": {
+        "de": "Discord-Flugroute ausgewiesen.",
+        "en": "Discord route set up.",
+    },
+    "r.routes.discord_skip": {
+        "de": "Unvollständig — Discord übersprungen.",
+        "en": "Incomplete — Discord skipped.",
+    },
+    "r.routes.email_ok": {
+        "de": "E-Mail-Flugroute ausgewiesen ({provider}, {host}:{port}).",
+        "en": "E-mail route set up ({provider}, {host}:{port}).",
+    },
+    "r.routes.email_skip": {
+        "de": "Unvollständig — E-Mail übersprungen.",
+        "en": "Incomplete — e-mail skipped.",
+    },
+    "r.key.save_failed": {
+        "de": "Key konnte nicht gespeichert werden: {err}",
+        "en": "Could not save the key: {err}",
+    },
+    "r.key.prompt": {
+        "de": "     🔑 OpenRouter API-Key (leer = abbrechen): ",
+        "en": "     🔑 OpenRouter API key (empty = cancel): ",
+    },
+    "r.aborted": {
+        "de": "Abgebrochen — nichts ausgeführt.",
+        "en": "Cancelled — nothing was done.",
+    },
+    "r.failed": {
+        "de": "Befehl fehlgeschlagen: {err}",
+        "en": "Command failed: {err}",
+    },
+    "r.number_or_name": {
+        "de": "     Nummer oder Name: ",
+        "en": "     Number or name: ",
+    },
+    "r.routes.off": {
+        "de": "Alle Flugrouten stillgelegt — die Wächterbienen bleiben im Stock.",
+        "en": "All notification routes switched off — the guard bees stay home.",
+    },
+    "r.routes.blocked": {
+        "de": "Flugroute {name} blockiert: {err}",
+        "en": "Route {name} blocked: {err}",
+    },
+    "r.routes.token": {
+        "de": "      🔑 Discord-Bot-Token: ",
+        "en": "      🔑 Discord bot token: ",
+    },
+    "r.routes.channel": {
+        "de": "      #  Channel-ID des Main-Channels: ",
+        "en": "      #  Channel ID of the main channel: ",
+    },
+    "r.routes.address": {
+        "de": "      ✉️  E-Mail-Adresse: ",
+        "en": "      ✉️  E-mail address: ",
+    },
+    "r.routes.password": {
+        "de": "      🔒 Passwort / App-Passwort: ",
+        "en": "      🔒 Password / app password: ",
+    },
+    "r.routes.recipient": {
+        "de": "      📮 Empfänger [leer = an dich selbst]: ",
+        "en": "      📮 Recipient [empty = yourself]: ",
+    },
+    "r.watch.sorting": {
+        "de": "[{ts}] {n} neue Datei(en) → sortiere …",
+        "en": "[{ts}] {n} new file(s) → sorting …",
+    },
+    "r.watch.new": {
+        "de": "[{ts}] {n} neue Datei(en) im Eingang — 'sortiere' zum Einräumen",
+        "en": "[{ts}] {n} new file(s) in the inbox — 'sort' files them",
+    },
+    "r.routes.choice": {
+        "de": "      Wahl [1]: ",
+        "en": "      Choice [1]: ",
+    },
+    "r.routes.smtp": {
+        "de": "      SMTP-Server: ",
+        "en": "      SMTP server: ",
+    },
+    "r.projects.pick": {
+        "de": "  Nummer, Name oder Pfad: ",
+        "en": "  Number, name or path: ",
+    },
+    "r.watch.move": {
+        "de": "sortiere sofort",
+        "en": "sorting right away",
+    },
+    "r.watch.notify": {
+        "de": "melde",
+        "en": "announcing",
+    },
+    "r.watch.realtime": {
+        "de": "Echtzeit (watchdog)",
+        "en": "real time (watchdog)",
+    },
+    "r.watch.poll": {
+        "de": "Poll alle {s}s",
+        "en": "polling every {s}s",
+    },
+    "r.reflect.instead": {
+        "de": "  (statt „{alt}“)",
+        "en": "  (instead of “{alt}”)",
+    },
+    "r.mem.rebuilt": {
+        "de": "Gedächtnis neu aufgebaut: {ok} eingebettet",
+        "en": "Memory rebuilt: {ok} embedded",
+    },
+    "r.mem.skipped": {
+        "de": ", {n} übersprungen",
+        "en": ", {n} skipped",
+    },
+    "theme.dark": {
+        "de": "Dunkel",
+        "en": "Dark",
+    },
+    "theme.light": {
+        "de": "Hell",
+        "en": "Light",
+    },
+    "r.view.static": {
+        "de": "statisch (kein Scrolling)",
+        "en": "static (no scrolling)",
+    },
+    "r.view.log": {
+        "de": "Log (scrollend)",
+        "en": "log (scrolling)",
+    },
+    "r.view.set_static": {
+        "de": "Ansicht: statisch — die Konsole zeichnet sich selbst neu.",
+        "en": "View: static — the console redraws itself.",
+    },
+    "r.view.set_log": {
+        "de": "Ansicht: klassisches Log (scrollend).",
+        "en": "View: classic log (scrolling).",
+    },
+    "r.cal.in": {
+        "de": "in {n} T",
+        "en": "in {n} d",
+    },
+    "r.cal.overdue": {
+        "de": "{n} T überfällig",
+        "en": "{n} d overdue",
+    },
+    "r.trash.confirm": {
+        "de": "Wirklich {n} Datei(en) endgültig löschen? Tippe \"{n}\": ",
+        "en": "Really delete {n} file(s) for good? Type \"{n}\": ",
+    },
+    "r.col.cat": {
+        "de": "kategorie",
+        "en": "category",
+    },
+    "r.col.title": {
+        "de": "titel",
+        "en": "title",
+    },
+    "r.col.file": {
+        "de": "datei",
+        "en": "file",
+    },
+    "r.unsorted": {
+        "de": "unsortiert",
+        "en": "unsorted",
+    },
+    "r.sub.none": {
+        "de": "Keine dynamischen Unterordner gesetzt. Beispiel: unterordner rechnungen {pattern}",
+        "en": "No dynamic subfolders set. Example: subfolder invoices {pattern}",
+    },
+    "r.sub.usage": {
+        "de": "Nutzung: unterordner <kategorie> <muster|aus>  (z. B. rechnungen {pattern})",
+        "en": "Usage: subfolder <category> <pattern|off>  (e.g. invoices {pattern})",
+    },
+    # Modell-Liste & Gedächtnis-Vorschläge
+    "r.model.active": {
+        "de": "  ◀ aktiv",
+        "en": "  ◀ active",
+    },
+    "refl.new": {
+        "de": "🐣 Neue Kategorie '{name}' aus {n} ähnlichen Dokumenten (Stichworte: {kw})",
+        "en": "🐣 New category '{name}' from {n} similar documents (keywords: {kw})",
+    },
+    "refl.merge": {
+        "de": "🔗 Zusammenführen: '{src}' → '{dst}' (Ähnlichkeit {sim})",
+        "en": "🔗 Merge '{src}' → '{dst}' (similarity {sim})",
+    },
+    # Rückfragen, Daemon, Wächter-, Bau-, Sammelbienen, Empfehlungen
+    "rv.none": {
+        "de": "Keine offenen Rückfragen. 🎉",
+        "en": "No open reviews. 🎉",
+    },
+    "rv.title": {
+        "de": "{n} offene Rückfrage(n)",
+        "en": "{n} open review(s)",
+    },
+    "rv.titel": {
+        "de": "    Titel: {title}",
+        "en": "    Title: {title}",
+    },
+    "rv.funktion": {
+        "de": "    Funktion: {f}",
+        "en": "    Purpose: {f}",
+    },
+    "rv.vorschlag": {
+        "de": "    Vorschlag: {cat}   |   bekannt: {known}",
+        "en": "    Suggestion: {cat}   |   known: {known}",
+    },
+    "rv.prompt": {
+        "de": "    Kategorie eingeben ([s]kip, [v]iew, [q]uit): ",
+        "en": "    Enter a category ([s]kip, [v]iew, [q]uit): ",
+    },
+    "rv.prompt2": {
+        "de": "    Kategorie eingeben ([s]kip): ",
+        "en": "    Enter a category ([s]kip): ",
+    },
+    "rv.done": {
+        "de": "{n} Rückfrage(n) beantwortet.",
+        "en": "{n} review(s) answered.",
+    },
+    "dm.start": {
+        "de": "Königin erwacht – Daemon läuft. (Strg-C beendet)",
+        "en": "The queen is awake — daemon running. (Ctrl-C stops)",
+    },
+    "dm.watchdog": {
+        "de": "Flugloch-Wache aktiv (watchdog + Fallback-Poll).",
+        "en": "Entrance watch active (watchdog + fallback poll).",
+    },
+    "dm.poll": {
+        "de": "watchdog nicht verfügbar → reiner Poll-Modus.",
+        "en": "watchdog unavailable → polling only.",
+    },
+    "dm.next": {
+        "de": "Nächster Auto-Sweep in {m} min",
+        "en": "Next auto-sweep in {m} min",
+    },
+    "dm.stop": {
+        "de": "Daemon beendet.",
+        "en": "Daemon stopped.",
+    },
+    "dm.failed": {
+        "de": "Daemon-Schritt fehlgeschlagen: {err}",
+        "en": "Daemon step failed: {err}",
+    },
+    "wb.due": {
+        "de": "Wächterbienen summen: '{title}' ist in {n} Tag(en) fällig ({date}).",
+        "en": "Guard bees buzzing: '{title}' is due in {n} day(s) ({date}).",
+    },
+    "wb.overdue": {
+        "de": "Wächterbienen summen: '{title}' ist seit {n} Tag(en) überfällig ({date}).",
+        "en": "Guard bees buzzing: '{title}' is {n} day(s) overdue ({date}).",
+    },
+    "wb.when_overdue": {
+        "de": "überfällig",
+        "en": "overdue",
+    },
+    "wb.when_in": {
+        "de": "in {n} Tagen",
+        "en": "in {n} days",
+    },
+    "wb.mail": {
+        "de": "Fällig am {date} ({when}).",
+        "en": "Due on {date} ({when}).",
+    },
+    "wb.back": {
+        "de": "Wächterbiene kehrt vom {name}-Flug zurück: {err}",
+        "en": "Guard bee back from the {name} flight: {err}",
+    },
+    "wb.test_title": {
+        "de": "Bienentanz-Testflug",
+        "en": "Bee-dance test flight",
+    },
+    "wb.test_text": {
+        "de": "🐝 Hallo vom Bienenstock! Diese Flugroute steht bereit.",
+        "en": "🐝 Hello from the hive! This route is ready.",
+    },
+    "sw.checking": {
+        "de": "Prüfe den ganzen Ordner auf manuelle Änderungen …",
+        "en": "Checking the whole folder for manual changes …",
+    },
+    "sw.title": {
+        "de": "Sweep-Bericht",
+        "en": "Sweep report",
+    },
+    "sw.line": {
+        "de": "📋  🆕 {new} neu · ✏️ {changed} geändert · 🔀 {moved} verschoben · 🗑️ {missing} "
+              "verschwunden · ⚠️ {errors} Fehler",
+        "en": "📋  🆕 {new} new · ✏️ {changed} changed · 🔀 {moved} moved · 🗑️ {missing} gone · ⚠️ "
+              "{errors} error(s)",
+    },
+    "sw.learned": {
+        "de": " · 🧠 {n} gelernt",
+        "en": " · 🧠 {n} learned",
+    },
+    "sw.learned_one": {
+        "de": "🧠 gelernt: {name}  {old} → {new}",
+        "en": "🧠 learned: {name}  {old} → {new}",
+    },
+    "sw.safe": {
+        "de": "Nichts wurde von uns gelöscht.",
+        "en": "Nothing was deleted by us.",
+    },
+    "sw.calls": {
+        "de": " {n} Analyse(n) für neue Dateien.",
+        "en": " {n} analysis/analyses for new files.",
+    },
+    "sw.calls_cost": {
+        "de": " {n} KI-Anfrage(n) · ~{cost} €.",
+        "en": " {n} AI request(s) · ~{cost} €.",
+    },
+    "bb.synced": {
+        "de": "Baubienen haben den Pollen-Kalender synchronisiert ({n} Termin(e) → kalender.ics).",
+        "en": "Builder bees synced the calendar ({n} date(s) → kalender.ics).",
+    },
+    "bb.nobody": {
+        "de": "noch niemand zuständig",
+        "en": "nobody responsible yet",
+    },
+    "bb.building": {
+        "de": "Baubienen bauen die Wabe '{cat}' — Stakeholder: {who}",
+        "en": "Builder bees are building '{cat}' — stakeholders: {who}",
+    },
+    "bb.who": {
+        "de": "    🐝 Wer ist zuständig? (Namen, kommagetrennt, leer=offen): ",
+        "en": "    🐝 Who is responsible? (names, comma-separated, empty = open): ",
+    },
+    "bb.goal": {
+        "de": "    🎯 Projektziel (1 Satz, leer=später): ",
+        "en": "    🎯 Project goal (1 sentence, empty = later): ",
+    },
+    "bb.deadline": {
+        "de": "    📅 Deadline (JJJJ-MM-TT, leer=keine): ",
+        "en": "    📅 Deadline (YYYY-MM-DD, empty = none): ",
+    },
+    "rec.para": {
+        "de": "Nach Lebenszyklus gruppieren: Abgeschlossenes → Archiv, Laufendes → Projekte.",
+        "en": "Group by life cycle: finished → Archive, ongoing → Projects.",
+    },
+    "rec.johnny": {
+        "de": "Nummerierte Bereiche AC.ID (max. 10×10) — flache, eindeutige Ordner-IDs.",
+        "en": "Numbered areas AC.ID (max. 10×10) — flat, unique folder IDs.",
+    },
+    "rec.dewey": {
+        "de": "Themenbasierte Dezimalklassen — wie in einer Bibliothek.",
+        "en": "Topic-based decimal classes — like in a library.",
+    },
+    "rec.title": {
+        "de": "🍯 Empfehlungen (Strategie: {name})",
+        "en": "🍯 Recommendations (strategy: {name})",
+    },
+    "rec.preset": {
+        "de": "▸ Vorlage: {idea}",
+        "en": "▸ Preset: {idea}",
+    },
+    "rec.review": {
+        "de": "▸ Hinweis: {n} Einträge unter der Schwelle → 'rueckfragen'",
+        "en": "▸ Hint: {n} entries below the threshold → 'review'",
+    },
+    "rec.errors": {
+        "de": "▸ Hinweis: {n} Fehler-Einträge → 'liste error'",
+        "en": "▸ Hint: {n} error entries → 'list error'",
+    },
+    "rec.unassigned": {
+        "de": "▸ Hinweis: {n} Dokumente ohne passende Kategorie → neue Kategorie prüfen ('gedaechtnis')",
+        "en": "▸ Hint: {n} documents without a fitting category → check for a new category ('memory')",
+    },
+    "rec.dups": {
+        "de": "▸ Hinweis: {n} Dublette(n) gefunden → 'dubletten'",
+        "en": "▸ Hint: {n} duplicate(s) found → 'duplicates'",
+    },
+    "rec.para_top": {
+        "de": "▸ Vorlage (PARA): '{top}' ist die größte Kategorie ({n}) — Abgeschlossenes ins Archiv "
+              "verschieben?",
+        "en": "▸ Preset (PARA): '{top}' is the biggest category ({n}) — move finished items to the "
+              "archive?",
+    },
+    # analysiere <id> (F2)
+    "help.d.reanalyze": {
+        "de": "Eintrag neu analysieren — fragt, bevor umsortiert wird",
+        "en": "Re-analyse an entry — asks before re-filing",
+    },
+    "r.reana.usage": {
+        "de": "Nutzung: analysiere <id>  (die id zeigt 'liste')",
+        "en": "Usage: reanalyze <id>  ('list' shows the id)",
+    },
+    "r.reana.missing": {
+        "de": "Datei nicht gefunden: {name}",
+        "en": "File not found: {name}",
+    },
+    "r.reana.working": {
+        "de": "Analysiere {name} neu …",
+        "en": "Re-analysing {name} …",
+    },
+    "r.reana.failed": {
+        "de": "Analyse fehlgeschlagen: {reason}",
+        "en": "Analysis failed: {reason}",
+    },
+    "r.reana.done": {
+        "de": "Neu erfasst: {title}",
+        "en": "Re-captured: {title}",
+    },
+    "r.reana.same": {
+        "de": "Kategorie bleibt: {cat}",
+        "en": "Category stays: {cat}",
+    },
+    "r.reana.move": {
+        "de": "Die neue Analyse sagt {new} statt {old}. Umsortieren? [J/n]: ",
+        "en": "The new analysis says {new} instead of {old}. Re-file? [Y/n]: ",
+    },
 }
 
 

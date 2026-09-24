@@ -131,4 +131,4 @@ def test_reflection_and_suggest(tmp_path):
 
     from pollysort.recommender import suggest
     hints = suggest(ctx, "para")
-    assert hints and any("Dynamisch" in h for h in hints)
+    assert hints and any("Hinweis" in h for h in hints)

@@ -98,3 +98,45 @@ def test_header_and_prompt_follow_language():
         i18n.set_language("de")
     sh._sync_prompt()
     assert "kein Projekt" in sh.prompt
+
+
+def test_keine_feste_deutsche_meldung_mehr():
+    """Wächter (2026-09-24): Jede Konsolen-Meldung und jede Eingabe-Frage läuft über i18n.
+
+    Erlaubt sind nur sprachneutrale Zeilen — Datenzeilen, Emojis, „^C", „Port [587]".
+    Wer hier eine Zeile ergänzen muss, sollte zuerst prüfen, ob sie nicht übersetzt gehört.
+    """
+    import ast
+    import re
+    from pathlib import Path
+
+    src_root = Path(__file__).resolve().parent.parent / "src" / "pollysort"
+    dateien = ["repl.py", "review.py", "daemon.py", "sweeper.py", "recommender.py",
+               "swarm/waechterbiene.py", "swarm/baubiene.py", "doctor.py", "pipeline.py"]
+    wortmuster = re.compile(r"[A-Za-zÄÖÜäöüß]{3,}")
+    # „🩺 Doctor", „Port [587]", [honey]-Markup, „(conf 0.62)" in der Rückfrage-Zeile
+    erlaubt = {"Doctor", "Port", "honey", "conf"}
+    funde = []
+    for rel in dateien:
+        src = (src_root / rel).read_text(encoding="utf-8")
+        for node in ast.walk(ast.parse(src)):
+            if not (isinstance(node, ast.Call) and node.args):
+                continue
+            f = node.func
+            if isinstance(f, ast.Attribute):
+                ziel = ast.get_source_segment(src, f.value) or ""
+                treffer = (f.attr in ("info", "honey", "ask", "error", "bloom", "celebrate", "raw",
+                                      "rule") and "con" in ziel) or f.attr in ("_ask", "_ja",
+                                                                               "_ja_default")
+            else:
+                treffer = isinstance(f, ast.Name) and f.id in ("ask", "input")
+            if not treffer:
+                continue
+            a0 = node.args[0]
+            teile = ([a0.value] if isinstance(a0, ast.Constant) and isinstance(a0.value, str)
+                     else [v.value for v in a0.values if isinstance(v, ast.Constant)]
+                     if isinstance(a0, ast.JoinedStr) else [])
+            woerter = set(wortmuster.findall(" ".join(teile))) - erlaubt
+            if woerter:
+                funde.append(f"{rel}:{node.lineno} {sorted(woerter)[:4]}")
+    assert not funde, "Feste Texte ohne i18n:\n" + "\n".join(funde)

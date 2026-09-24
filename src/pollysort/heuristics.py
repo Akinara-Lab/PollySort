@@ -8,6 +8,7 @@ wirklich beim Sortieren.
 from __future__ import annotations
 
 import re
+from datetime import date
 from pathlib import Path
 
 # Schlüsselwörter je Kategorie (deutsch + gängige englische Begriffe).
@@ -269,6 +270,72 @@ def read_snippet(path: Path, *, limit: int = 800) -> str:
         except OSError:
             return ""
     return ""
+
+
+_MONATE = {
+    "januar": 1, "jan": 1, "january": 1, "februar": 2, "feb": 2, "february": 2, "märz": 3,
+    "maerz": 3, "mär": 3, "march": 3, "mar": 3, "april": 4, "apr": 4, "mai": 5, "may": 5,
+    "juni": 6, "jun": 6, "june": 6, "juli": 7, "jul": 7, "july": 7, "august": 8, "aug": 8,
+    "september": 9, "sep": 9, "sept": 9, "oktober": 10, "okt": 10, "october": 10, "oct": 10,
+    "november": 11, "nov": 11, "dezember": 12, "dez": 12, "december": 12, "dec": 12,
+}
+_MONATSNAME = "|".join(sorted(_MONATE, key=len, reverse=True))
+_DATUMSFORMEN = [
+    re.compile(r"(?P<y>\d{4})-(?P<m>\d{1,2})-(?P<d>\d{1,2})"),                 # 2026-07-14
+    re.compile(r"(?P<d>\d{1,2})\.\s?(?P<m>\d{1,2})\.\s?(?P<y>\d{4})"),          # 14.07.2026
+    re.compile(r"(?P<d>\d{1,2})/(?P<m>\d{1,2})/(?P<y>\d{4})"),                   # 14/07/2026
+    re.compile(rf"(?P<d>\d{{1,2}})\.?\s+(?P<mn>{_MONATSNAME})\.?\s+(?P<y>\d{{4}})",
+               re.I),                                                            # 14. Juli 2026
+    re.compile(rf"(?P<mn>{_MONATSNAME})\.?\s+(?P<d>\d{{1,2}}),?\s+(?P<y>\d{{4}})",
+               re.I),                                                            # July 14, 2026
+]
+#: Beschriftungen, die das Datum DES Dokuments einleiten.
+_DATUM_LABEL = re.compile(
+    r"(rechnungsdatum|belegdatum|ausstellungsdatum|ausgestellt am|datum|invoice date|"
+    r"date of issue|issue date|\bdate\b|dated|\bvom\b|stand)\s*[:.]?\s*$", re.I)
+#: … und solche, die eine FRIST oder einen ZEITRAUM einleiten — das ist nie das Belegdatum.
+_KEIN_BELEGDATUM = re.compile(
+    r"(bis|fällig|faellig|frist|zahlbar|spätestens|spaetestens|gültig|gueltig|laufzeit|"
+    r"zeitraum|beginn|ende|due|until|valid|period|deadline)\b[^\n]{0,25}$", re.I)
+
+
+def _datum_aus(m) -> date | None:
+    try:
+        monat = _MONATE[m.group("mn").lower()] if "mn" in m.groupdict() and m.group("mn") \
+            else int(m.group("m"))
+        d = date(int(m.group("y")), monat, int(m.group("d")))
+    except (ValueError, KeyError):
+        return None
+    return d if 1990 <= d.year <= 2100 else None
+
+
+def dokument_datum(text: str, *, kopf: int = 3000) -> date | None:
+    """Das Datum, an dem das Dokument ausgestellt wurde — ohne KI.
+
+    Früher entschied das erste Datum irgendwo in Dateiname, Titel oder Zusammenfassung. Bei
+    Rechnungen steht davor aber oft „zahlbar bis" oder der Leistungszeitraum — und die
+    Rechnung landete im falschen Monat. Jetzt gilt:
+
+    1. ein beschriftetes Datum („Rechnungsdatum:", „Datum:", „Kontoauszug vom …");
+    2. sonst das erste Datum, vor dem keine Frist/kein Zeitraum steht („bis", „fällig" …).
+    """
+    kopf_text = (text or "")[:kopf]
+    treffer = []
+    for rx in _DATUMSFORMEN:
+        for m in rx.finditer(kopf_text):
+            d = _datum_aus(m)
+            if d is not None:
+                treffer.append((m.start(), d))
+    treffer.sort()
+    for start, d in treffer:
+        davor = kopf_text[max(0, start - 40):start]
+        if _DATUM_LABEL.search(davor):
+            return d
+    for start, d in treffer:
+        davor = kopf_text[max(0, start - 40):start]
+        if not _KEIN_BELEGDATUM.search(davor):
+            return d
+    return None
 
 
 def kurz_titel(stem: str, text: str) -> str:

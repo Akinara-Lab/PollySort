@@ -23,11 +23,12 @@ class Proposal:
     payload: dict
 
     def describe(self) -> str:
+        from .. import i18n
         p = self.payload
         if self.kind == "new":
-            return (f"🐣 Neue Kategorie '{p['name']}' aus {len(p['members'])} ähnlichen "
-                    f"Dokumenten (Keywords: {', '.join(p['keywords'][:5])})")
-        return f"🔗 Merge '{p['src']}' → '{p['dst']}' (Zentroid-Cosine {p['sim']:.2f})"
+            return i18n.t("refl.new", name=p["name"], n=len(p["members"]),
+                          kw=", ".join(p["keywords"][:5]))
+        return i18n.t("refl.merge", src=p["src"], dst=p["dst"], sim=f"{p['sim']:.2f}")
 
 
 class Reflection:

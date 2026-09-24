@@ -172,12 +172,12 @@ class BeehiveShell(cmd.Cmd):
                 stop = self.postcmd(stop, line)
             except AbortAction:
                 # Nutzer hat die Aktion (z. B. Setup) abgebrochen — sauber verlassen.
-                self.con.info("Abgebrochen — nichts ausgeführt.", "🐝")
+                self.con.info(i18n.t("r.aborted"), "🐝")
                 stop = False
             except Exception as exc:
                 # Ein fehlerhafter Befehl darf nie die ganze Konsole beenden (§16) —
                 # melden und weitermachen. (Strg-C ist BaseException und bleibt außen.)
-                self.con.error(f"Befehl fehlgeschlagen: {exc}")
+                self.con.error(i18n.t("r.failed", err=exc))
                 stop = False
         self.postloop()
         self._save_history(hist)
@@ -364,6 +364,7 @@ class BeehiveShell(cmd.Cmd):
             ("scan  (sweep)", "scan  (sweep)", "help.d.scan"),
             ("importiere <ordner>", "import <folder>", "help.d.import"),
             ("zuordnen <id> <kat>", "assign <id> <cat>", "help.d.assign"),
+            ("analysiere <id>", "reanalyze <id>", "help.d.reanalyze"),
             ("unterordner <kat> <muster>", "subfolder <cat> <pattern>", "help.d.subfolder"),
             ("dubletten [aufraeumen]", "duplicates [cleanup]", "help.d.duplicates"),
             ("papierkorb <id> · leeren", "trash <id> · empty", "help.d.trash"),
@@ -456,10 +457,10 @@ class BeehiveShell(cmd.Cmd):
         summary = self._cycle(mode="move", dry_run=True, cache=cache)
         if not summary or not getattr(summary, "stored", 0):
             return          # nichts würde einsortiert → nichts anzuwenden
-        if self._ja("Änderungen jetzt anwenden? [J/n]: "):
+        if self._ja(i18n.t("r.preview.apply")):
             self._cycle(mode="move", dry_run=False, cache=cache, announce=False)
         else:
-            self.con.info("Nichts verändert — die Vorschau bleibt eine Vorschau.", "🧪")
+            self.con.info(i18n.t("r.preview.none"), "🧪")
 
     do_v = do_vorschau
 
@@ -471,11 +472,11 @@ class BeehiveShell(cmd.Cmd):
         """importiere <ordner> — Dateien aus einem anderen Ordner hierher sortieren."""
         folder = arg.strip().strip('"')
         if not folder:
-            self.con.ask("Nutzung: importiere <ordner>")
+            self.con.ask(i18n.t("r.import.usage"))
             return
         src = Path(folder).expanduser().resolve()
         if not src.is_dir():
-            self.con.error(f"Kein Ordner: {src}")
+            self.con.error(i18n.t("r.import.nofolder", path=src))
             return
         self._cycle(mode="move", roots=[src], recursive=True)
 
@@ -492,8 +493,7 @@ class BeehiveShell(cmd.Cmd):
             return
         # Hast du Dateien von Hand umsortiert, leitet die Königin daraus Regeln ab.
         if report.learned:
-            self.con.honey(f"{report.learned} manuelle Verschiebung(en) als Korrektur "
-                           "verstanden — die Königin lernt daraus.", "🧠")
+            self.con.honey(i18n.t("r.scan.learned", n=report.learned), "🧠")
             self._reflektieren(ctx, laut=False)
 
     do_sweep = do_scan
@@ -504,29 +504,28 @@ class BeehiveShell(cmd.Cmd):
         Platzhalter: {jahr}/{monat}/{tag}. Beispiel: 'unterordner rechnung {jahr}/{monat}'
         legt Rechnungen künftig nach Jahr/Monat ab. Ohne Argumente: aktuelle Regeln zeigen.
         """
+        from pollysort.heuristics import datums_muster
         seed = config.load_seed(self.hive)
         parts = arg.split()
         if not parts:
             if not seed.subrouting:
-                self.con.info("Keine dynamischen Unterordner gesetzt. Beispiel: "
-                              "unterordner rechnung {jahr}/{monat}", "🗂️")
+                self.con.info(i18n.t("r.sub.none", pattern=datums_muster()), "🗂️")
                 return
-            self.con.rule("Dynamische Unterordner")
+            self.con.rule(i18n.t("r.sub.title"))
             for k, v in seed.subrouting.items():
                 self.con.raw(f"    {k:<22} → {v}")
             return
         if len(parts) < 2:
-            self.con.ask("Nutzung: unterordner <kategorie> <muster|aus>  "
-                         "(z. B. rechnung {jahr}/{monat})")
+            self.con.ask(i18n.t("r.sub.usage", pattern=datums_muster()))
             return
         kat = parts[0].strip().lower()
         muster = " ".join(parts[1:]).strip()
         if muster.lower() in ("aus", "off", "-"):
             seed.subrouting.pop(kat, None)
-            self.con.honey(f"Unterordner für '{kat}' entfernt.", "🗂️")
+            self.con.honey(i18n.t("r.sub.removed", cat=kat), "🗂️")
         else:
             seed.subrouting[kat] = muster
-            self.con.honey(f"'{kat}' → {muster}  (greift beim nächsten Sortieren)", "🗂️")
+            self.con.honey(i18n.t("r.sub.set", cat=kat, pattern=muster), "🗂️")
         config.write_seed(self.hive, seed)
 
     def _cycle(self, *, mode: str, roots=None, recursive=None, dry_run: bool = False,
@@ -540,8 +539,7 @@ class BeehiveShell(cmd.Cmd):
         ctx = self._ctx()
         from pollysort.wachstafel import Wachstafel
         if announce and Wachstafel(self.hive).exists():
-            self.con.bloom("Spurbienen fliegen aus (unter Beachtung der gelernten "
-                           "Wachstafel-Regeln) …", "🐝")
+            self.con.bloom(i18n.t("r.cycle.rules"), "🐝")
         try:
             with QueenLock(ctx.hive):
                 summary = run_cycle(ctx, mode=mode, roots=roots, recursive=recursive,
@@ -554,8 +552,7 @@ class BeehiveShell(cmd.Cmd):
         # Häufen sich Fehler im OpenRouter-Modus, ist meist der Schlüssel abgelaufen —
         # klaren Weg zum Erneuern zeigen, statt es als „nicht erreichbar" stehen zu lassen.
         if getattr(summary, "errors", 0) and ctx.cfg.llm_provider == "openrouter":
-            self.con.ask("Falls der OpenRouter-Schlüssel abgelaufen ist: 'schluessel test' "
-                         "prüft ihn, 'schluessel setzen' erneuert ihn.")
+            self.con.ask(i18n.t("r.cycle.keyhint"))
         if not dry_run:
             # Eine Vorschau ist nebenwirkungsfrei — sie zählt bewusst NICHT auf den
             # Fortschritt ein. Gezählt wird nur, was wirklich einsortiert wurde.
@@ -681,12 +678,13 @@ class BeehiveShell(cmd.Cmd):
         if action not in ("notify", "move"):
             action = "notify"
         poll = max(3, seed.watch_seconds)
-        verb = "sortiere sofort" if action == "move" else "melde"
+        verb = i18n.t("r.watch.move" if action == "move" else "r.watch.notify")
 
         wake = threading.Event()
         observer = self._start_inbox_observer(wake)
-        modus = "Echtzeit (watchdog)" if observer is not None else f"Poll alle {poll}s"
-        self.con.honey(f"Wache aktiv — {modus}, {verb}. Strg-C beendet.", "🟢")
+        modus = (i18n.t("r.watch.realtime") if observer is not None
+                 else i18n.t("r.watch.poll", s=poll))
+        self.con.honey(i18n.t("r.watch.on", mode=modus, action=verb), "🟢")
         self._deadlines_wachen()          # beim Start einmal die Deadlines prüfen
         seen = {str(p) for p in self._inbox_paths()}
         try:
@@ -701,16 +699,15 @@ class BeehiveShell(cmd.Cmd):
                 if new:
                     ts = time.strftime("%H:%M:%S")
                     if action == "move":
-                        self.con.honey(f"[{ts}] {len(new)} neue Datei(en) → sortiere …", "📥")
+                        self.con.honey(i18n.t("r.watch.sorting", ts=ts, n=len(new)), "📥")
                         self._cycle(mode="move", nacherfassen=False)
                     else:
-                        self.con.ask(f"[{ts}] {len(new)} neue Datei(en) im Eingang "
-                                     f"— 'sortiere' zum Einräumen")
+                        self.con.ask(i18n.t("r.watch.new", ts=ts, n=len(new)))
                 seen = {str(p) for p in self._inbox_paths()}
                 self._deadlines_wachen()   # Wächterbienen behalten auch Deadlines im Blick
         except KeyboardInterrupt:
             self.con.raw("")
-            self.con.info("Wache beendet.", "🐝")
+            self.con.info(i18n.t("r.watch.stop"), "🐝")
         finally:
             if observer is not None:
                 try:
@@ -820,7 +817,7 @@ class BeehiveShell(cmd.Cmd):
     def do_suche(self, arg: str) -> None:
         """suche <wort> — in Titel/Keywords/Zusammenfassung suchen."""
         if not arg.strip():
-            self.con.ask("Nutzung: suche <wort>")
+            self.con.ask(i18n.t("r.search.usage"))
             return
         from pollysort.store import Store
         self._table(Store(self.hive).query(keyword=arg.strip()))
@@ -844,15 +841,15 @@ class BeehiveShell(cmd.Cmd):
         """zuordnen <id> <kategorie> — Zuordnung korrigieren (trainiert das Gedächtnis)."""
         parts = shlex.split(arg)
         if len(parts) != 2:
-            self.con.ask("Nutzung: zuordnen <id> <kategorie>")
+            self.con.ask(i18n.t("r.assign.usage"))
             return
         ctx = self._ctx()
         from pollysort.review import apply_correction
         old = apply_correction(ctx, parts[0], parts[1], mode="move", source="assign")
         if old is None:
-            self.con.error(f"Kein Eintrag '{parts[0]}'.")
+            self.con.error(i18n.t("r.noentry", id=parts[0]))
         else:
-            self.con.honey(f"{parts[0]}: {old} → {parts[1].lower()} ✓ (Gedächtnis lernt)")
+            self.con.honey(i18n.t("r.assign.ok", id=parts[0], old=old, new=parts[1].lower()))
             self._reflektieren(ctx, laut=False)   # Wachstafel gleich mit-aktualisieren
             # Dem Werkzeug etwas beizubringen ist echte Arbeit und zählt entsprechend.
             self._fortschritt_buchen(None, korrekturen=1)
@@ -861,16 +858,81 @@ class BeehiveShell(cmd.Cmd):
         """Königin liest die Korrekturen und ritzt Regeln in die Wachstafel (RISE + ACE)."""
         from pollysort.swarm import Koenigin
         if laut:
-            self.con.bloom("Die Königin studiert die Korrekturen und ritzt neue Regeln "
-                           "in die Wachstafel …", "🐝")
+            self.con.bloom(i18n.t("r.reflect.working"), "🐝")
         regeln = Koenigin(ctx).reflektieren()
         if regeln:
-            self.con.honey(f"Wachstafel aktualisiert — {len(regeln)} gelernte Regel(n). "
-                           f"Ansehen: 'wachstafel'.", "📜")
+            self.con.honey(i18n.t("r.reflect.saved_n", n=len(regeln)), "📜")
         elif laut:
-            self.con.info("Noch zu wenig Nektar-Feedback für neue Regeln — korrigiere weiter "
-                          "mit 'zuordnen'.", "🐝")
+            self.con.info(i18n.t("r.reflect.few"), "🐝")
         return regeln
+
+    def do_analysiere(self, arg: str) -> None:
+        """analysiere <id> — einen Eintrag neu analysieren (auch: reanalyze).
+
+        Für Altfälle, die falsch eingeordnet wurden: Die KI (im Sparmodus die Heuristik) liest
+        die Datei noch einmal. Titel und Zusammenfassung werden aktualisiert. Schlägt die neue
+        Analyse eine andere Kategorie vor, fragt PollySort, bevor es umsortiert — und lernt
+        dann daraus wie bei 'zuordnen'.
+        """
+        from pollysort import nacherfassung
+        from pollysort.config import pretty_category
+        from pollysort.extractor import extract
+        from pollysort.heuristics import snap_category
+        from pollysort.models import Content, Status
+        from pollysort.review import apply_correction
+        from pollysort.scout import scout
+        from pollysort.store import row_to_entry
+
+        bee = arg.strip()
+        if not bee:
+            self.con.ask(i18n.t("r.reana.usage"))
+            return
+        ctx = self._ctx()
+        row = ctx.store.by_id(bee)
+        if not row:
+            self.con.error(i18n.t("r.noentry", id=bee))
+            return
+        path = Path(row["path"])
+        funde = scout([path]) if path.exists() else []
+        if not funde:
+            self.con.error(i18n.t("r.reana.missing", name=path.name))
+            return
+        self.con.bloom(i18n.t("r.reana.working", name=path.name), "🔎")
+        try:
+            with QueenLock(ctx.hive):
+                analyse, status, grund = extract(funde[0], ctx.client,
+                                                 max_file_mb=ctx.seed.max_file_mb)
+                if status != Status.INDEXED:
+                    self.con.error(i18n.t("r.reana.failed", reason=grund or "?"))
+                    return
+                entry = row_to_entry(row)
+                entry.content = Content(title=analyse.title, summary=analyse.summary,
+                                        keywords=list(analyse.keywords))
+                entry.funktion.aufgabe = analyse.funktion_aufgabe
+                entry.zustaendigkeit = ctx.taxonomy.persons_for(entry.kategorie)
+                ctx.store.save(entry)                  # Kategorie & Ort bleiben vorerst
+                nacherfassung.austragen(ctx.hive, entry.id)
+        except QueenLockError as exc:
+            self.con.error(str(exc))
+            return
+        self.con.honey(i18n.t("r.reana.done", title=analyse.title), "🔎")
+        alt = row.get("kategorie") or "_unassigned"
+        neu = snap_category(analyse.kategorie, ctx.taxonomy.categories) or "_unassigned"
+        if neu == alt or neu == "_unassigned":
+            self.con.info(i18n.t("r.reana.same", cat=pretty_category(alt)), "🔎")
+            return
+        if not self._ja_default(i18n.t("r.reana.move", old=pretty_category(alt),
+                                       new=pretty_category(neu))):
+            return
+        try:
+            with QueenLock(ctx.hive):
+                apply_correction(ctx, entry.id, neu, source="analysiere")
+        except QueenLockError as exc:
+            self.con.error(str(exc))
+            return
+        self.con.honey(i18n.t("r.assign.ok", id=entry.id, old=alt, new=neu))
+
+    do_reanalyze = do_analysiere
 
     def do_reflektiere(self, _arg: str) -> None:
         """reflektiere — Regeln aus deinen Korrekturen zeigen und nach Rückfrage ritzen."""
@@ -880,20 +942,17 @@ class BeehiveShell(cmd.Cmd):
         wt = Wachstafel(ctx.hive)
         rules, n = wt.vorschau(Feedback(ctx.hive), categories=ctx.taxonomy.categories)
         if not rules:
-            self.con.info("Noch zu wenig Nektar-Feedback für neue Regeln — korrigiere weiter "
-                          "mit 'zuordnen'.", "🐝")
+            self.con.info(i18n.t("r.reflect.few"), "🐝")
             return
-        self.con.rule("Vorgeschlagene Regeln")
+        self.con.rule(i18n.t("r.reflect.title"))
         for kw, kat, cnt, alt in rules:
-            alt_hint = f"  (statt „{alt}“)" if alt else ""
-            self.con.raw(f"    • [honey]{kw}[/honey] → Wabe [honey]{kat}[/honey]"
-                         f"  _(aus {cnt} Korrektur(en){alt_hint})_")
-        if self._ja("Diese Regeln in die Wachstafel ritzen? [J/n]: "):
+            alt_hint = i18n.t("r.reflect.instead", alt=alt) if alt else ""
+            self.con.raw(i18n.t("r.reflect.rule", kw=kw, kat=kat, cnt=cnt, alt=alt_hint))
+        if self._ja(i18n.t("r.reflect.confirm")):
             wt.schreiben(rules, n_corrections=n)
-            self.con.honey(f"Wachstafel aktualisiert — {len(rules)} Regel(n). "
-                           "Ansehen: 'wachstafel'.", "📜")
+            self.con.honey(i18n.t("r.reflect.saved", n=len(rules)), "📜")
         else:
-            self.con.info("Verworfen — die Wachstafel bleibt unverändert.", "🐝")
+            self.con.info(i18n.t("r.reflect.discarded"), "🐝")
 
     do_reflektieren = do_reflektiere
 
@@ -903,19 +962,18 @@ class BeehiveShell(cmd.Cmd):
         wt = Wachstafel(self.hive)
         if arg.strip().lower() in ("leeren", "loeschen", "löschen", "clear"):
             if not wt.exists():
-                self.con.info("Es gibt noch keine Wachstafel zum Abwischen.", "🐝")
+                self.con.info(i18n.t("r.rules.nothing"), "🐝")
                 return
-            if not self._ja("Alle gelernten Regeln wirklich verwerfen? [j/N]: "):
-                self.con.info("Abgebrochen — die Wachstafel bleibt.", "🐝")
+            if not self._ja(i18n.t("r.rules.confirm")):
+                self.con.info(i18n.t("r.rules.kept"), "🐝")
                 return
             wt.leeren()
-            self.con.info("Wachstafel abgewischt — die gelernten Regeln sind verworfen.", "🧽")
+            self.con.info(i18n.t("r.rules.cleared"), "🧽")
             return
         if not wt.exists():
-            self.con.info("Noch keine Wachstafel. 'reflektiere' ritzt Regeln aus deinen "
-                          "Korrekturen ('zuordnen').", "📜")
+            self.con.info(i18n.t("r.rules.none"), "📜")
             return
-        self.con.rule("Wachstafel — gelernte Projekt-Regeln")
+        self.con.rule(i18n.t("r.rules.title"))
         for line in wt.text().splitlines():
             self.con.raw(line)
 
@@ -950,7 +1008,7 @@ class BeehiveShell(cmd.Cmd):
         """person <name> <kat,kat> — Zuständigkeit im Hintergrund setzen."""
         parts = shlex.split(arg)
         if len(parts) < 2:
-            self.con.ask("Nutzung: person <name> <kategorie,kategorie>")
+            self.con.ask(i18n.t("r.person.usage"))
             return
         ctx = self._ctx()
         cats = [c.strip().lower() for c in parts[1].split(",") if c.strip()]
@@ -973,7 +1031,7 @@ class BeehiveShell(cmd.Cmd):
             from pollysort.migrate import approve
             p = refl.get(parts[1])
             if not p:
-                self.con.error(f"Kein Vorschlag '{parts[1]}'.")
+                self.con.error(i18n.t("r.mem.noprop", slug=parts[1]))
                 return
             with QueenLock(ctx.hive):
                 msg = approve(ctx, p)
@@ -983,14 +1041,13 @@ class BeehiveShell(cmd.Cmd):
         if parts and parts[0] in ("neu", "rebuild", "reindex"):
             self._reindex_gedaechtnis(ctx)
             return
-        self.con.info(f"Kategorien: {', '.join(ctx.taxonomy.categories)}", "🧠")
+        self.con.info(i18n.t("r.mem.cats", cats=', '.join(ctx.taxonomy.categories)), "🧠")
         drift = ctx.mind.mismatch(getattr(ctx.client, "embed_model", None))
         if drift:
-            self.con.info(f"Embedding-Modell hat sich geändert (Gedächtnis: {drift}). Alte "
-                          "Vektoren matchen nicht mehr — 'gedaechtnis neu' baut es neu auf.", "⚠️")
+            self.con.info(i18n.t("r.mem.drift", drift=drift), "⚠️")
         for p in (refl.reflect(ctx.store, ctx.mind) or refl.pending()):
             self.con.raw(f"    🐣 [{p.slug}] {p.describe()}")
-            self.con.info("Übernehmen mit:  gedaechtnis approve <slug>", "🐣")
+            self.con.info(i18n.t("r.mem.approve"), "🐣")
 
     def _reindex_gedaechtnis(self, ctx) -> None:
         """'gedaechtnis neu' — alle einsortierten Einträge mit dem aktuellen Embedding-Modell
@@ -999,20 +1056,19 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.pipeline import reindex_memory
         total = len(ctx.store.query(status=Status.ASSIGNED.value))
         if total == 0:
-            self.con.info("Kein einsortierter Bestand — nichts neu einzubetten.", "🧠")
+            self.con.info(i18n.t("r.mem.empty"), "🧠")
             return
         model = getattr(ctx.client, "embed_model", None)
-        self.con.info(f"Baut das Gedächtnis für {total} Eintrag/Einträge mit dem aktuellen "
-                      f"Modell ({model}) neu auf.", "🧠")
+        self.con.info(i18n.t("r.mem.rebuild", n=total, model=model), "🧠")
         if ctx.cfg.llm_provider == "openrouter":
-            self.con.info("Das erzeugt pro Eintrag einen (günstigen) Embedding-Call.", "💸")
-        if not self._ja("Jetzt neu aufbauen? [J/n]: "):
+            self.con.info(i18n.t("r.mem.cost"), "💸")
+        if not self._ja(i18n.t("r.mem.confirm")):
             return
         with QueenLock(ctx.hive):
             ok, fail = reindex_memory(ctx)
-        msg = f"Gedächtnis neu aufgebaut: {ok} eingebettet"
+        msg = i18n.t("r.mem.rebuilt", ok=ok)
         if fail:
-            msg += f", {fail} übersprungen"
+            msg += i18n.t("r.mem.skipped", n=fail)
         self.con.honey(msg + ".", "🧠")
 
     def do_empfehlung(self, arg: str) -> None:
@@ -1030,20 +1086,20 @@ class BeehiveShell(cmd.Cmd):
         cfg = config.load_config()
         arg = arg.strip()
         if arg.lower() in ("liste", "list", "ls"):
-            self.con.rule("Nektar-Sorten (OpenRouter-Modelle)")
+            self.con.rule(i18n.t("r.model.title"))
             for kurz, mid in NEKTAR_SORTEN.items():
-                aktiv = "  ◀ aktiv" if mid == cfg.llm_model else ""
+                aktiv = i18n.t("r.model.active") if mid == cfg.llm_model else ""
                 self.con.raw(f"   🍯 {kurz:12} {mid}{aktiv}")
-            self.con.info("Auch beliebige IDs möglich:  modell <provider/modell-id>", "🐝")
+            self.con.info(i18n.t("r.model.any"), "🐝")
             return
         if not arg:
-            self.con.honey(f"Aktuelle Nektar-Sorte: {cfg.llm_model}", "🍯")
-            self.con.info("Wechseln:  modell <name|id>   ·   Sorten:  modell liste", "🐝")
+            self.con.honey(i18n.t("r.model.current", model=cfg.llm_model), "🍯")
+            self.con.info(i18n.t("r.model.usage"), "🐝")
             return
         model = NEKTAR_SORTEN.get(arg.lower(), arg)
         cfg.llm_model = model
         config.save_config(cfg)
-        self.con.honey(f"Nektar gewechselt — die Königin sammelt jetzt von: {model}", "🍯")
+        self.con.honey(i18n.t("r.model.set", model=model), "🍯")
         if self.hive and config.load_seed(self.hive).provider != "openrouter":
             prov = config.load_seed(self.hive).provider
             self.con.ask(i18n.t("mode.model_hint", name=i18n.modus_name(prov)))
@@ -1072,78 +1128,70 @@ class BeehiveShell(cmd.Cmd):
         import os
 
         from pollysort.flugrouten import mask
-        self.con.rule("Nektar-Quelle (OpenRouter-Schlüssel)")
+        self.con.rule(i18n.t("r.key.title"))
         env = os.environ.get("OPENROUTER_API_KEY")
         stored = config.load_credentials()
         if env:
-            self.con.info(f"Aus Umgebungsvariable OPENROUTER_API_KEY ({mask(env)}) — hat Vorrang.",
-                          "🔑")
+            self.con.info(i18n.t("r.key.env", masked=mask(env)), "🔑")
         elif stored:
-            self.con.info(f"Hinterlegt: {mask(stored)}   ({config.CREDENTIALS_PATH})", "🔑")
+            self.con.info(i18n.t("r.key.stored", masked=mask(stored), path=config.CREDENTIALS_PATH), "🔑")
         else:
-            self.con.info("Kein Schlüssel hinterlegt — Offline/Ollama gehen, OpenRouter nicht.",
-                          "🔑")
-        self.con.info("Prüfen: 'schluessel test' · Erneuern: 'schluessel setzen' · "
-                      "Entfernen: 'schluessel entfernen'", "🐝")
+            self.con.info(i18n.t("r.key.none_status"), "🔑")
+        self.con.info(i18n.t("r.key.usage"), "🐝")
 
     def _schluessel_test(self) -> None:
         from pollysort.llm.client import verify_openrouter_key
         key = config.load_credentials()
         if not key:
-            self.con.info("Kein Schlüssel hinterlegt. 'schluessel setzen' weist einen aus.", "🔑")
+            self.con.info(i18n.t("r.key.none_test"), "🔑")
             return
-        self.con.bloom("Spähbiene prüft die Nektar-Quelle bei OpenRouter …", "🐝")
+        self.con.bloom(i18n.t("r.key.testing"), "🐝")
         ok, grund = verify_openrouter_key(key)
         if ok:
-            self.con.honey("Nektar-Quelle offen — der Schlüssel ist gültig. 🍯", "✅")
+            self.con.honey(i18n.t("r.key.valid"), "✅")
         else:
-            self.con.error(f"Schlüssel {grund} — erneuern mit 'schluessel setzen'.")
+            self.con.error(i18n.t("r.key.invalid", reason=grund))
 
     def _schluessel_setzen(self) -> None:
         import os
 
         from pollysort.llm.client import verify_openrouter_key
         if os.environ.get("OPENROUTER_API_KEY"):
-            self.con.ask("Hinweis: OPENROUTER_API_KEY (Umgebungsvariable) hat Vorrang vor dem "
-                         "gespeicherten Schlüssel und wird nicht überschrieben.")
-        self.con.info("Neue Nektar-Quelle ausweisen (ersetzt den bisherigen Schlüssel).", "🔑")
-        key = self._ask("     🔑 Neuer OpenRouter-API-Key (leer = abbrechen): ").strip()
+            self.con.ask(i18n.t("r.key.env_note"))
+        self.con.info(i18n.t("r.key.new"), "🔑")
+        key = self._ask(i18n.t("r.key.prompt_new")).strip()
         if not key:
-            self.con.info("Abgebrochen — Schlüssel unverändert.", "🐝")
+            self.con.info(i18n.t("r.key.unchanged"), "🐝")
             return
-        self.con.bloom("Spähbiene prüft die neue Nektar-Quelle …", "🐝")
+        self.con.bloom(i18n.t("r.key.testing_new"), "🐝")
         ok, grund = verify_openrouter_key(key)
         if ok:
             config.save_credentials(key)
-            self.con.honey(f"Schlüssel gültig & gespeichert ({config.CREDENTIALS_PATH}, chmod 600).",
-                           "✅")
+            self.con.honey(i18n.t("r.key.saved", path=config.CREDENTIALS_PATH), "✅")
         else:
-            self.con.error(f"Der neue Schlüssel {grund}.")
-            if self._ja("     Trotzdem speichern (ungeprüft)? [j/N]: "):
+            self.con.error(i18n.t("r.key.new_invalid", reason=grund))
+            if self._ja(i18n.t("r.key.save_anyway")):
                 config.save_credentials(key)
-                self.con.info("Gespeichert — bei Bedarf 'schluessel test'.", "🔑")
+                self.con.info(i18n.t("r.key.saved_unchecked"), "🔑")
             else:
-                self.con.info("Nicht gespeichert — bisheriger Schlüssel bleibt.", "🐝")
+                self.con.info(i18n.t("r.key.not_saved"), "🐝")
 
     def _schluessel_entfernen(self) -> None:
         import os
         if not config.load_credentials():
-            self.con.info("Kein Schlüssel hinterlegt.", "🔑")
+            self.con.info(i18n.t("r.key.none"), "🔑")
             return
-        if not self._ja("     Schlüssel wirklich entfernen? (OpenRouter-Projekte fallen auf "
-                        "Offline zurück) [j/N]: "):
-            self.con.info("Abgebrochen.", "🐝")
+        if not self._ja(i18n.t("r.key.remove_confirm")):
+            self.con.info(i18n.t("r.cancelled"), "🐝")
             return
         try:
             config.CREDENTIALS_PATH.unlink()
         except OSError:
             pass
         if os.environ.get("OPENROUTER_API_KEY"):
-            self.con.ask("Achtung: OPENROUTER_API_KEY (Umgebungsvariable) ist weiter gesetzt "
-                         "und aktiv — im Terminal/Profil entfernen, falls gewünscht.")
+            self.con.ask(i18n.t("r.key.env_still"))
         else:
-            self.con.info("Schlüssel entfernt — Cloud-Projekte laufen jetzt im Sparmodus "
-                          "(Heuristik).", "🔑")
+            self.con.info(i18n.t("r.key.removed"), "🔑")
 
     # ------------------------------------------------------------------ #
     #  Ansicht & Thema (Dark/Light, statische Ansicht ohne Scrolling)
@@ -1155,24 +1203,22 @@ class BeehiveShell(cmd.Cmd):
         key = arg.strip().lower()
         if key not in mapping:
             if self._theme_pref == "auto":
-                aktiv = "Dunkel" if self.con.theme_name == "dark" else "Hell"
-                self.con.info(f"Thema: Automatik (tags dunkel, abends hell) — gerade {aktiv}. "
-                              "Wechseln: 'thema dunkel | hell | auto'.", "🎨")
+                aktiv = i18n.t("theme.dark" if self.con.theme_name == "dark" else "theme.light")
+                self.con.info(i18n.t("r.theme.auto_now", name=aktiv), "🎨")
             else:
-                akt = "Dunkel" if self._theme_pref == "dark" else "Hell"
-                self.con.info(f"Thema: {akt}-Modus. Wechseln: 'thema dunkel | hell | auto'.", "🎨")
+                akt = i18n.t("theme.dark" if self._theme_pref == "dark" else "theme.light")
+                self.con.info(i18n.t("r.theme.now", name=akt), "🎨")
             return
         cfg = config.load_config()
         cfg.theme = mapping[key]
         config.save_config(cfg)
         eff = self._apply_theme(mapping[key])
         self._render_frame()
+        name = i18n.t("theme.dark" if eff == "dark" else "theme.light")
         if self._theme_pref == "auto":
-            self.con.honey(f"Thema: Automatik — tagsüber Dunkel, abends Hell. Jetzt aktiv: "
-                           f"{'Dunkel' if eff == 'dark' else 'Hell'}. 🎨", "🎨")
+            self.con.honey(i18n.t("r.theme.auto_set", name=name), "🎨")
         else:
-            self.con.honey(f"Thema gewechselt — {'Dunkel' if eff == 'dark' else 'Hell'}-Modus. 🎨",
-                           "🎨")
+            self.con.honey(i18n.t("r.theme.set", name=name), "🎨")
 
     do_theme = do_thema
     do_farbe = do_thema
@@ -1185,19 +1231,17 @@ class BeehiveShell(cmd.Cmd):
         elif key in ("log", "scroll", "aus", "off"):
             self._static_view = False
         else:
-            akt = "statisch (kein Scrolling)" if self._static_view else "Log (scrollend)"
-            self.con.info(f"Aktuelle Ansicht: {akt}. Wechseln: 'ansicht statisch' | 'ansicht log'.",
-                          "🖥️")
+            akt = i18n.t("r.view.static" if self._static_view else "r.view.log")
+            self.con.info(i18n.t("r.view.now", name=akt), "🖥️")
             return
         cfg = config.load_config()
         cfg.static_view = self._static_view
         config.save_config(cfg)
         if self._static_view and not (sys.stdout.isatty() and sys.stdin.isatty()):
-            self.con.ask("Hinweis: die statische Ansicht wirkt nur im echten Terminal "
-                         "(bei Pipe/CI bleibt es beim Log).")
+            self.con.ask(i18n.t("r.view.tty"))
         self._render_frame()
-        self.con.honey("Ansicht: statisch — die Konsole zeichnet sich selbst neu."
-                       if self._static_view else "Ansicht: klassisches Log (scrollend).", "🖥️")
+        self.con.honey(i18n.t("r.view.set_static" if self._static_view else "r.view.set_log"),
+                       "🖥️")
 
     do_view = do_ansicht
 
@@ -1210,46 +1254,50 @@ class BeehiveShell(cmd.Cmd):
         kat = arg.strip().lower()
         if not kat:
             if not cats:
-                self.con.info("Noch keine Waben da — erst 'sortiere'.", "🐝")
+                self.con.info(i18n.t("r.charter.none"), "🐝")
                 return
-            self.con.info("Welche Wabe zum Projekt ausbauen?", "🛠️")
+            self.con.info(i18n.t("r.charter.which"), "🛠️")
             for i, c in enumerate(cats, 1):
                 self.con.raw(f"       [{i}] {pretty_category(c)}")
-            choice = self._ask("     Nummer oder Name: ").strip()
+            choice = self._ask(i18n.t("r.number_or_name")).strip()
             kat = cats[int(choice) - 1] if choice.isdigit() and 1 <= int(choice) <= len(cats) \
                 else choice.lower()
         if not kat:
-            self.con.info("Abgebrochen — keine Wabe gewählt.", "🐝")
+            self.con.info(i18n.t("r.charter.cancel"), "🐝")
             return
         if kat not in cats:
-            self.con.ask(f"'{pretty_category(kat)}' ist (noch) keine bekannte Wabe — baue trotzdem.")
+            self.con.ask(i18n.t("r.charter.unknown", cat=pretty_category(kat)))
         bau = Baubiene(ctx)
-        self.con.bloom(f"Baubienen schwärmen aus für die Wabe '{pretty_category(kat)}' …", "🛠️")
+        self.con.bloom(i18n.t("r.charter.building", cat=pretty_category(kat)), "🛠️")
         ch = bau.wabenbau(kat, ask=self._ask)
         wabe = self.hive / pretty_category(kat)
-        self.con.honey(f"Bienenstock.md gebaut → {wabe / 'Bienenstock.md'}", "🍯")
+        self.con.honey(i18n.t("r.charter.built", path=wabe / 'Bienenstock.md'), "🍯")
         tasks = bau.offene_aufgaben(kat, ch)
         if tasks:
-            self.con.ask(f"{len(tasks)} offene Aufgabe(n) in der Wabe:")
+            self.con.ask(i18n.t("r.charter.tasks", n=len(tasks)))
             for t in tasks:
                 self.con.raw(f"       ☐ {t}")
         else:
-            self.con.celebrate("Wabe komplett — nichts bleibt offen!")
+            self.con.celebrate(i18n.t("r.charter.done"))
         if ch.deadline:
-            self.con.info(f"Deadline im Bienen-Kalender vermerkt: {ch.deadline}", "📅")
+            self.con.info(i18n.t("r.charter.deadline", date=ch.deadline), "📅")
 
     def do_kalender(self, arg: str) -> None:
         """kalender [melden] — Deadlines zeigen; 'kalender melden' schickt fällige Erinnerungen."""
-        from pollysort.swarm import Waechterbiene
-        w = Waechterbiene(self._ctx())
+        from pollysort.swarm import Baubiene, Waechterbiene
+        ctx = self._ctx()
+        w = Waechterbiene(ctx)
+        # Die abonnierbare .honig/kalender.ics bei jedem Blick aktualisieren — auch wenn alles
+        # erledigt ist, sonst zeigte ein abonnierter Kalender weiter alte Termine.
+        Baubiene(ctx).pollen_sync()
         offen = w.kalender.offen()
         if not offen:
-            self.con.info("Der Bienen-Kalender ist leer. Deadlines setzt 'wabenbau'.", "📅")
+            self.con.info(i18n.t("r.cal.empty"), "📅")
             return
-        self.con.rule("Bienen-Kalender")
+        self.con.rule(i18n.t("r.cal.title"))
         for t in offen:
             tage = t.tage_bis()
-            wann = f"in {tage} T" if tage >= 0 else f"{-tage} T überfällig"
+            wann = i18n.t("r.cal.in", n=tage) if tage >= 0 else i18n.t("r.cal.overdue", n=-tage)
             mark = "🔴" if tage < 0 else ("🟠" if tage <= 7 else "🟢")
             self.con.raw(f"   {mark} {t.faellig}  {t.titel}  ({wann})")
         # Ansicht sendet NICHT; nur die Wächterbienen 'summen' (Konsole). Echt-Versand:
@@ -1257,10 +1305,9 @@ class BeehiveShell(cmd.Cmd):
         senden = arg.strip().lower() in ("melden", "send", "notify", "ausfliegen")
         due = w.deadlines_pruefen(innerhalb_tage=7, senden=senden)
         if not due:
-            self.con.info("Nichts Dringendes in den nächsten 7 Tagen. 🍯", "🐝")
+            self.con.info(i18n.t("r.cal.nothing"), "🐝")
         elif senden and not w.kanaele:
-            self.con.info("Keine Flugrouten aktiv — 'flugrouten setup' schaltet den Versand frei.",
-                          "🧭")
+            self.con.info(i18n.t("r.cal.noroutes"), "🧭")
 
     def do_fortschritt(self, _arg: str) -> None:
         """fortschritt — wie weit ist dein Bienenstock? (auch: progress, stufe)"""
@@ -1281,15 +1328,14 @@ class BeehiveShell(cmd.Cmd):
         """schwarm — Überblick über Königin & Bienen (Waben, offene Fälle, Projekte, Deadlines)."""
         from pollysort.swarm import Koenigin
         st = Koenigin(self._ctx()).schwarm_status()
-        self.con.rule("Der Schwarm")
-        self.con.info(f"👑 Königin orchestriert {st['waben']} Wabe(n) · "
-                      f"{st['dokumente']} Dokument(e)", "🐝")
-        self.con.raw(f"   🐝 Spurbienen:   {st['assigned']} einsortiert · "
-                     f"{st['needs_review']} Rückfrage(n) · {st['error']} Fehler")
-        self.con.raw(f"   🛠️ Baubienen:    {st['projekte']} Projekt-Charter (Stufe 2)")
-        self.con.raw(f"   🔔 Wächterbienen: {st['deadlines_faellig']} Deadline(s) in ≤ 7 Tagen")
+        self.con.rule(i18n.t("r.swarm.title"))
+        self.con.info(i18n.t("r.swarm.queen", waben=st['waben'], docs=st['dokumente']), "🐝")
+        self.con.raw(i18n.t("r.swarm.scouts",
+                            assigned=st['assigned'], review=st['needs_review'], errors=st['error']))
+        self.con.raw(i18n.t("r.swarm.builders", n=st['projekte']))
+        self.con.raw(i18n.t("r.swarm.guards", n=st['deadlines_faellig']))
         if st["gewohnheiten"]:
-            self.con.raw("   🍯 Sammelbienen (gelernte Ablage-Orte):")
+            self.con.raw(i18n.t("r.swarm.foragers"))
             for kat, ort in st["gewohnheiten"].items():
                 self.con.raw(f"        {kat} → {ort}")
 
@@ -1306,8 +1352,7 @@ class BeehiveShell(cmd.Cmd):
         elif sub in ("aus", "off", "deaktivieren", "stopp"):
             from pollysort.flugrouten import Flugrouten, save_flugrouten
             save_flugrouten(Flugrouten())
-            self.con.info("Alle Flugrouten stillgelegt — die Wächterbienen bleiben im Stock.",
-                          "🧭")
+            self.con.info(i18n.t("r.routes.off"), "🧭")
         else:
             self._flugrouten_status()
 
@@ -1316,38 +1361,36 @@ class BeehiveShell(cmd.Cmd):
     def _flugrouten_status(self) -> None:
         from pollysort.flugrouten import load_flugrouten, mask
         fr = load_flugrouten()
-        self.con.rule("Flugrouten der Wächterbienen")
+        self.con.rule(i18n.t("r.routes.title"))
         if not fr.any_enabled() and not fr.calendar.enabled:
-            self.con.info("Noch keine Flugrouten ausgewiesen. 'flugrouten setup' richtet welche ein.",
-                          "🧭")
+            self.con.info(i18n.t("r.routes.none"), "🧭")
             return
         if fr.discord.enabled:
-            self.con.raw(f"   🎮 Discord: aktiv · Channel {fr.discord.channel_id} · "
-                         f"Token {mask(fr.discord.bot_token)}")
+            self.con.raw(i18n.t("r.routes.discord",
+                                channel=fr.discord.channel_id, token=mask(fr.discord.bot_token)))
         if fr.email.enabled:
-            self.con.raw(f"   📧 E-Mail: aktiv · {fr.email.address} · {fr.email.provider} "
-                         f"({fr.email.smtp_host}:{fr.email.smtp_port}) · Pass {mask(fr.email.password)}")
+            self.con.raw(i18n.t("r.routes.email",
+                                addr=fr.email.address, provider=fr.email.provider, host=fr.email.smtp_host,
+                                port=fr.email.smtp_port, pw=mask(fr.email.password)))
         if fr.calendar.enabled:
-            self.con.raw(f"   📅 Kalender: vorgemerkt ({fr.calendar.kind})")
-        self.con.info("🔒 Zugangsdaten bleiben lokal — kein LLM sieht sie je. 'flugrouten test' prüft.",
-                      "🐝")
+            self.con.raw(i18n.t("r.routes.calendar", kind=fr.calendar.kind))
+        self.con.info(i18n.t("r.routes.local"), "🐝")
 
     def _flugrouten_test(self) -> None:
         from pollysort.flugrouten import load_flugrouten
         from pollysort.swarm.kanaele import build_kanaele
         kanaele = build_kanaele(load_flugrouten())
         if not kanaele:
-            self.con.info("Keine aktiven Flugrouten. 'flugrouten setup' weist welche aus.", "🧭")
+            self.con.info(i18n.t("r.routes.none_active"), "🧭")
             return
-        self.con.bloom("Wächterbienen fliegen zum Testflug aus …", "🐝")
+        self.con.bloom(i18n.t("r.routes.testing"), "🐝")
         for k in kanaele:
             try:
-                k.senden("Bienentanz-Testflug",
-                         "🐝 Hallo vom Bienenstock! Diese Flugroute steht bereit.")
+                k.senden(i18n.t("wb.test_title"), i18n.t("wb.test_text"))
                 stock = getattr(k, "STOCK", f"{k.name}-Wabe")
-                self.con.honey(f"Wächterbienen haben die {stock} erfolgreich informiert!", "🐝")
+                self.con.honey(i18n.t("r.routes.test_ok", target=stock), "🐝")
             except Exception as exc:
-                self.con.error(f"Flugroute {k.name} blockiert: {exc}")
+                self.con.error(i18n.t("r.routes.blocked", name=k.name, err=exc))
 
     def _flugrouten_setup(self) -> None:
         """Assistent: neue Flugrouten für die Wächterbienen ausweisen (Discord/E-Mail/Kalender)."""
@@ -1360,55 +1403,53 @@ class BeehiveShell(cmd.Cmd):
             save_flugrouten,
         )
         fr = load_flugrouten()
-        self.con.rule("Flugrouten ausweisen")
-        self.con.info("Wohin sollen die Wächterbienen bei fälligen Deadlines fliegen?", "🧭")
-        self.con.info("🔒 Alle Zugangsdaten bleiben strikt lokal — kein LLM bekommt sie je zu sehen.",
-                      "🐝")
+        self.con.rule(i18n.t("r.routes.setup_title"))
+        self.con.info(i18n.t("r.routes.where"), "🧭")
+        self.con.info(i18n.t("r.routes.local2"), "🐝")
 
         # -- Discord --------------------------------------------------------
-        if self._ja("  🎮 Discord-Flugroute einrichten? [j/N]: "):
-            token = self._ask("      🔑 Discord-Bot-Token: ").strip()
-            channel = self._ask("      #  Channel-ID des Main-Channels: ").strip()
+        if self._ja(i18n.t("r.routes.ask_discord")):
+            token = self._ask(i18n.t("r.routes.token")).strip()
+            channel = self._ask(i18n.t("r.routes.channel")).strip()
             if token and channel:
                 fr.discord = DiscordConfig(enabled=True, bot_token=token, channel_id=channel)
-                self.con.honey("Discord-Flugroute ausgewiesen.", "🐝")
+                self.con.honey(i18n.t("r.routes.discord_ok"), "🐝")
             else:
-                self.con.info("Unvollständig — Discord übersprungen.", "🧭")
+                self.con.info(i18n.t("r.routes.discord_skip"), "🧭")
 
         # -- E-Mail (mit Presets) ------------------------------------------
-        if self._ja("  📧 E-Mail-Flugroute einrichten? [j/N]: "):
-            self.con.raw("      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Benutzerdefiniert")
-            wahl = self._ask("      Wahl [1]: ").strip() or "1"
+        if self._ja(i18n.t("r.routes.ask_email")):
+            self.con.raw(i18n.t("r.routes.providers"))
+            wahl = self._ask(i18n.t("r.routes.choice")).strip() or "1"
             if wahl == "2":
                 provider = "outlook"
                 host, port, tls = EMAIL_PRESETS["outlook"]
             elif wahl == "3":
                 provider = "custom"
-                host = self._ask("      SMTP-Server: ").strip()
+                host = self._ask(i18n.t("r.routes.smtp")).strip()
                 port = int(self._ask("      Port [587]: ").strip() or "587")
                 tls = True
             else:
                 provider = "gmail"
                 host, port, tls = EMAIL_PRESETS["gmail"]
-            address = self._ask("      ✉️  E-Mail-Adresse: ").strip()
-            password = self._ask("      🔒 Passwort / App-Passwort: ").strip()
-            recipient = self._ask("      📮 Empfänger [leer = an dich selbst]: ").strip()
+            address = self._ask(i18n.t("r.routes.address")).strip()
+            password = self._ask(i18n.t("r.routes.password")).strip()
+            recipient = self._ask(i18n.t("r.routes.recipient")).strip()
             if address and password and host:
                 fr.email = EmailConfig(enabled=True, provider=provider, address=address,
                                        password=password, smtp_host=host, smtp_port=port,
                                        use_tls=tls, recipient=recipient)
-                self.con.honey(f"E-Mail-Flugroute ausgewiesen ({provider}, {host}:{port}).", "🐝")
+                self.con.honey(i18n.t("r.routes.email_ok", provider=provider, host=host, port=port), "🐝")
             else:
-                self.con.info("Unvollständig — E-Mail übersprungen.", "🧭")
+                self.con.info(i18n.t("r.routes.email_skip"), "🧭")
 
         # -- Kalender (nur Struktur) ---------------------------------------
-        if self._ja("  📅 Kalender-Flugroute anlegen? (Struktur, Sync folgt) [j/N]: "):
+        if self._ja(i18n.t("r.routes.ask_cal")):
             fr.calendar = CalendarConfig(enabled=True)
-            self.con.honey("Kalender-Flugroute vorgemerkt.", "🐝")
+            self.con.honey(i18n.t("r.routes.cal_ok"), "🐝")
 
         save_flugrouten(fr)
-        self.con.honey("Flugrouten gesichert (nur lokal, chmod 600). Testflug: 'flugrouten test'.",
-                       "🍯")
+        self.con.honey(i18n.t("r.routes.saved"), "🍯")
 
     #: Zustimmung in beiden Sprachen — sonst versteht der EN-Modus sein eigenes "yes" nicht.
     _YES = ("j", "ja", "y", "yes")
@@ -1431,9 +1472,9 @@ class BeehiveShell(cmd.Cmd):
         dest = undertake(ctx.hive, ctx.store, arg.strip())
         if dest:
             ctx.mind.forget(arg.strip())
-            self.con.info(f"→ Quarantäne (nicht gelöscht): {dest.name}", "⚰️")
+            self.con.info(i18n.t("r.trash.moved", name=dest.name), "⚰️")
         else:
-            self.con.error(f"Kein Eintrag '{arg.strip()}'.")
+            self.con.error(i18n.t("r.noentry", id=arg.strip()))
 
     def do_zurueckholen(self, arg: str) -> None:
         """zurueckholen <id> — Datei aus der Quarantäne zurückholen."""
@@ -1441,9 +1482,9 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.undertaker import resurrect
         dest = resurrect(ctx.hive, ctx.store, arg.strip())
         if dest:
-            self.con.honey(f"Zurück im Ordner: {dest.name}")
+            self.con.honey(i18n.t("r.restore.ok", name=dest.name))
         else:
-            self.con.error("Nichts zurückzuholen.")
+            self.con.error(i18n.t("r.restore.none"))
 
     def do_dubletten(self, arg: str) -> None:
         """dubletten [aufraeumen] — erkannte Dubletten zeigen; 'aufraeumen' legt sie in die
@@ -1454,18 +1495,18 @@ class BeehiveShell(cmd.Cmd):
         ctx = self._ctx()
         rows = [r for r in ctx.store.duplicate_rows() if Path(r["path"]).exists()]
         if not rows:
-            self.con.info("Keine Dubletten im Eingang. ✨", "🛡️")
+            self.con.info(i18n.t("r.dup.none"), "🛡️")
             return
-        self.con.rule(f"{len(rows)} Dublette(n)")
+        self.con.rule(i18n.t("r.dup.title", n=len(rows)))
         for r in rows:
-            self.con.raw(f"    🛡️ {Path(r['path']).name}  — Original: "
-                         f"{r['filename']} ({r['kategorie'] or 'unsortiert'})")
+            self.con.raw(i18n.t("r.dup.row",
+                                name=Path(r['path']).name, orig=r['filename'],
+                                cat=r['kategorie'] or i18n.t("r.unsorted")))
         if arg.strip().lower() not in ("aufraeumen", "aufräumen", "cleanup", "clean", "tidy"):
-            self.con.ask("'dubletten aufraeumen' verschiebt sie in die Quarantäne "
-                         "(papierkorb — nichts wird gelöscht).")
+            self.con.ask(i18n.t("r.dup.hint"))
             return
-        if not self._ja(f"{len(rows)} Dublette(n) in die Quarantäne verschieben? [j/N]: "):
-            self.con.info("Abgebrochen.", "🐝")
+        if not self._ja(i18n.t("r.dup.confirm", n=len(rows))):
+            self.con.info(i18n.t("r.cancelled"), "🐝")
             return
         from pollysort.config import honig
         friedhof = honig(ctx.hive) / "papierkorb"
@@ -1482,8 +1523,7 @@ class BeehiveShell(cmd.Cmd):
                 moved += 1
             except OSError as exc:
                 self.con.error(f"{src.name}: {exc}")
-        self.con.honey(f"{moved} Dublette(n) in der Quarantäne — endgültig löschen "
-                       f"erst mit 'leeren'.", "⚰️")
+        self.con.honey(i18n.t("r.dup.moved", n=moved), "⚰️")
 
     def do_leeren(self, _arg: str) -> None:
         """leeren — Quarantäne endgültig löschen (mit Rückbestätigung)."""
@@ -1491,18 +1531,17 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.undertaker import buried_candidates, bury
         candidates = buried_candidates(self.hive)
         if not candidates:
-            self.con.info("Quarantäne ist leer.", "🐝")
+            self.con.info(i18n.t("r.trash.empty"), "🐝")
             return
         for p in candidates:
             self.con.raw(f"    🗑️ {p.name}")
-        answer = input(f'Wirklich {len(candidates)} Datei(en) endgültig löschen? '
-                       f'Tippe "{len(candidates)}": ').strip()
+        answer = input(i18n.t("r.trash.confirm", n=len(candidates))).strip()
         if answer != str(len(candidates)):
-            self.con.info("Abgebrochen.", "🐝")
+            self.con.info(i18n.t("r.cancelled"), "🐝")
             return
         # Store übergeben → verwaiste Katalog-Einträge werden mit entfernt (kein Waisen-Rest).
         removed = bury(self.hive, Store(self.hive))
-        self.con.honey(f"{len(removed)} Datei(en) endgültig gelöscht.", "⚰️")
+        self.con.honey(i18n.t("r.trash.deleted", n=len(removed)), "⚰️")
 
     def do_rueckflug(self, _arg: str) -> None:
         """rueckflug — die letzte automatische Verschiebung rückgängig machen (undo)."""
@@ -1512,7 +1551,7 @@ class BeehiveShell(cmd.Cmd):
         ctx = self._ctx()
         last = MoveLog(ctx.hive).pop_last()
         if not last:
-            self.con.info("Nichts rückgängig zu machen.", "🐝")
+            self.con.info(i18n.t("r.undo.none"), "🐝")
             return
         src, dst = Path(last["dst"]), Path(last["src"])
         if src.exists():
@@ -1523,7 +1562,7 @@ class BeehiveShell(cmd.Cmd):
             # damit sie in 'status'/'rueckfragen' auftaucht und nicht still im Root verharrt.
             from pollysort.models import Status
             ctx.store.set_status(last["bee_id"], Status.NEEDS_REVIEW)
-        self.con.honey(f"Rückgängig: {src.name} → {dst.parent.name} (wieder offen)", "↩️")
+        self.con.honey(i18n.t("r.undo.ok", name=src.name, folder=dst.parent.name), "↩️")
 
     # ------------------------------------------------------------------ #
     #  Projekte anlegen / wechseln / anzeigen
@@ -1538,13 +1577,13 @@ class BeehiveShell(cmd.Cmd):
         arg = arg.strip().strip('"')
         if not arg:
             if not projects:
-                self.con.info("Noch keine Projekte. 'neu' legt eins an.", "🐝")
+                self.con.info(i18n.t("r.projects.none"), "🐝")
                 return
             self._print_projects(projects)
-            arg = self._ask("  Nummer, Name oder Pfad: ").strip().strip('"')
+            arg = self._ask(i18n.t("r.projects.pick")).strip().strip('"')
         target = self._resolve_project(arg, projects)
         if target is None:
-            self.con.error(f"Projekt '{arg}' nicht gefunden. 'projekte' zeigt die Liste.")
+            self.con.error(i18n.t("r.projects.notfound", name=arg))
             return
         self._open_project(target)
 
@@ -1554,10 +1593,10 @@ class BeehiveShell(cmd.Cmd):
         """projekte — alle Projekte anzeigen (Wechsel mit 'wechsel <nr>')."""
         projects = config.list_projects()
         if not projects:
-            self.con.info("Noch keine Projekte. 'neu' legt eins an.", "🐝")
+            self.con.info(i18n.t("r.projects.none"), "🐝")
             return
         self._print_projects(projects)
-        self.con.info("Wechseln mit:  wechsel <nr>   ·   Neu:  neu <pfad>", "🐝")
+        self.con.info(i18n.t("r.projects.nav"), "🐝")
 
     def do_setup(self, _arg: str) -> None:
         """setup — das AKTUELLE Projekt neu einrichten (Name, Kategorien, Modus …)."""
@@ -1933,7 +1972,7 @@ class BeehiveShell(cmd.Cmd):
         try:
             config.save_credentials(key.strip())
         except OSError as exc:
-            self.con.error(f"Key konnte nicht gespeichert werden: {exc}")
+            self.con.error(i18n.t("r.key.save_failed", err=exc))
             return False
         return True
 
@@ -1941,10 +1980,10 @@ class BeehiveShell(cmd.Cmd):
         """Sicherstellen, dass ein OpenRouter-Key da ist (fragt bei Bedarf). True = vorhanden."""
         if config.load_credentials():
             return True
-        key = self._ask("     🔑 OpenRouter API-Key (leer = abbrechen): ").strip()
+        key = self._ask(i18n.t("r.key.prompt")).strip()
         if not key or not self._save_key(key):
             return False
-        self.con.honey("     Key gespeichert (chmod 600).", "✅")
+        self.con.honey(i18n.t("r.key.saved_short"), "✅")
         return True
 
     def _update_seed(self, **changes) -> None:
@@ -1988,12 +2027,13 @@ class BeehiveShell(cmd.Cmd):
 
     def _table(self, rows: list[dict]) -> None:
         if not rows:
-            self.con.info("Keine Treffer.", "🕸️")
+            self.con.info(i18n.t("r.nohits"), "🕸️")
             return
         from rich.table import Table
         from rich.text import Text
         table = Table(show_header=True, header_style="bold gold1", box=None)
-        for col in ("id", "kategorie", "status", "titel", "datei"):
+        for col in ("id", i18n.t("r.col.cat"), "status", i18n.t("r.col.title"),
+                    i18n.t("r.col.file")):
             table.add_column(col)
         for r in rows[:60]:
             table.add_row(Text(r["id"]), Text(r.get("kategorie") or ""),
