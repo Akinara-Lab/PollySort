@@ -78,11 +78,15 @@ def zweitmeinung(analysis_text: str, categories: list[str]) -> str | None:
 
 
 def assign(*, embedding: list[float], llm_kategorie: str,
-           hive: HiveMind, taxonomy: Taxonomy, analysis_text: str = "") -> Assignment:
+           hive: HiveMind, taxonomy: Taxonomy, analysis_text: str = "",
+           use_memory: bool = True) -> Assignment:
     """Beste Kategorie + Confidence bestimmen.
 
     ``analysis_text`` ist der kanonische Eintragstext (Titel, Aufgabe, Zusammenfassung,
     Stichworte) — die Grundlage der Zweitmeinung, falls das Label nicht einrastet.
+    ``use_memory=False``: Das Gedächtnis stammt aus einem anderen Embedding-Modell oder einer
+    anderen Textbasis. Seine Vektoren liegen dann in einem anderen Raum — Ähnlichkeiten
+    dazwischen wären Zufall, ein „Widerspruch" daraus eine falsche Rückfrage.
     """
     llm_kategorie = (llm_kategorie or "_unassigned").strip().lower()
     quelle = "label"
@@ -96,7 +100,7 @@ def assign(*, embedding: list[float], llm_kategorie: str,
         zweite = zweitmeinung(analysis_text, taxonomy.categories)
         if zweite is not None:
             llm_kategorie, quelle = zweite, "zweitmeinung"
-    knn_winner, knn_score = _knn(embedding, hive)
+    knn_winner, knn_score = _knn(embedding, hive) if use_memory else (None, 0.0)
     llm_known = llm_kategorie != "_unassigned"
 
     if llm_known:

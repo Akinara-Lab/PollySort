@@ -167,6 +167,8 @@ class HiveSeed:
     provider: str = "offline"            # offline | openrouter | ollama  (Modus je Projekt)
     watch: str = "off"                   # off | notify | move  (Verhalten bei neuen Dateien)
     watch_seconds: int = 10              # wie oft der Eingang geprüft wird
+    # Nach dem Sortieren verfeinert die KI Titel & Zusammenfassung (nur Ollama, Plan §8.3).
+    nacherfassung: bool = True
 
 
 def is_setup(hive: Path) -> bool:
@@ -242,6 +244,7 @@ def load_seed(hive: Path) -> HiveSeed:
         # Rückwärtskompatibel: altes auto_sort_on_start → watch="move".
         watch=proj.get("watch", "move" if proj.get("auto_sort_on_start") else "off"),
         watch_seconds=int(proj.get("watch_seconds", 10)),
+        nacherfassung=bool(proj.get("nacherfassung", True)),
     )
 
 
@@ -265,6 +268,7 @@ name          = {_toml_val(seed.name or hive.name)}
 provider      = {_toml_val(seed.provider)}
 watch         = {_toml_val(seed.watch)}          # off | notify | move
 watch_seconds = {_toml_val(seed.watch_seconds)}
+nacherfassung = {_toml_val(seed.nacherfassung)}   # KI verfeinert Titel/Zusammenfassung nach dem Sortieren
 
 # Zuständigkeit ist many-to-many und liegt im Hintergrund
 [responsibility]

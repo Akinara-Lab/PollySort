@@ -1,0 +1,23 @@
+"""Gemeinsame Test-Vorkehrungen.
+
+**Kein Test darf ins Netz.** Am 2026-09-24 stellte der LLM-Client auf eine gehaltene
+Verbindung (``httpx.Client``) um; drei Tests patchten noch ``httpx.post`` — und schickten
+ihre Platzhalter-Schlüssel ungebremst an OpenRouter. Harmlos, aber genau so etwas darf nicht
+still passieren. Dieser Wächter sitzt unter jeder httpx-API: Wer den Transport nicht
+ersetzt hat, bekommt einen lauten Fehler statt einer echten Anfrage.
+"""
+
+from __future__ import annotations
+
+import httpx
+import pytest
+
+
+def _kein_netz(self, request):
+    raise RuntimeError(f"Test wollte ins Netz: {request.method} {request.url} — "
+                       "Transport im Test ersetzen (z. B. httpx.Client.post patchen)")
+
+
+@pytest.fixture(autouse=True)
+def _netz_sperren(monkeypatch):
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _kein_netz)

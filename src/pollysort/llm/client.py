@@ -2,7 +2,7 @@
 
 Ein Interface, mehrere Backends:
 - ``OpenRouterClient`` — Stufe 1 (online), multimodal ``google/gemini-3.1-flash-lite``.
-- ``OllamaClient``     — Stufe 2 (lokal), festes Modell ``qwen3.5:9b`` über Ollamas ``/v1``-API.
+- ``OllamaClient``     — Stufe 2 (lokal), festes Modell ``qwen3.5:9b`` über Ollamas native API.
 - ``OfflineClient``    — kostenfreie Heuristik ohne Key (Tests/Erststart-Demo).
 
 Umstieg = Config, kein Code-Change: der Rest der Codebase kennt nur ``LLMClient``.
@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Protocol
@@ -31,6 +32,17 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 # in der Config. So bleibt der Ollama-Modus reproduzierbar und braucht keine Modellwahl.
 OLLAMA_MODEL = "qwen3.5:9b"                    # Chat/Analyse-Modell (multimodal, wo unterstützt)
 OLLAMA_EMBED_MODEL = "nomic-embed-text-v2-moe"  # lokales Embedding-Modell für das Gedächtnis
+#: Kennung, unter der das Gedächtnis im Ollama-Modus seine Vektoren führt. Der Zusatz
+#: benennt die TEXTBASIS: Seit 2026-09-24 bettet der Ollama-Modus den Dokument-Auszug ein
+#: statt der Modell-Zusammenfassung (Plan §8.3) — sonst könnte das Gedächtnis nicht vor der
+#: KI entscheiden. Ältere Gedächtnisse tragen den blanken Modellnamen; der Unterschied
+#: löst die bekannte Wechsel-Erkennung aus ('gedaechtnis neu', F1).
+OLLAMA_MEMORY_ID = OLLAMA_EMBED_MODEL + "#auszug"
+#: Standard-Adresse des lokalen Ollama-Servers — bewusst IPv4 statt ``localhost``: Unter
+#: Windows löst ``localhost`` zuerst auf ``::1`` auf, Ollama lauscht aber nur auf IPv4. Jede
+#: neue Verbindung wartete dann ~2 s auf den IPv6-Fehlschlag (gemessen 2026-09-24:
+#: ``localhost`` 2,4 s, ``127.0.0.1`` 0,33 s je Anfrage).
+OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
 
 
 class LLMError(RuntimeError):
@@ -100,7 +112,7 @@ LLM_TIMEOUT = httpx.Timeout(60.0, connect=10.0)   # Analyse/Embedding (PDF-Uploa
 PING_TIMEOUT = 1.5                                 # Erreichbarkeits-Checks (Ollama)
 
 
-def ollama_available(endpoint: str = "http://localhost:11434") -> bool:
+def ollama_available(endpoint: str = OLLAMA_ENDPOINT) -> bool:
     """Antwortet lokal ein Ollama-SERVER? (Nur die Installation reicht nicht —
     sonst bietet der Assistent eine lokale KI an, die sofort scheitert; OPT-7.)"""
     try:
@@ -110,7 +122,7 @@ def ollama_available(endpoint: str = "http://localhost:11434") -> bool:
         return False
 
 
-def ollama_models(endpoint: str = "http://localhost:11434") -> list[str] | None:
+def ollama_models(endpoint: str = OLLAMA_ENDPOINT) -> list[str] | None:
     """Welche Modelle hat der lokale Ollama-Server gezogen? ``None`` = nicht erreichbar.
 
     Die Namen kommen mit Tag zurück (``qwen3.5:9b``, ``nomic-embed-text-v2-moe:latest``);
@@ -248,6 +260,19 @@ class OpenRouterClient:
             "HTTP-Referer": "https://github.com/Akinara-Lab/PollySort",
             "X-Title": "PollySort",
         }
+        # Eine Verbindung für alle Anfragen dieses Clients — erst beim ersten Bedarf
+        # aufgebaut (das Anlegen kostet selbst ~0,3 s). Vorher öffnete jede Anfrage eine
+        # neue: pro Dokument (Analyse + Embedding) rund 5 s reiner Verbindungsaufbau.
+        self._http: httpx.Client | None = None
+        self._http_lock = threading.Lock()
+
+    def _client(self) -> httpx.Client:
+        """Die gehaltene Verbindung (thread-sicher angelegt — Ultra Swarm teilt sie)."""
+        if self._http is None:
+            with self._http_lock:
+                if self._http is None:
+                    self._http = httpx.Client()
+        return self._http
 
     # -- Analyse --------------------------------------------------------------
     def analyze(self, *, text: str | None = None, file_path: str | None = None) -> BeeAnalysis:
@@ -366,7 +391,7 @@ class OpenRouterClient:
         last: Exception | None = None
         for attempt in range(3):
             try:
-                r = httpx.post(
+                r = self._client().post(
                     f"{base or self.BASE}{path}",
                     headers=self._headers if headers is None else headers,
                     json=payload, timeout=self.TIMEOUT,
@@ -420,29 +445,36 @@ def _local_file_text(path: Path) -> str | None:
 
 
 class OllamaClient(OpenRouterClient):
-    """Lokale KI über Ollamas OpenAI-kompatible API (``/v1``).
+    """Lokale KI über Ollamas **native** API (``/api/chat``, ``/api/embed``).
 
-    Zwei Robustheits-Schichten (QA-Befund 2026-07-14):
-    - **PDF/Binär → lokaler Text:** Ollama akzeptiert keine ``file``-Parts (HTTP 400);
-      der Dokumenttext wird deshalb VOR dem Call lokal extrahiert (markitdown/pypdf).
-    - **GPU-Crash → CPU-Fallback:** Stürzt Ollamas llama-server ab (z. B. Treiberproblem,
-      0xc0000005), wechselt der Client automatisch auf die native API mit ``num_gpu: 0``
-      (reine CPU-Inferenz — langsamer, aber funktionsfähig) und bleibt für den Rest der
-      Session dabei.
+    Warum nativ statt der OpenAI-kompatiblen ``/v1``-Schnittstelle: Nur hier lassen sich
+    Kontextlänge und Sampling setzen. Seit Ollama 0.34 lädt ein Modell ohne Angabe mit
+    65 536 Tokens Kontext — das 9B braucht dann 8,5 GB und lief auf einer 8-GB-GPU zu 42 %
+    auf der CPU (gemessen 2026-09-24: 20–25 s statt 12–16 s je Dokument). Außerdem bringen
+    die Qwen-Modelfiles ``temperature 1`` mit; zum Sortieren gehört ``0``.
+
+    Robustheits-Schichten (QA-Befund 2026-07-14, weiter gültig):
+    - **PDF/Binär → lokaler Text:** Ollama akzeptiert keine Datei-Anhänge; der Text wird
+      VOR dem Call lokal extrahiert (markitdown/pypdf).
+    - **GPU-Crash → CPU:** Stürzt Ollamas llama-server ab, wiederholt der Client die Anfrage
+      mit ``num_gpu: 0`` und bleibt für den Rest der Session auf der CPU.
     """
 
     PROVIDER_NAME = "Ollama"
     # CPU-Inferenz + Modell-Kaltstart brauchen deutlich mehr Luft als ein Online-API-Call.
     TIMEOUT = httpx.Timeout(300.0, connect=5.0)
-
-    #: Denk-Modus AUS. Modelle wie qwen3.5 grübeln vor jeder Antwort mehrere tausend
-    #: Zeichen lang — für ein kurzes Klassifikations-JSON ist das reine Wartezeit.
-    #: Gemessen auf CPU mit qwen3.5:9b, vier Dokumente je Variante, Modell warm:
-    #: **12,2 s je Dokument mit Denken, 2,8 s ohne — bei identischen Antworten.**
-    #: Der native Pfad (CPU-Fallback) nutzt dafür ``think: False``; über die
-    #: OpenAI-kompatible ``/v1``-Schnittstelle wird ``think`` ignoriert, dort wirkt
-    #: nur ``reasoning_effort``.
-    EXTRA_PAYLOAD = {"reasoning_effort": "none"}
+    #: Kontext jeder Anfrage. Gemessen 2026-09-24 mit dem 9B auf einer 8-GB-GPU: 4096 →
+    #: 5,5 GB, 100 % GPU, 6,0 s je Analyse · 8192 → 12 % CPU · 65 536 (Ollama-Standard) →
+    #: 42 % CPU, 22 s. Prompt + gekappter Dokumenttext + Antwort passen hinein.
+    NUM_CTX = 4096
+    #: So viel Dokumenttext geht in die Analyse (≈ 2 Tsd. Tokens; Prompt ~400, Antwort ≤ 800).
+    #: Mehr würde Ollama VORNE abschneiden — und mit dem Anfang des Prompts die Anweisungen.
+    TEXT_CAP = 7000
+    #: Die Entscheidung per Nummer liest nur den Kopf des Dokuments: Der Typ steht fast
+    #: immer oben („RECHNUNG", „Kontoauszug Nr. 3"). So gemessen (Plan §8.13).
+    AUSZUG = 1500
+    #: Textbasis des Gedächtnisses (s. ``OLLAMA_MEMORY_ID``): der Dokument-Auszug.
+    memory_basis = "auszug"
 
     def __init__(self, endpoint: str, categories: list[str] | None,
                  few_shots: list[dict] | None = None, wachstafel: str = ""):
@@ -451,11 +483,12 @@ class OllamaClient(OpenRouterClient):
         base = endpoint.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3].rstrip("/")
-        self._native_base = base          # native API: /api/chat, /api/embed
-        self.BASE = base + "/v1"          # OpenAI-kompatible API
-        self._cpu_mode = False            # nach GPU-Crash: dauerhaft native CPU-Inferenz
+        self._native_base = base
+        self.BASE = base + "/v1"          # nur noch für Altpfade; Analyse & Embedding sind nativ
+        self.embed_model = OLLAMA_MEMORY_ID
+        self._cpu_mode = False            # nach GPU-Crash: dauerhaft CPU-Inferenz
 
-    # -- Inhalte: PDFs/Binär lokal in Text wandeln (kein file-Part → kein 400) ----
+    # -- Inhalte: PDFs/Binär lokal in Text wandeln, Länge kappen ---------------
     def _build_content(self, *, text: str | None, file_path: str | None) -> list[dict]:
         if text is None and file_path is not None:
             p = Path(file_path)
@@ -466,58 +499,153 @@ class OllamaClient(OpenRouterClient):
                         f"Ollama kann Dateien nicht direkt lesen und aus '{p.name}' ließ sich "
                         "lokal kein Text extrahieren (Tipp: Extra [extract] installieren oder "
                         "Modus 'online' nutzen).")
-                return super()._build_content(text=text, file_path=None)
-        return super()._build_content(text=text, file_path=file_path)
+        if text is not None:
+            return super()._build_content(text=text[:self.TEXT_CAP], file_path=None)
+        return super()._build_content(text=None, file_path=file_path)
 
-    # -- Analyse mit CPU-Fallback ---------------------------------------------
-    def analyze(self, *, text: str | None = None, file_path: str | None = None) -> BeeAnalysis:
-        content = self._build_content(text=text, file_path=file_path)
-        if not self._cpu_mode:
-            try:
-                return self._analyze_with(self._model, content)
-            except LLMBackendCrash:
-                self._cpu_mode = True     # GPU-Backend crasht → ab jetzt CPU (native API)
-        return self._native_analyze(content)
+    # -- Native API -------------------------------------------------------------
+    def _options(self, **extra) -> dict:
+        opts = {"num_ctx": self.NUM_CTX, "temperature": 0, **extra}
+        if self._cpu_mode:
+            opts["num_gpu"] = 0
+        return opts
 
-    def _native_analyze(self, content: list[dict]) -> BeeAnalysis:
-        prompt = "\n\n".join(p["text"] for p in content if p.get("type") == "text")
-        images = [p["image_url"]["url"].split("base64,", 1)[-1]
-                  for p in content if p.get("type") == "image_url"]
+    def _chat(self, prompt: str, *, images: list[str] | None = None, fmt: str | None = "json",
+              num_predict: int = 800, logprobs: bool = False) -> dict:
+        """Eine native Chat-Anfrage. GPU-Crash → einmal auf der CPU wiederholen."""
         msg: dict = {"role": "user", "content": prompt}
         if images:
             msg["images"] = images
-        payload: dict = {
-            "model": self._model, "messages": [msg], "stream": False, "format": "json",
-            # Denk-Modus AUS: Thinking-Modelle (qwen3.5) grübeln auf CPU sonst minutenlang,
-            # bevor das kleine JSON kommt — für die Extraktion bringt das nichts.
-            "think": False,
-            # num_predict kappt die Antwort: das Analyse-JSON ist kurz, Ausreißer kosten
-            # auf CPU nur Zeit. num_gpu 0 = der eigentliche CPU-Fallback.
-            "options": {"num_gpu": 0, "num_predict": 800},
-        }
-        try:
-            data = self._post("/api/chat", payload, base=self._native_base, headers={})
-        except LLMRequestError as exc:
-            # Manche Modelle kennen den 'think'-Parameter nicht → einmal ohne probieren.
-            if "think" not in str(exc).lower():
-                raise
-            payload.pop("think", None)
-            data = self._post("/api/chat", payload, base=self._native_base, headers={})
+        # Denk-Modus AUS: Thinking-Modelle (qwen3.5) grübeln sonst vor jeder Antwort — für
+        # ein kurzes JSON oder eine Ziffer bringt das nichts (gemessen: 12,2 s vs. 2,8 s).
+        payload: dict = {"model": self._model, "messages": [msg], "stream": False,
+                         "think": False}
+        if fmt:
+            payload["format"] = fmt
+        if logprobs:
+            payload["logprobs"] = True
+            payload["top_logprobs"] = 10
+        for _ in range(2):
+            payload["options"] = self._options(num_predict=num_predict)
+            try:
+                return self._post("/api/chat", payload, base=self._native_base, headers={})
+            except LLMBackendCrash:
+                if self._cpu_mode:
+                    raise
+                self._cpu_mode = True     # GPU-Backend crasht → ab jetzt CPU
+            except LLMRequestError as exc:
+                # Manche Modelle kennen den 'think'-Parameter nicht → einmal ohne probieren.
+                if "think" not in str(exc).lower() or "think" not in payload:
+                    raise
+                payload.pop("think", None)
+        return self._post("/api/chat", payload, base=self._native_base, headers={})
+
+    # -- Volle Analyse (Titel, Zusammenfassung, Stichworte, Kategorie) ----------
+    def analyze(self, *, text: str | None = None, file_path: str | None = None) -> BeeAnalysis:
+        content = self._build_content(text=text, file_path=file_path)
+        prompt = "\n\n".join(p["text"] for p in content if p.get("type") == "text")
+        images = [p["image_url"]["url"].split("base64,", 1)[-1]
+                  for p in content if p.get("type") == "image_url"]
+        data = self._chat(prompt, images=images)
         self.usage.add(data.get("prompt_eval_count", 0), data.get("eval_count", 0))
         return BeeAnalysis.model_validate(_parse_json(data["message"]["content"]))
 
+    # -- Entscheidung per Nummer (Plan §8.3) ------------------------------------
+    def decide(self, text: str, categories: list[str]) -> tuple[str, float] | None:
+        """Die Kategorie mit EINEM Token wählen — Konfidenz aus den Logprobs.
+
+        Gemessen 2026-09-24 mit ``qwen3.5:9b``: 99 % Treffer in 0,5 s (GPU) statt 97 % in
+        22 s über die volle Analyse; die Konfidenz ist kalibriert (ECE 0,01). Die Wahl
+        kommt aus den **Logprobs**, nicht aus dem gezogenen Token: Die Modelfiles setzen
+        ``presence_penalty``, und das bestraft Ziffern, die schon im Prompt stehen — also
+        jede Optionsnummer.
+
+        Rückgabe ``(kategorie, wahrscheinlichkeit)``; ``_unassigned`` heißt „keine passt".
+        ``None``, wenn der Weg nicht trägt (mehr als neun Kategorien, oder der Server liefert
+        keine Logprobs) — dann analysiert der Aufrufer wie bisher vollständig.
+        """
+        names = [c for c in categories if c and c.strip().lower() != "_unassigned"]
+        if not names or len(names) > 9 or not (text or "").strip():
+            return None
+        data = self._chat(entscheid_prompt(names, text[:self.AUSZUG], self._wachstafel),
+                          fmt=None, num_predict=1, logprobs=True)
+        self.usage.add(data.get("prompt_eval_count", 0), data.get("eval_count", 0))
+        return waehle_aus_logprobs(data.get("logprobs"), names)
+
     # -- Embedding: Task-Prefix (nomic-v2-moe) + CPU-Fallback -------------------
     def embed(self, text: str) -> list[float]:
-        text = f"search_document: {text}"   # das MoE-Embedding erwartet einen Task-Prefix
-        if not self._cpu_mode:
+        payload: dict = {"model": self._embed_model,
+                         # das MoE-Embedding erwartet einen Task-Prefix
+                         "input": f"search_document: {text}"}
+        for _ in range(2):
+            if self._cpu_mode:
+                payload["options"] = {"num_gpu": 0}
             try:
-                return super().embed(text)
+                data = self._post("/api/embed", payload, base=self._native_base, headers={})
+                return data["embeddings"][0]
             except LLMBackendCrash:
+                if self._cpu_mode:
+                    raise
                 self._cpu_mode = True
-        data = self._post("/api/embed", {
-            "model": self._embed_model, "input": text, "options": {"num_gpu": 0},
-        }, base=self._native_base, headers={})
-        return data["embeddings"][0]
+        raise LLMError("Ollama-Embedding nicht möglich")   # pragma: no cover
+
+    # -- Unterordner-Vorschlag, ebenfalls nativ ---------------------------------
+    def suggest_subrouting(self, categories: list[str]) -> dict[str, str]:
+        from ..heuristics import datums_muster as heuristic_muster
+        from ..heuristics import suggest_subrouting as heuristic
+        if not categories:
+            return {}
+        try:
+            data = self._chat(_subrouting_prompt(categories), num_predict=300)
+            flags = _parse_json(data["message"]["content"])
+            known = {c.strip().lower() for c in categories}
+            muster = heuristic_muster()
+            out = {str(k).strip().lower(): muster
+                   for k, v in flags.items() if str(k).strip().lower() in known and bool(v)}
+            return out or heuristic(categories)
+        except Exception:
+            return heuristic(categories)
+
+
+def _subrouting_prompt(categories: list[str]) -> str:
+    return ("Ein Dokumenten-Archiv hat diese Ablage-Kategorien: "
+            f"{', '.join(categories)}.\n"
+            "Welche davon profitieren von Unterordnern nach Jahr und Monat (typisch für "
+            "datierte, laufende Dokumente wie Rechnungen oder Kontoauszüge)? Gib NUR JSON "
+            "zurück: {\"kategorie\": true, ...} mit genau diesen Kategorien als Schlüssel "
+            "(true/false). Kein Markdown.")
+
+
+def entscheid_prompt(names: list[str], auszug: str, wachstafel: str = "") -> str:
+    """Der Prompt der Nummer-Entscheidung — genau so gemessen (Plan §8.13).
+
+    Gelernte Wachstafel-Regeln stehen, falls vorhanden, davor: Sie schlagen die Vermutung
+    des Modells, wie in der vollen Analyse.
+    """
+    lines = "\n".join(f"{i} = {n}" for i, n in enumerate(names, 1))
+    return (f"{_format_regeln(wachstafel)}"
+            "Du sortierst Dokumente in Ordner. Wähle für das Dokument GENAU EINE Kategorie.\n"
+            f"Kategorien:\n{lines}\n0 = keine davon passt\n\n"
+            f"Dokument:\n<<<\n{auszug}\n>>>\n\nAntworte nur mit der Nummer.")
+
+
+def waehle_aus_logprobs(logprobs, names: list[str]) -> tuple[str, float] | None:
+    """Aus den Top-Logprobs des ersten Tokens die Verteilung über ``0``…``N`` bilden."""
+    if not logprobs:
+        return None
+    valid = {str(i) for i in range(len(names) + 1)}
+    lp: dict[str, float] = {}
+    for cand in (logprobs[0] or {}).get("top_logprobs", []) or []:
+        tok = str(cand.get("token", "")).strip()
+        if tok in valid:
+            lp[tok] = max(lp.get(tok, -1e9), float(cand.get("logprob", -1e9)))
+    if not lp:
+        return None
+    top = max(lp.values())
+    z = sum(math.exp(v - top) for v in lp.values())
+    best = max(lp, key=lp.get)
+    kategorie = "_unassigned" if best == "0" else names[int(best) - 1].strip().lower()
+    return kategorie, round(math.exp(lp[best] - top) / z, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -602,7 +730,7 @@ def build_client(cfg, api_key: str | None, categories: list[str] | None,
         return OfflineClient(categories, wachstafel=wachstafel)
     if provider == "ollama":
         # Modell ist bewusst fixiert (qwen3.5:9b) — nicht aus cfg, das sind Online-Defaults.
-        return OllamaClient(cfg.llm_endpoint or "http://localhost:11434",
+        return OllamaClient(cfg.llm_endpoint or OLLAMA_ENDPOINT,
                             categories, few_shots, wachstafel=wachstafel)
     return OpenRouterClient(api_key, cfg.llm_model, cfg.embed_model, categories,  # type: ignore[arg-type]
                             few_shots, wachstafel=wachstafel,
@@ -616,5 +744,5 @@ def embed_model_for(cfg, api_key: str | None) -> str:
     if provider == "offline" or (provider == "openrouter" and not api_key):
         return OfflineClient.embed_model
     if provider == "ollama":
-        return OLLAMA_EMBED_MODEL
+        return OLLAMA_MEMORY_ID
     return cfg.embed_model

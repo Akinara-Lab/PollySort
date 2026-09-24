@@ -102,7 +102,8 @@ def test_reindex_is_robust_to_embed_errors(tmp_path):
 def test_embed_model_for_matches_client_choice():
     assert embed_model_for(AppConfig(llm_provider="offline"), None) == "offline:hash-2048"
     assert embed_model_for(AppConfig(llm_provider="openrouter"), None) == "offline:hash-2048"
-    assert embed_model_for(AppConfig(llm_provider="ollama"), None) == "nomic-embed-text-v2-moe"
+    # Kennung = Modell + Textbasis: Seit 2026-09-24 bettet Ollama den Dokument-Auszug ein.
+    assert embed_model_for(AppConfig(llm_provider="ollama"), None) == "nomic-embed-text-v2-moe#auszug"
     got = embed_model_for(AppConfig(llm_provider="openrouter"), "key123")
     assert got == AppConfig().embed_model      # perplexity/pplx-embed-v1-4b (Default)
 

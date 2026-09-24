@@ -9,6 +9,45 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Geändert — der Ollama-Modus entscheidet dreistufig (Plan §8.3, gemessen §8.13)
+- **Gedächtnis → Nummer → Rückfrage** (`entscheidung.py`). Das Gedächtnis entscheidet allein,
+  wenn das ähnlichste bekannte Dokument ≥ 0,75 ähnlich ist, 0,05 vor der nächsten Kategorie
+  liegt und die Kategorie schon zwei Beispiele hat — die Schwellen sind gemessen: Fehlte eine
+  Kategorie ganz, kam kein fremdes Dokument über 0,67. Sonst wählt das Modell die Kategorie
+  mit **einem** Token; die Konfidenz kommt aus den Logprobs (nicht aus dem gezogenen Token —
+  `presence_penalty` bestraft Ziffern, die im Prompt stehen).
+- **Gemessen, echter Sortierlauf, 70 Testdokumente, `qwen3.5:9b`:** GPU 0,21 s statt 22,2 s
+  je Dokument, **nur CPU 4,0 s statt 48,7 s**; 56 von 57 eindeutigen Dokumenten richtig, keine
+  Rückfrage. 30 davon entschied das Gedächtnis ohne KI-Aufruf.
+- **Nacherfassung** (`nacherfassung.py`, Befehl `nacherfassen [an|aus|jetzt]` / `enrich`):
+  Titel und Zusammenfassung entstehen erst heuristisch und werden nach dem Sortieren von der
+  KI verfeinert — die Kategorie bleibt dabei unangetastet. Strg-C überspringt, der nächste Lauf
+  macht weiter. Beim automatischen Sortieren (Projekt öffnen, `wache`) läuft sie nicht.
+- **Das Gedächtnis bettet im Ollama-Modus den Dokument-Anfang ein** statt der
+  KI-Zusammenfassung — nur so kann es vor der KI entscheiden. Saat, Einträge, Korrekturen und
+  `gedaechtnis neu` nutzen dieselbe Textbasis (`extractor.gedaechtnis_text`). Bestehende
+  Gedächtnisse werden erkannt und bleiben aus den Entscheidungen heraus, bis `gedaechtnis neu`
+  sie einmal umbaut (lokal, kostenlos).
+- Geprüft und **verworfen**: ein Hinweis „nach Dokumenttyp, nicht Absender" im Prompt. Er
+  behob einen Fehlgriff, senkte aber die Erkennung von „passt nichts" beim 9B von 44 auf 26 %.
+
+### Behoben — der lokale Modus war unnötig langsam
+- **Jede Anfrage an Ollama kostete unter Windows ~2,4 s Verbindungsaufbau:** `localhost` löst
+  zuerst auf `::1` auf, Ollama lauscht nur auf IPv4, und für jede Anfrage wurde eine neue
+  Verbindung geöffnet. Jetzt hält jeder Client **eine** Verbindung, Standard-Endpunkt ist
+  `127.0.0.1`.
+- **Ollama 0.34 lädt Modelle mit 65 536 Tokens Kontext** — das 9B passte nicht mehr in 8 GB
+  VRAM und lief zu 42 % auf der CPU (22 s statt 12–16 s je Dokument). Der Ollama-Client nutzt
+  jetzt die native API mit `num_ctx 4096` (100 % GPU, 6,0 s je voller Analyse) und
+  `temperature 0`; der Dokumenttext wird passend gekappt, damit Ollama nicht die Anweisungen
+  am Prompt-Anfang abschneidet.
+- **Das Gedächtnis führt das Modell je Vektor.** Vorher gab es nur einen Wert für alle — der
+  erste neue Vektor überschrieb ihn, und ab da galt ein Altbestand aus einem anderen Modell
+  als passend. Alte Datenbanken werden beim Öffnen nachgerüstet.
+- **Kein Test geht mehr ins Netz** (`tests/conftest.py`). Beim Umstellen auf die gehaltene
+  Verbindung zeigte sich, dass drei Tests noch `httpx.post` patchten und ihre
+  Platzhalter-Schlüssel tatsächlich an OpenRouter schickten.
+
 ### Hinzugefügt — Zweitmeinung, Modell-Prüfung, Tippfehler-Vorschläge (2026-09-10)
 - **Zweitmeinung der Heuristik** (`assigner.py`): Rastet das Modell-Label auf keine
   Projekt-Kategorie ein (das Modell antwortet etwa „gehaltsabrechnung" für eine

@@ -52,6 +52,16 @@ class HiveMind:
         self._con.execute(
             "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)"
         )
+        # Modell JE VEKTOR (seit 2026-09-24). Vorher gab es nur den einen Meta-Wert — und der
+        # wurde vom ersten neuen Vektor überschrieben: Ab da galt das ganze Gedächtnis als
+        # „passend", auch die alten Vektoren aus einem anderen Modell oder einer anderen
+        # Textbasis. Altbestände bekommen beim Nachrüsten das Modell aus dem Meta-Wert.
+        spalten = {row[1] for row in self._con.execute("PRAGMA table_info(vectors)")}
+        if "model" not in spalten:
+            self._con.execute("ALTER TABLE vectors ADD COLUMN model TEXT")
+            alt = self._con.execute("SELECT value FROM meta WHERE key='embed_model'").fetchone()
+            if alt:
+                self._con.execute("UPDATE vectors SET model=? WHERE model IS NULL", (alt[0],))
         self._con.commit()
 
     # -- Schreiben ----------------------------------------------------------
@@ -63,9 +73,10 @@ class HiveMind:
         Modellwechsel erkennen (F1), ohne den Wechsel selbst abfangen zu müssen.
         """
         self._con.execute(
-            "INSERT INTO vectors(bee_id, kategorie, vec) VALUES(?,?,?) "
-            "ON CONFLICT(bee_id) DO UPDATE SET kategorie=excluded.kategorie, vec=excluded.vec",
-            (bee_id, kategorie, json.dumps(vec)),
+            "INSERT INTO vectors(bee_id, kategorie, vec, model) VALUES(?,?,?,?) "
+            "ON CONFLICT(bee_id) DO UPDATE SET kategorie=excluded.kategorie, vec=excluded.vec, "
+            "model=excluded.model",
+            (bee_id, kategorie, json.dumps(vec), model),
         )
         if model:
             self._con.execute(
@@ -109,9 +120,17 @@ class HiveMind:
         dims = self._dims()
         if not dims:
             return None
-        old = self.model()
-        if old and current_model and old != current_model:
-            return old
+        if current_model:
+            fremd = self._con.execute(
+                "SELECT model FROM vectors WHERE model IS NOT NULL AND model != ? LIMIT 1",
+                (current_model,)).fetchone()
+            if fremd:
+                return fremd[0]
+            # Ganz alte Bestände ohne Modell je Vektor: wie früher über den Meta-Wert.
+            ohne = self._con.execute("SELECT 1 FROM vectors WHERE model IS NULL LIMIT 1").fetchone()
+            old = self.model()
+            if ohne and old and old != current_model:
+                return old
         if len(set(dims)) > 1:
             return "gemischte Dimensionen"
         return None
@@ -129,6 +148,13 @@ class HiveMind:
     # -- Lesen --------------------------------------------------------------
     def _all(self) -> list[tuple[str, str, list[float]]]:
         rows = self._con.execute("SELECT bee_id, kategorie, vec FROM vectors").fetchall()
+        return [(bid, kat, json.loads(v)) for bid, kat, v in rows]
+
+    def eintraege(self, modell: str | None) -> list[tuple[str, str, list[float]]]:
+        """Nur die Vektoren EINES Modells (samt Textbasis) — die einzigen, deren Ähnlichkeiten
+        zu einem frischen Vektor dieses Modells etwas bedeuten."""
+        rows = self._con.execute(
+            "SELECT bee_id, kategorie, vec FROM vectors WHERE model = ?", (modell,)).fetchall()
         return [(bid, kat, json.loads(v)) for bid, kat, v in rows]
 
     def neighbors(self, vec: list[float], k: int = 7) -> list[Neighbor]:

@@ -271,6 +271,18 @@ def read_snippet(path: Path, *, limit: int = 800) -> str:
     return ""
 
 
+def kurz_titel(stem: str, text: str) -> str:
+    """Ein Titel ohne KI: die erste Zeile mit echtem Wort (≥ 3 Buchstaben), sonst der
+    Dateiname. Versalien werden lesbar gemacht („REISEKOSTENABRECHNUNG" → „Reisekostenabrechnung")."""
+    for zeile in (text or "").splitlines():
+        z = " ".join(zeile.split()).strip(" -—:•*#|=_")
+        if sum(ch.isalpha() for ch in z) >= 3:
+            if z.isupper():
+                z = z.title()
+            return z[:80]
+    return stem.replace("_", " ").replace("-", " ").strip().title() or "Dokument"
+
+
 def keywords(text: str, limit: int = 6) -> list[str]:
     """Ein paar aussagekräftige Stichwörter (>=5 Buchstaben) aus dem Text ziehen."""
     seen: list[str] = []

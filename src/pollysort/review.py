@@ -38,7 +38,8 @@ def apply_correction(ctx: Context, bee_id: str, kategorie: str, *,
 
     # Feedback + Gedächtnis: Zentroid verschiebt sich nachweislich (§14.4)
     entry = row_to_entry({**row, "kategorie": kategorie})
-    vec = ctx.client.embed(entry.embedding_text())
+    from .extractor import gedaechtnis_text
+    vec = ctx.client.embed(gedaechtnis_text(ctx.client, row.get("path"), entry.embedding_text()))
     ctx.mind.remember(bee_id, kategorie, vec, getattr(ctx.client, "embed_model", None))
     ctx.feedback.record(bee_id=bee_id, title=row.get("title") or "",
                         funktion=row.get("funktion") or "", kategorie_alt=old,

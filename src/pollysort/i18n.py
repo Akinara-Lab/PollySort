@@ -529,6 +529,54 @@ _CATALOG: dict[str, dict[str, str]] = {
                          "en": "{n} vectors · model changed ({drift}) → 'memory rebuild'"},
     "doctor.mem.ok": {"de": "{n} Vektoren · {model}", "en": "{n} vectors · {model}"},
     "doctor.check_failed": {"de": "Check fehlgeschlagen: {exc}", "en": "check failed: {exc}"},
+    # Dreistufige Entscheidung & Nacherfassung (Plan §8.3)
+    "pl.quellen": {
+        "de": "Entschieden: {mem} aus dem Gedächtnis · {num} per KI-Kurzentscheid · "
+              "{voll} per Vollanalyse",
+        "en": "Decided: {mem} from memory · {num} by quick AI decision · {voll} by full analysis",
+    },
+    "pl.drift_basis": {
+        "de": "Das Gedächtnis nutzt seit diesem Update den Dokument-Anfang statt der "
+              "KI-Zusammenfassung — so kann es schon vor der KI entscheiden. 'gedaechtnis neu' "
+              "baut es einmal um (lokal, kostenlos); bis dahin entscheidet es nicht mit.",
+        "en": "Since this update the memory uses the start of each document instead of the AI "
+              "summary — that lets it decide before the AI does. 'memory rebuild' converts it "
+              "once (local, free); until then it stays out of decisions.",
+    },
+    "nx.progress": {"de": "✍️ verfeinere …", "en": "✍️ refining …"},
+    "nx.start": {
+        "de": "Verfeinere Titel & Zusammenfassungen für {n} Datei(en) — sie liegen schon "
+              "richtig. Strg-C überspringt.",
+        "en": "Refining titles & summaries for {n} file(s) — they're already filed. "
+              "Ctrl-C skips.",
+    },
+    "nx.done": {"de": "{n} Eintrag/Einträge verfeinert.", "en": "{n} entr(y/ies) refined."},
+    "nx.left": {
+        "de": "{n} bleiben vorgemerkt — der nächste Lauf macht weiter "
+              "('nacherfassen aus' schaltet das ab).",
+        "en": "{n} stay queued — the next run continues ('enrich off' turns this off).",
+    },
+    "nx.stopped": {"de": "Nacherfassung unterbrochen: {reason}",
+                   "en": "Refining stopped: {reason}"},
+    "nx.status": {"de": "Nacherfassung: {state} · {n} Eintrag/Einträge vorgemerkt",
+                  "en": "Refining: {state} · {n} entr(y/ies) queued"},
+    "nx.on": {"de": "an", "en": "on"},
+    "nx.off": {"de": "aus", "en": "off"},
+    "nx.set_on": {
+        "de": "Nacherfassung an: Nach dem Sortieren verfeinert die KI Titel & Zusammenfassungen.",
+        "en": "Refining on: after sorting, the AI refines titles & summaries.",
+    },
+    "nx.set_off": {
+        "de": "Nacherfassung aus: Einträge behalten die schnelle Kurz-Erfassung. "
+              "'nacherfassen jetzt' holt es jederzeit nach.",
+        "en": "Refining off: entries keep the quick short capture. "
+              "'enrich now' catches up any time.",
+    },
+    "nx.none": {"de": "Nichts vorgemerkt.", "en": "Nothing queued."},
+    "nx.nollm": {"de": "Die Nacherfassung gibt es im Ollama-Modus.",
+                 "en": "Refining is available in Ollama mode."},
+    "help.d.enrich": {"de": "Titel/Zusammenfassung nach dem Sortieren per KI verfeinern",
+                      "en": "Refine titles/summaries with AI after sorting"},
 }
 
 

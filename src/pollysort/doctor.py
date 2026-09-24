@@ -41,8 +41,8 @@ def _provider_check(hive: Path | None) -> Check:
     if provider == "offline":
         return (label, "ok", i18n.t("doctor.prov.offline"))
     if provider == "ollama":
-        from .llm.client import ollama_available
-        reachable = ollama_available(cfg.llm_endpoint or "http://localhost:11434")
+        from .llm.client import OLLAMA_ENDPOINT, ollama_available
+        reachable = ollama_available(cfg.llm_endpoint or OLLAMA_ENDPOINT)
         return (label, "ok" if reachable else "warn",
                 i18n.t("doctor.prov.ollama_ok" if reachable else "doctor.prov.ollama_down"))
     # openrouter
@@ -65,8 +65,14 @@ def _models_check(hive: Path | None) -> Check | None:
     provider, cfg = _provider_for(hive)
     if provider != "ollama":
         return None
-    from .llm.client import OLLAMA_EMBED_MODEL, OLLAMA_MODEL, ollama_has_model, ollama_models
-    models = ollama_models(cfg.llm_endpoint or "http://localhost:11434")
+    from .llm.client import (
+        OLLAMA_EMBED_MODEL,
+        OLLAMA_ENDPOINT,
+        OLLAMA_MODEL,
+        ollama_has_model,
+        ollama_models,
+    )
+    models = ollama_models(cfg.llm_endpoint or OLLAMA_ENDPOINT)
     if models is None:
         return None
     label = i18n.t("doctor.models")

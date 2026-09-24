@@ -311,9 +311,10 @@ below list the **English alias** first and the original **German** name in paren
 | `key [test\|set\|remove]` (`schluessel`) | Check / renew / remove the OpenRouter key |
 | `routes [setup\|test]` (`flugrouten`) | Discord / e-mail notifications (opt-in) |
 | `reflect` (`reflektiere`) · `rules [clear]` (`wachstafel [leeren]`) | Derive rules from your corrections · show/clear them |
-| `memory [approve]` (`gedaechtnis`) | Learned categories + merge/new proposals |
+| `memory [approve\|rebuild]` (`gedaechtnis`) | Learned categories + merge/new proposals · `rebuild` re-embeds after a model change |
+| `enrich [on\|off\|now]` (`nacherfassen`) | Local mode: let the AI refine titles & summaries after sorting |
 | `person <name> <cat,..>` | Set responsibility in the background |
-| `doctor` | Health-check: Python, AI provider, database, extraction extras, memory |
+| `doctor` | Health-check: Python, AI provider, local models, database, extraction extras, memory |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |
@@ -341,6 +342,31 @@ below list the **English alias** first and the original **German** name in paren
 
 If the AI fails repeatedly mid-run (≥ 3 in a row), the run **falls back to the offline
 heuristic** for the rest instead of producing a pile of errors.
+
+### Local mode: memory → one-token decision → review
+
+Writing a title and summary is the slow part of an AI analysis — the category itself is a
+handful of tokens. In **Ollama mode**, PollySort therefore decides first and describes later:
+
+1. **Memory.** The start of the document is embedded and compared with everything already
+   filed. If the closest known document is very similar *and* clearly closer than any other
+   category, memory decides alone — no AI call.
+2. **One-token decision.** Otherwise the model picks the category by number, answering with a
+   single token; the confidence comes from its token probabilities.
+3. **Review**, if the model says "none of these fit" or isn't sure.
+
+Afterwards the AI **refines titles and summaries** of the files it just filed (`enrich`,
+Ctrl-C skips, the next run continues). The files are already in the right folder by then.
+
+Measured on 70 test documents with `qwen3.5:9b` (57 unique, 13 exact duplicates):
+
+| | per document, GPU | per document, **CPU only** | correct |
+|---|---|---|---|
+| before (full analysis per file) | 22.2 s | 48.7 s | 97 % |
+| now | **0.21 s** | **4.0 s** | 56 of 57 |
+
+About half of the documents were decided by memory alone. The offline and OpenRouter modes
+are unchanged.
 
 ### Preview → apply
 
@@ -394,7 +420,8 @@ One provider interface, three backends — chosen per project (`mode <…>`):
 - **offline** — a free heuristic from filename, text start, file type and category names
   (self-named/discovered categories work without hard-coded rules). No network, no cost.
 - **ollama** — local AI (free & private) when an Ollama server is reachable; automatic CPU
-  fallback if the GPU backend crashes.
+  fallback if the GPU backend crashes. Decides in **three stages** (below) — fast enough for
+  a laptop without a GPU.
 - **openrouter** — a multimodal model (best quality); the key is stored globally.
 
 Switching is config, not code. If the key is missing online, the client degrades cleanly to

@@ -65,7 +65,8 @@ def test_expired_key_raises_autherror_without_retry(monkeypatch):
     def count_sleep(_s):
         calls["sleep"] += 1
 
-    monkeypatch.setattr(httpx, "post", fake_post)
+    # Der Client hält seit 2026-09-24 eine Verbindung → dort abfangen, nicht bei httpx.post.
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kw: fake_post(url, **kw))
     monkeypatch.setattr("pollysort.llm.client.time.sleep", count_sleep)
 
     client = OpenRouterClient(api_key=KEY, model="m", embed_model="e", categories=["x"])
@@ -86,7 +87,8 @@ def test_transient_500_is_retried(monkeypatch):
         calls["post"] += 1
         return _resp(500)
 
-    monkeypatch.setattr(httpx, "post", fake_post)
+    # Der Client hält seit 2026-09-24 eine Verbindung → dort abfangen, nicht bei httpx.post.
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kw: fake_post(url, **kw))
     monkeypatch.setattr("pollysort.llm.client.time.sleep", lambda s: None)
 
     client = OpenRouterClient(api_key=KEY, model="m", embed_model="e", categories=["x"])

@@ -294,7 +294,7 @@ class BeehiveShell(cmd.Cmd):
             # Eingangs-Verhalten beim Öffnen anwenden (§ Überwachung).
             if seed.watch == "move" and self._inbox_count():
                 self.con.info(i18n.t("open.sorting_new"), "⚡")
-                self._cycle(mode="move")
+                self._cycle(mode="move", nacherfassen=False)
             elif seed.watch != "off" and self._inbox_count():
                 self.con.info(i18n.t("open.watch_active", watch=seed.watch), "👀")
         else:
@@ -381,6 +381,7 @@ class BeehiveShell(cmd.Cmd):
             ("flugrouten [setup|test]", "routes [setup|test]", "help.d.routes"),
             ("reflektiere · wachstafel [leeren]", "reflect · rules [clear]", "help.d.reflect"),
             ("gedaechtnis [approve|neu]", "memory [approve|rebuild]", "help.d.memory"),
+            ("nacherfassen [an|aus|jetzt]", "enrich [on|off|now]", "help.d.enrich"),
             ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
             ("doctor", "doctor", "help.d.doctor"),
             ("sprache <de|en>", "language <de|en>", "help.d.language"),
@@ -528,8 +529,13 @@ class BeehiveShell(cmd.Cmd):
         config.write_seed(self.hive, seed)
 
     def _cycle(self, *, mode: str, roots=None, recursive=None, dry_run: bool = False,
-               cache: dict | None = None, announce: bool = True, workers: int = 1):
-        """Einen Sortier-Lauf ausführen und die Summary zurückgeben (oder None bei Lock-Fehler)."""
+               cache: dict | None = None, announce: bool = True, workers: int = 1,
+               nacherfassen: bool = True):
+        """Einen Sortier-Lauf ausführen und die Summary zurückgeben (oder None bei Lock-Fehler).
+
+        ``nacherfassen``: danach Titel/Zusammenfassungen per KI verfeinern (Plan §8.3). Aus
+        beim automatischen Sortieren (Projekt öffnen, ``wache``) — dort soll nichts blockieren.
+        """
         ctx = self._ctx()
         from pollysort.wachstafel import Wachstafel
         if announce and Wachstafel(self.hive).exists():
@@ -539,6 +545,8 @@ class BeehiveShell(cmd.Cmd):
             with QueenLock(ctx.hive):
                 summary = run_cycle(ctx, mode=mode, roots=roots, recursive=recursive,
                                     dry_run=dry_run, cache=cache, workers=workers)
+                if nacherfassen and not dry_run:
+                    self._nacherfassen(ctx)
         except QueenLockError as exc:
             self.con.error(str(exc))
             return None
@@ -552,6 +560,66 @@ class BeehiveShell(cmd.Cmd):
             # Fortschritt ein. Gezählt wird nur, was wirklich einsortiert wurde.
             self._fortschritt_buchen(summary)
         return summary
+
+    def _nacherfassen(self, ctx, *, explizit: bool = False) -> None:
+        """Vorgemerkte Einträge per KI verfeinern — die Dateien liegen da schon richtig.
+
+        Strg-C beendet nur diese Runde; was fertig ist, ist gesichert, der Rest bleibt
+        vorgemerkt. Läuft innerhalb des Locks des Aufrufers.
+        """
+        from pollysort import entscheidung, nacherfassung
+        if not entscheidung.unterstuetzt(ctx.client):
+            if explizit:
+                self.con.info(i18n.t("nx.nollm"), "✍️")
+            return
+        if not explizit and not getattr(ctx.seed, "nacherfassung", True):
+            return
+        vorher = len(nacherfassung.offen(ctx.hive))
+        if not vorher:
+            if explizit:
+                self.con.info(i18n.t("nx.none"), "✍️")
+            return
+        self.con.info(i18n.t("nx.start", n=vorher), "✍️")
+        grund = None
+        try:
+            fertig, grund = nacherfassung.nacherfassen(ctx)
+        except KeyboardInterrupt:
+            self.con.raw("^C")
+            fertig = vorher - len(nacherfassung.offen(ctx.hive))
+        if fertig:
+            self.con.honey(i18n.t("nx.done", n=fertig), "✍️")
+        if grund:
+            self.con.error(i18n.t("nx.stopped", reason=grund))
+        rest = len(nacherfassung.offen(ctx.hive))
+        if rest:
+            self.con.info(i18n.t("nx.left", n=rest), "✍️")
+
+    def do_nacherfassen(self, arg: str) -> None:
+        """nacherfassen [an|aus|jetzt] — Titel/Zusammenfassung nach dem Sortieren per KI
+        verfeinern (auch: enrich [on|off|now])."""
+        from pollysort import nacherfassung
+        key = arg.strip().lower()
+        if key in ("an", "ein", "on"):
+            self._update_seed(nacherfassung=True)
+            self.con.honey(i18n.t("nx.set_on"), "✍️")
+            return
+        if key in ("aus", "off"):
+            self._update_seed(nacherfassung=False)
+            self.con.honey(i18n.t("nx.set_off"), "✍️")
+            return
+        if key in ("jetzt", "now", "los"):
+            ctx = self._ctx()
+            try:
+                with QueenLock(ctx.hive):
+                    self._nacherfassen(ctx, explizit=True)
+            except QueenLockError as exc:
+                self.con.error(str(exc))
+            return
+        seed = config.load_seed(self.hive)
+        state = i18n.t("nx.on" if seed.nacherfassung else "nx.off")
+        self.con.info(i18n.t("nx.status", state=state, n=len(nacherfassung.offen(self.hive))), "✍️")
+
+    do_enrich = do_nacherfassen
 
     def _fortschritt_buchen(self, summary, *, korrekturen: int = 0) -> None:
         """Den Bienenstock wachsen lassen und neue Abzeichen feiern.
@@ -633,7 +701,7 @@ class BeehiveShell(cmd.Cmd):
                     ts = time.strftime("%H:%M:%S")
                     if action == "move":
                         self.con.honey(f"[{ts}] {len(new)} neue Datei(en) → sortiere …", "📥")
-                        self._cycle(mode="move")
+                        self._cycle(mode="move", nacherfassen=False)
                     else:
                         self.con.ask(f"[{ts}] {len(new)} neue Datei(en) im Eingang "
                                      f"— 'sortiere' zum Einräumen")
@@ -1662,10 +1730,13 @@ class BeehiveShell(cmd.Cmd):
             cfg = config.load_config()
             cfg.llm_provider = provider
             api_key = config.load_credentials() if provider == "openrouter" else None
+            from pollysort.extractor import gedaechtnis_text
+            from pollysort.models import embedding_text_for
             client = build_client(cfg, api_key, categories, [])
-            gesaet = vw.vorwaermen(self._proben, categories, mind=HiveMind(hive),
-                                   embed=client.embed,
-                                   embed_model=embed_model_for(cfg, api_key))
+            gesaet = vw.vorwaermen(
+                self._proben, categories, mind=HiveMind(hive), embed=client.embed,
+                embed_model=embed_model_for(cfg, api_key),
+                text_fuer=lambda f, a: gedaechtnis_text(client, f.path, embedding_text_for(a)))
         except Exception:
             return
         if gesaet:

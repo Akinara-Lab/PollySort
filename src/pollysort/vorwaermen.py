@@ -65,8 +65,13 @@ def auswaehlen(proben: Iterable[tuple], kategorien: list[str], *,
 def vorwaermen(proben: Iterable[tuple], kategorien: list[str], *,
                mind, embed: Callable[[str], list[float]],
                embed_model: str | None = None,
-               je_kategorie: int = JE_KATEGORIE) -> dict[str, int]:
+               je_kategorie: int = JE_KATEGORIE,
+               text_fuer: Callable[[object, object], str] | None = None) -> dict[str, int]:
     """Saat-Vektoren ablegen. Gibt ``{kategorie: anzahl}`` der wirklich gesäten zurück.
+
+    ``text_fuer(finding, analyse)`` bestimmt den eingebetteten Text — er muss derselbe sein,
+    den der Sortierlauf später nimmt (``extractor.gedaechtnis_text``), sonst liegt die Saat in
+    einem anderen Raum als die echten Einträge. Ohne Angabe: der kanonische Analysetext.
 
     Jedes Dokument ist für sich isoliert: Scheitert eine Einbettung (Provider weg, Modell
     fehlt), wird sie übersprungen. Vorwärmen ist eine Verbesserung, kein Muss — es darf
@@ -78,7 +83,7 @@ def vorwaermen(proben: Iterable[tuple], kategorien: list[str], *,
     gesaet: dict[str, int] = {}
     for finding, analyse, kategorie in auswaehlen(proben, kategorien,
                                                   je_kategorie=je_kategorie):
-        text = embedding_text_for(analyse)
+        text = text_fuer(finding, analyse) if text_fuer else embedding_text_for(analyse)
         if not text:
             continue
         try:

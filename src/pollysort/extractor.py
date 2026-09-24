@@ -71,6 +71,54 @@ def _extract_text(path: Path) -> str | None:
     return text
 
 
+#: So viel Text lesen Gedächtnis und Nummer-Entscheidung (Plan §8.3): den Kopf des
+#: Dokuments. Der Dokumenttyp steht fast immer oben — so wurde es auch gemessen (§8.13).
+AUSZUG_ZEICHEN = 1500
+
+
+def volltext(path: Path, mime_type: str | None = None) -> str | None:
+    """Der lokal lesbare Text eines Dokuments — ohne KI. ``None`` für Bilder & Unlesbares.
+
+    Textformate über markitdown bzw. roh, PDFs über markitdown/pypdf (derselbe Weg, den die
+    lokale KI ohnehin braucht, weil Ollama keine Datei-Anhänge kennt).
+    """
+    suffix = path.suffix.lower()
+    if (mime_type or "").startswith(TEXT_MIME_PREFIXES) or suffix in TEXT_SUFFIXES:
+        text = _extract_text(path)
+    elif suffix == ".pdf" or mime_type == PDF_MIME:
+        from .llm.client import _local_file_text
+        text = _local_file_text(path)
+    else:
+        return None
+    return text if text and text.strip() else None
+
+
+def auszug(path: Path, mime_type: str | None = None, limit: int = AUSZUG_ZEICHEN) -> str | None:
+    """Der Kopf des Dokuments für Gedächtnis und Entscheidung."""
+    text = volltext(path, mime_type)
+    return text.strip()[:limit] if text else None
+
+
+def gedaechtnis_text(client, path, fallback: str) -> str:
+    """Aus welchem Text das Gedächtnis den Vektor eines Eintrags bildet.
+
+    Das hängt an der Textbasis des Clients: Der Ollama-Modus bettet seit 2026-09-24 den
+    Dokument-**Auszug** ein — nur so kann das Gedächtnis entscheiden, bevor die KI etwas
+    geschrieben hat. Alle anderen (und Dateien ohne lokalen Text, etwa Bilder) nutzen weiter
+    den kanonischen Eintragstext aus Titel, Aufgabe, Zusammenfassung und Stichworten.
+    Saat, Einträge, Korrekturen und Neuaufbau gehen alle hier durch — sonst lägen ihre
+    Vektoren in verschiedenen Räumen und fänden einander nicht.
+    """
+    if getattr(client, "memory_basis", None) == "auszug" and path:
+        try:
+            text = auszug(Path(path))
+        except Exception:
+            text = None
+        if text:
+            return text
+    return fallback
+
+
 def _is_textual(finding: Finding) -> bool:
     if finding.mime_type and finding.mime_type.startswith(TEXT_MIME_PREFIXES):
         return True

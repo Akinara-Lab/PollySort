@@ -10,11 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import i18n, mover
+from . import entscheidung, i18n, mover, nacherfassung
 from .assigner import assign
 from .config import AppConfig, HiveSeed
 from .console import BeeConsole
-from .extractor import extract
+from .extractor import extract, gedaechtnis_text
 from .feedback import Feedback
 from .guards import IgnoreMatcher, has_landed, within_size_limit
 from .hive_mind import HiveMind, Taxonomy
@@ -40,6 +40,8 @@ class CycleSummary:
     est_cost_eur: float = 0.0
     new_ids: list[str] = field(default_factory=list)
     by_category: dict[str, int] = field(default_factory=dict)
+    #: Wer entschieden hat: gedaechtnis · nummer · analyse (Plan §8.3).
+    quellen: dict[str, int] = field(default_factory=dict)
 
     def exit_code(self) -> int:
         # §19: 0 ok · 2 offene Rückfragen · 3 Fehler-Einträge
@@ -69,6 +71,9 @@ class Context:
     taxonomy: Taxonomy
     feedback: Feedback
     movelog: MoveLog
+    #: Passt das Gedächtnis zum aktuellen Embedding-Modell und seiner Textbasis? ``None`` =
+    #: noch nicht geprüft (siehe :func:`_memory_ok`).
+    memory_ok: bool | None = None
 
     @classmethod
     def build(cls, *, hive, cfg, seed, client, console, journal) -> Context:
@@ -126,8 +131,12 @@ def run_cycle(
     # F1: Hat sich das Embedding-Modell geändert (nur per Config-Datei möglich), matchen die
     # alten Vektoren nicht mehr — einmal je Lauf freundlich darauf hinweisen (kein KI-Call).
     if not dry_run:
-        drift = ctx.mind.mismatch(getattr(ctx.client, "embed_model", None))
-        if drift:
+        current = getattr(ctx.client, "embed_model", None)
+        drift = ctx.mind.mismatch(current)
+        if drift and current and drift.split("#")[0] == current.split("#")[0]:
+            # Gleiches Modell, neue Textbasis (Update vom 2026-09-24) — anders erklären.
+            con.info(i18n.t("pl.drift_basis"), "⚠️")
+        elif drift:
             con.info(i18n.t("pl.drift", drift=drift), "⚠️")
     # Ultra Swarm: KI-Analysen parallel vorbereiten (füllt den Cache), Rest bleibt sequenziell.
     if workers and workers > 1 and not dry_run:
@@ -182,7 +191,8 @@ def reindex_memory(ctx: Context) -> tuple[int, int]:
             entry = row_to_entry(row)
             prog.update(task, description=f"🧠 {entry.id}")
             try:
-                vec = ctx.client.embed(entry.embedding_text())
+                vec = ctx.client.embed(gedaechtnis_text(ctx.client, entry.path,
+                                                        entry.embedding_text()))
                 ctx.mind.remember(entry.id, entry.kategorie, vec, model)
                 ok += 1
             except Exception as exc:       # KI-Schluckauf → überspringen, nicht abbrechen (§16)
@@ -219,18 +229,13 @@ def _prewarm_parallel(ctx: Context, findings, workers: int, cache: dict) -> int:
     if not todo:
         return 0
 
+    # Die Worker lesen das Gedächtnis aus einer festen Kopie: SQLite-Verbindungen dürfen
+    # nicht zwischen Threads wandern.
+    schnappschuss = _gedaechtnis_sicht(ctx) if entscheidung.unterstuetzt(ctx.client) else None
+
     def prepare(f):
         try:
-            analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
-            vec = None
-            if ext_status == Status.INDEXED:
-                entry = BeeEntry.from_analysis(
-                    id=bee_id(f.content_hash), path=str(f.path), original_path=str(f.path),
-                    filename=f.path.name, mime_type=f.mime_type, size_bytes=f.size_bytes,
-                    content_hash=f.content_hash, analysis=analysis)
-                vec = ctx.client.embed(entry.embedding_text())
-            return f.content_hash, {"analysis": analysis, "ext_status": ext_status,
-                                    "reason": reason, "vec": vec}
+            return f.content_hash, _analysieren(ctx, f, gedaechtnis=schnappschuss).als_cache()
         except Exception:
             return None                   # Cache-Miss → sequenzieller Pfad rechnet/meldet normal
 
@@ -256,6 +261,7 @@ def _fallback_offline(ctx: Context) -> tuple[int, bool]:
     from .wachstafel import Wachstafel
     prior = ctx.client.usage.calls
     ctx.client = OfflineClient(ctx.seed.categories, wachstafel=Wachstafel(ctx.hive).text())
+    ctx.memory_ok = None                  # anderes Embedding → Gedächtnis neu bewerten
     ctx.console.info("KI wiederholt nicht erreichbar — der Rest des Laufs läuft über die "
                      "Offline-Heuristik (kostenlos, kein Absturz).", "🛟")
     return prior, True
@@ -311,11 +317,10 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # beim „Anwenden"). Sonst frisch berechnen und — falls ein Cache mitläuft — ablegen.
     cached = cache.get(f.content_hash) if cache is not None else None
     if cached is not None:
-        analysis, ext_status, reason, vec = (
-            cached["analysis"], cached["ext_status"], cached["reason"], cached["vec"])
+        vorab = entscheidung.Vorab.aus_cache(cached)
     else:
-        analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
-        vec = None
+        vorab = _analysieren(ctx, f)
+    analysis, ext_status, reason, vec = vorab.analysis, vorab.ext_status, vorab.reason, vorab.vec
     entry = BeeEntry.from_analysis(
         id=bee_id(f.content_hash), path=str(f.path), original_path=str(f.path),
         filename=f.path.name, mime_type=f.mime_type, size_bytes=f.size_bytes,
@@ -324,12 +329,23 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     entry.error_reason = reason
     entry.supersedes = supersedes
 
-    if ext_status == Status.INDEXED:
+    if ext_status == Status.INDEXED and vorab.kategorie is not None:
+        # Stufe A oder B hat entschieden (Plan §8.3) — kein Assigner, keine volle Analyse.
         if vec is None:
-            vec = ctx.client.embed(entry.embedding_text())
+            vec = ctx.client.embed(gedaechtnis_text(ctx.client, f.path, entry.embedding_text()))
+        entry.funktion.kategorie = vorab.kategorie
+        entry.confidence = vorab.confidence or 0.0
+        entry.zustaendigkeit = ctx.taxonomy.persons_for(vorab.kategorie)
+        entry.status = decide(confidence=entry.confidence, threshold=ctx.seed.threshold_assign,
+                              mode=mode, extractor_status=ext_status)
+        summary.quellen[vorab.quelle] = summary.quellen.get(vorab.quelle, 0) + 1
+    elif ext_status == Status.INDEXED:
+        if vec is None:
+            vec = ctx.client.embed(gedaechtnis_text(ctx.client, f.path, entry.embedding_text()))
         a = assign(embedding=vec, llm_kategorie=analysis.kategorie,
                    hive=ctx.mind, taxonomy=ctx.taxonomy,
-                   analysis_text=entry.embedding_text())
+                   analysis_text=entry.embedding_text(), use_memory=_memory_ok(ctx))
+        summary.quellen["analyse"] = summary.quellen.get("analyse", 0) + 1
         if a.quelle == "zweitmeinung":
             # Sichtbar machen, dass hier nicht das Modell entschieden hat, sondern die
             # Heuristik auf dessen eigener Zusammenfassung — Vertrauen braucht
@@ -353,8 +369,7 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # Frisch berechnete Analyse für einen späteren „Anwenden"-Lauf zwischenspeichern
     # (nur wenn ein Cache mitläuft und der Wert noch nicht daher kam).
     if cache is not None and cached is None:
-        cache[f.content_hash] = {"analysis": analysis, "ext_status": ext_status,
-                                 "reason": reason, "vec": vec}
+        cache[f.content_hash] = vorab.mit_vec(vec).als_cache()
 
     # Dry-run (vorschau) ist bewusst NEBENWIRKUNGSFREI: kein DB-Eintrag, kein Move, kein
     # Gedächtnis. Sonst würde die Vorschau die Datei als 'assigned' registrieren und ein
@@ -385,9 +400,43 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     if not dry_run and vec is not None and entry.funktion.kategorie != "_unassigned":
         ctx.mind.remember(entry.id, entry.funktion.kategorie, vec,
                           getattr(ctx.client, "embed_model", None))
+        ctx.memory_ok = None              # erster Eintrag kann den Zustand ändern
+
+    # Nur heuristisch erfasst → die KI verfeinert Titel/Zusammenfassung später.
+    if not dry_run and vorab.kurz and entry.status.value in nacherfassung.ZUSTAENDE:
+        nacherfassung.vormerken(ctx.hive, [entry.id])
 
     _tally(con, entry, reason, summary)
     return entry
+
+
+def _memory_ok(ctx: Context) -> bool:
+    """Darf das Gedächtnis mitentscheiden? Nein, wenn es aus einem anderen Embedding-Modell
+    oder einer anderen Textbasis stammt (F1) — einmal geprüft, dann gemerkt."""
+    if ctx.memory_ok is None:
+        ctx.memory_ok = not ctx.mind.mismatch(getattr(ctx.client, "embed_model", None))
+    return ctx.memory_ok
+
+
+def _gedaechtnis_sicht(ctx: Context) -> entscheidung.Schnappschuss:
+    """Das Gedächtnis, wie Stufe A es sehen darf: nur Vektoren des aktuellen Modells samt
+    Textbasis. Ein Altbestand aus einem anderen Modell (vor 'gedaechtnis neu') bleibt so
+    außen vor, statt Ähnlichkeiten zwischen zwei Vektorräumen vorzutäuschen."""
+    return entscheidung.Schnappschuss(
+        ctx.mind.eintraege(getattr(ctx.client, "embed_model", None)))
+
+
+def _analysieren(ctx: Context, f, *, gedaechtnis=None) -> entscheidung.Vorab:
+    """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher."""
+    vorab = None
+    if entscheidung.unterstuetzt(ctx.client):
+        vorab = entscheidung.analysieren(
+            ctx.client, f, max_file_mb=ctx.seed.max_file_mb, kategorien=ctx.taxonomy.categories,
+            gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True)
+    if vorab is None:
+        analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
+        vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
+    return vorab
 
 
 def _tally(con: BeeConsole, entry: BeeEntry, reason, summary: CycleSummary) -> None:
@@ -424,6 +473,9 @@ def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) 
         con.error(i18n.t("pl.errors", n=s.errors))
     if s.needs_review:
         con.ask(i18n.t("pl.review", n=s.needs_review))
+    if s.quellen.get("gedaechtnis") or s.quellen.get("nummer"):
+        con.info(i18n.t("pl.quellen", mem=s.quellen.get("gedaechtnis", 0),
+                        num=s.quellen.get("nummer", 0), voll=s.quellen.get("analyse", 0)), "⚡")
     if s.llm_calls:
         # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
         # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen
