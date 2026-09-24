@@ -9,6 +9,21 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Geändert — die Modi heißen jetzt Sparmodus · Lokal · Cloud
+- **Sparmodus** (bisher „offline"): reine Heuristik — sofort, kostenlos, läuft auf jedem
+  Rechner. **Lokal** (bisher „ollama"): KI auf dem eigenen Rechner. **Cloud** (bisher
+  „online"/„openrouter"): KI über eine API. Der alte Name „offline" war irreführend — ein
+  lokales Sprachmodell arbeitet genauso offline.
+- Nur die sichtbaren Namen ändern sich: In `hive.toml` und der Config stehen weiter
+  `offline`/`ollama`/`openrouter`, bestehende Projekte laufen ohne Umbau. `modus`/`mode`
+  versteht die neuen Wörter (`spar`, `lokal`, `cloud`, auch `low`, `local`, `api`) **und** die
+  alten; die CLI kennt `--spar` neben `--offline`.
+- Angepasst: Erststart, Projekt-Einrichtung, `modus`, Kopfzeile, `home`/`status`, `doctor`,
+  Sortierlauf-Meldungen, README. Die Meldungen des `modus`-Befehls sind jetzt zweisprachig.
+- README bereinigt: eine sinnlose FAQ aus der automatischen Umbenennung („Why is the command
+  `pollysort` and not `pollysort`?") und zwei überholte Roadmap-Punkte (Lizenz-Aktivierung —
+  widerspricht Open Core; Release-Workflow — erledigt) entfernt.
+
 ### Geändert — der Ollama-Modus entscheidet dreistufig (Plan §8.3, gemessen §8.13)
 - **Gedächtnis → Nummer → Rückfrage** (`entscheidung.py`). Das Gedächtnis entscheidet allein,
   wenn das ähnlichste bekannte Dokument ≥ 0,75 ähnlich ist, 0,05 vor der nächsten Kategorie

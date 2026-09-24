@@ -164,11 +164,29 @@ class HiveSeed:
 
     # Projekt-Metadaten (aus dem Einrichtungs-Assistenten)
     name: str = ""
-    provider: str = "offline"            # offline | openrouter | ollama  (Modus je Projekt)
+    # Interne Werte (bleiben stabil, stehen so in hive.toml) → sichtbarer Name:
+    # offline = Sparmodus · ollama = Lokal · openrouter = Cloud  (i18n.modus_name)
+    provider: str = "offline"
     watch: str = "off"                   # off | notify | move  (Verhalten bei neuen Dateien)
     watch_seconds: int = 10              # wie oft der Eingang geprüft wird
     # Nach dem Sortieren verfeinert die KI Titel & Zusammenfassung (nur Ollama, Plan §8.3).
     nacherfassung: bool = True
+
+
+#: Wörter, mit denen man einen Modus wählt → interner Wert. Die neuen Namen (seit
+#: 2026-09-24) und die alten gelten gleichermaßen — Muskelgedächtnis und Skripte laufen weiter.
+MODUS_WOERTER: dict[str, str] = {
+    "spar": "offline", "sparmodus": "offline", "heuristik": "offline", "heuristic": "offline",
+    "low": "offline", "lowpower": "offline", "low-power": "offline", "eco": "offline",
+    "offline": "offline",
+    "lokal": "ollama", "local": "ollama", "ollama": "ollama",
+    "cloud": "openrouter", "api": "openrouter", "online": "openrouter", "openrouter": "openrouter",
+}
+
+
+def provider_aus_wort(wort: str) -> str | None:
+    """``"lokal"`` → ``"ollama"``, ``"cloud"`` → ``"openrouter"`` … — ``None`` bei Unbekanntem."""
+    return MODUS_WOERTER.get((wort or "").strip().lower())
 
 
 def is_setup(hive: Path) -> bool:

@@ -148,8 +148,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "{n} file(s) uncertain — still lying here. Sort them out with 'review'.",
     },
     "pl.calls_offline": {
-        "de": "{n} Analyse(n) — offline, ohne KI-Anfrage und ohne Kosten",
-        "en": "{n} analysis/analyses — offline, no AI request and no cost",
+        "de": "{n} Analyse(n) — Sparmodus, ohne KI-Anfrage und ohne Kosten",
+        "en": "{n} analysis/analyses — low-power mode, no AI request and no cost",
     },
     "pl.calls_local": {"de": "{n} KI-Anfragen — lokal gerechnet, ohne Kosten",
                        "en": "{n} AI requests — computed locally, no cost"},
@@ -208,13 +208,22 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "The queen files what is already here — sorting the existing documents …",
     },
 
-    "su.mode.q": {"de": "KI-Modus — womit sollen Dokumente eingeordnet werden?",
-                  "en": "AI mode — how should documents be classified?"},
-    "su.mode.or_key": {"de": "OpenRouter — beste Qualität (Key hinterlegt)",
-                       "en": "OpenRouter — best quality (key on file)"},
-    "su.mode.or_nokey": {"de": "OpenRouter — beste Qualität (Key jetzt hinterlegen)",
-                         "en": "OpenRouter — best quality (add a key now)"},
-    "su.mode.nokey": {"de": "Kein Key → Offline-Modus.", "en": "No key → offline mode."},
+    "su.mode.q": {
+        "de": "Modus — womit sollen Dokumente eingeordnet werden?",
+        "en": "Mode — how should documents be classified?",
+    },
+    "su.mode.or_key": {
+        "de": "Cloud — KI über OpenRouter, beste Qualität (Key hinterlegt)",
+        "en": "Cloud — AI via OpenRouter, best quality (key on file)",
+    },
+    "su.mode.or_nokey": {
+        "de": "Cloud — KI über OpenRouter, beste Qualität (Key jetzt hinterlegen)",
+        "en": "Cloud — AI via OpenRouter, best quality (add a key now)",
+    },
+    "su.mode.nokey": {
+        "de": "Kein Key → Sparmodus.",
+        "en": "No key → low-power mode.",
+    },
 
     "su.cat.q": {"de": "Kategorien — wie soll einsortiert werden?",
                  "en": "Categories — how should things be filed?"},
@@ -240,10 +249,10 @@ _CATALOG: dict[str, dict[str, str]] = {
     "su.scout.failed": {"de": "KI-Analyse fehlgeschlagen ({n} Datei(en)) — {reason}.",
                         "en": "AI analysis failed ({n} file(s)) — {reason}."},
     "su.scout.failed_hint": {
-        "de": "Der Vorschlag unten basiert nur auf der Offline-Heuristik. Tipp: KI-Backend "
-              "prüfen ('modus', 'schluessel test') und 'setup' später erneut ausführen.",
-        "en": "The suggestion below is heuristics only. Tip: check the AI backend "
-              "('mode', 'key test') and run 'setup' again later.",
+        "de": "Der Vorschlag unten basiert nur auf der Heuristik des Sparmodus. Tipp: KI prüfen "
+              "('modus', 'schluessel test') und 'setup' später erneut ausführen.",
+        "en": "The suggestion below is heuristics only (low-power mode). Tip: check the AI ('mode', "
+              "'key test') and run 'setup' again later.",
     },
     "su.scout.partial": {
         "de": "{bad} von {total} KI-Analysen fehlgeschlagen — Rest heuristisch ergänzt.",
@@ -302,16 +311,16 @@ _CATALOG: dict[str, dict[str, str]] = {
     "fr.ai.title": {"de": "KI — womit sollen Dokumente verstanden werden?",
                     "en": "AI — how should documents be understood?"},
     "fr.ai.offline": {
-        "de": "Offline — Heuristik, kostenlos, ohne Internet",
-        "en": "Offline — heuristics, free, no internet needed",
+        "de": "Sparmodus — reine Heuristik: sofort, kostenlos, läuft auf jedem Rechner",
+        "en": "Low-power — heuristics only: instant, free, runs on any PC",
     },
     "fr.ai.ollama": {
-        "de": "Lokale KI (Ollama) — gratis & privat",
-        "en": "Local AI (Ollama) — free & private",
+        "de": "Lokal — KI auf deinem Rechner (Ollama), gratis & privat",
+        "en": "Local — AI on your machine (Ollama), free & private",
     },
     "fr.ai.openrouter": {
-        "de": "OpenRouter — beste Qualität, kostenpflichtig",
-        "en": "OpenRouter — best quality, paid",
+        "de": "Cloud — KI über eine API (OpenRouter), beste Qualität, kostenpflichtig",
+        "en": "Cloud — AI via an API (OpenRouter), best quality, paid",
     },
     "fr.ai.found": {"de": "✅ erkannt", "en": "✅ detected"},
     "fr.ai.notfound": {"de": "— nicht erreichbar", "en": "— not reachable"},
@@ -322,16 +331,25 @@ _CATALOG: dict[str, dict[str, str]] = {
     "fr.short.dark": {"de": "Dunkel", "en": "Dark"},
     "fr.short.light": {"de": "Hell", "en": "Light"},
     "fr.short.auto": {"de": "Automatik", "en": "Auto"},
-    "fr.short.offline": {"de": "Offline", "en": "Offline"},
-    "fr.short.ollama": {"de": "Ollama (lokal)", "en": "Ollama (local)"},
-    "fr.short.openrouter": {"de": "OpenRouter", "en": "OpenRouter"},
+    "fr.short.offline": {
+        "de": "Sparmodus",
+        "en": "Low-power",
+    },
+    "fr.short.ollama": {
+        "de": "Lokal (Ollama)",
+        "en": "Local (Ollama)",
+    },
+    "fr.short.openrouter": {
+        "de": "Cloud (OpenRouter)",
+        "en": "Cloud (OpenRouter)",
+    },
     "fr.ai.ollama_missing": {
-        "de": "Es antwortet kein lokaler Ollama-Server — vorerst Offline-Modus.",
-        "en": "No local Ollama server is responding — staying offline for now.",
+        "de": "Es antwortet kein lokaler Ollama-Server — vorerst Sparmodus.",
+        "en": "No local Ollama server is responding — using low-power mode for now.",
     },
     "fr.ai.ollama_hint": {
-        "de": "Starte Ollama ('ollama serve') und wechsle dann mit 'modus ollama'.",
-        "en": "Start Ollama ('ollama serve'), then switch with 'mode ollama'.",
+        "de": "Starte Ollama ('ollama serve') und wechsle dann mit 'modus lokal'.",
+        "en": "Start Ollama ('ollama serve'), then switch with 'mode local'.",
     },
     "fr.ai.key_where": {
         "de": "Key holen: openrouter.ai/keys — er bleibt lokal (chmod 600).",
@@ -340,11 +358,13 @@ _CATALOG: dict[str, dict[str, str]] = {
     "fr.ai.key_prompt": {"de": "OpenRouter-API-Key (leer = überspringen): ",
                          "en": "OpenRouter API key (empty = skip): "},
     "fr.ai.key_skipped": {
-        "de": "Kein Key — Offline-Modus. Später jederzeit: 'schluessel setzen'.",
-        "en": "No key — offline mode. Any time later: 'key set'.",
+        "de": "Kein Key — Sparmodus. Später jederzeit: 'schluessel setzen'.",
+        "en": "No key — low-power mode. Any time later: 'key set'.",
     },
-    "fr.ai.key_failed": {"de": "Key konnte nicht gespeichert werden — Offline-Modus.",
-                         "en": "Could not save the key — offline mode."},
+    "fr.ai.key_failed": {
+        "de": "Key konnte nicht gespeichert werden — Sparmodus.",
+        "en": "Could not save the key — low-power mode.",
+    },
     "fr.ai.key_saved": {"de": "Key gespeichert (nur lokal, chmod 600).",
                         "en": "Key saved (local only, chmod 600)."},
 
@@ -476,7 +496,10 @@ _CATALOG: dict[str, dict[str, str]] = {
                    "en": "Create a project · switch to another"},
     "help.d.projects": {"de": "Alle Projekte · aktuelles neu einrichten",
                         "en": "All projects · reconfigure the current one"},
-    "help.d.mode": {"de": "KI-Backend für dieses Projekt", "en": "AI backend for this project"},
+    "help.d.mode": {
+        "de": "Sparmodus (Heuristik) · Lokal (Ollama) · Cloud (API)",
+        "en": "Low-power (heuristics) · local (Ollama) · cloud (API)",
+    },
     "help.d.model": {"de": "OpenRouter-Modell wechseln (Nektar-Sorte)",
                      "en": "Switch the OpenRouter model"},
     "help.d.key": {"de": "OpenRouter-Schlüssel prüfen / erneuern / entfernen",
@@ -501,19 +524,32 @@ _CATALOG: dict[str, dict[str, str]] = {
     # Doctor
     "doctor.cli_title": {"de": "PollySort — Health-Check", "en": "PollySort — health check"},
     "doctor.python": {"de": "Python", "en": "Python"},
-    "doctor.provider": {"de": "KI-Provider", "en": "AI provider"},
+    "doctor.provider": {
+        "de": "Modus",
+        "en": "Mode",
+    },
     "doctor.models": {"de": "Modelle", "en": "Models"},
     "doctor.db": {"de": "Datenbank", "en": "Database"},
     "doctor.extract": {"de": "Extraktion", "en": "Extraction"},
     "doctor.memory": {"de": "Gedächtnis", "en": "Memory"},
     "doctor.noproject": {"de": "kein Projekt aktiv", "en": "no project active"},
     "doctor.py.need": {"de": " (benötigt 3.12+)", "en": " (needs 3.12+)"},
-    "doctor.prov.offline": {"de": "offline (Heuristik, kostenlos)", "en": "offline (heuristics, free)"},
-    "doctor.prov.ollama_ok": {"de": "ollama erreichbar", "en": "ollama reachable"},
-    "doctor.prov.ollama_down": {"de": "ollama NICHT erreichbar (Server starten)",
-                                "en": "ollama NOT reachable (start the server)"},
-    "doctor.prov.or_nokey": {"de": "openrouter ohne Schlüssel → Offline-Fallback",
-                             "en": "openrouter without key → offline fallback"},
+    "doctor.prov.offline": {
+        "de": "Sparmodus (Heuristik, kostenlos)",
+        "en": "low-power (heuristics, free)",
+    },
+    "doctor.prov.ollama_ok": {
+        "de": "Lokal · Ollama erreichbar",
+        "en": "local · Ollama reachable",
+    },
+    "doctor.prov.ollama_down": {
+        "de": "Lokal · Ollama NICHT erreichbar (Server starten)",
+        "en": "local · Ollama NOT reachable (start the server)",
+    },
+    "doctor.prov.or_nokey": {
+        "de": "Cloud ohne Schlüssel → Sparmodus",
+        "en": "cloud without key → low-power mode",
+    },
     "doctor.models.ok": {"de": "{chat} · {embed} gezogen", "en": "{chat} · {embed} pulled"},
     "doctor.models.missing": {"de": "fehlt: {names} → {hint}", "en": "missing: {names} → {hint}"},
     "doctor.models.embed_note": {
@@ -573,10 +609,35 @@ _CATALOG: dict[str, dict[str, str]] = {
               "'enrich now' catches up any time.",
     },
     "nx.none": {"de": "Nichts vorgemerkt.", "en": "Nothing queued."},
-    "nx.nollm": {"de": "Die Nacherfassung gibt es im Ollama-Modus.",
-                 "en": "Refining is available in Ollama mode."},
+    "nx.nollm": {
+        "de": "Die Nacherfassung gibt es im Modus Lokal.",
+        "en": "Refining is available in local mode.",
+    },
     "help.d.enrich": {"de": "Titel/Zusammenfassung nach dem Sortieren per KI verfeinern",
                       "en": "Refine titles/summaries with AI after sorting"},
+    # Modi (seit 2026-09-24 mit neuen Namen; intern offline/ollama/openrouter)
+    "mode.offline": {"de": "Sparmodus", "en": "Low-power"},
+    "mode.ollama": {"de": "Lokal", "en": "Local"},
+    "mode.openrouter": {"de": "Cloud", "en": "Cloud"},
+    "mode.current": {
+        "de": "Modus: {name}. Wechseln: 'modus spar | lokal | cloud'.",
+        "en": "Mode: {name}. Switch: 'mode low | local | cloud'.",
+    },
+    "mode.set": {"de": "Modus für dieses Projekt: {name}", "en": "Mode for this project: {name}"},
+    "mode.nokey": {"de": "Kein Key → Modus unverändert.", "en": "No key → mode unchanged."},
+    "mode.noollama": {"de": "Kein lokales Ollama erkannt — bitte Ollama starten.",
+                      "en": "No local Ollama found — please start Ollama."},
+    "mode.model_hint": {
+        "de": "Dieses Projekt läuft im Modus {name}. 'modus cloud' aktiviert OpenRouter.",
+        "en": "This project runs in {name} mode. 'mode cloud' enables OpenRouter.",
+    },
+    "pl.fallback": {
+        "de": "KI wiederholt nicht erreichbar — der Rest des Laufs läuft im Sparmodus "
+              "(Heuristik, kostenlos, kein Absturz).",
+        "en": "AI repeatedly unreachable — the rest of this run uses low-power mode "
+              "(heuristics, free, no crash).",
+    },
+    "doctor.prov.cloud": {"de": "Cloud · OpenRouter: {reason}", "en": "cloud · OpenRouter: {reason}"},
 }
 
 
@@ -587,6 +648,14 @@ def set_language(lang: str) -> None:
 
 def get_language() -> str:
     return _LANG
+
+
+def modus_name(provider: str) -> str:
+    """Sichtbarer Name eines Modus — ``offline`` → „Sparmodus", ``ollama`` → „Lokal",
+    ``openrouter`` → „Cloud". Intern (hive.toml, Config) bleiben die alten Werte stehen,
+    damit jedes bestehende Projekt ohne Umbau weiterläuft."""
+    key = f"mode.{provider}"
+    return t(key) if key in _CATALOG else str(provider)
 
 
 def t(key: str, /, **kw) -> str:

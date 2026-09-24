@@ -27,7 +27,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from . import i18n
+from . import config, i18n
 
 #: Reihenfolge der angebotenen Optionen — Index+1 ist die Nummer, die der Nutzer tippt.
 LANGUAGES = ("en", "de")
@@ -135,8 +135,7 @@ def step_ai(con, ask: Callable[[str], str], *,
     # Die beste *verfügbare* Option vorschlagen — nie eine, die sofort scheitern würde.
     default = 2 if ollama else (3 if key else 1)
     n = _choose(ask, "      " + i18n.t("fr.choice", default=default), count=3, default=default,
-                words={"offline": 1, "ollama": 2, "local": 2, "lokal": 2,
-                       "openrouter": 3, "online": 3})
+                words={w: PROVIDERS.index(p) + 1 for w, p in config.MODUS_WOERTER.items()})
     provider = PROVIDERS[n - 1]
 
     if provider == "ollama" and not ollama:

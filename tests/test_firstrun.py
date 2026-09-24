@@ -141,7 +141,7 @@ def test_full_run_collects_every_choice():
     con = FakeConsole()
     applied: list[str] = []
     res = firstrun.run(
-        con, scripted("2", "2", "1"),          # Deutsch · Hell · Offline
+        con, scripted("2", "2", "1"),          # Deutsch · Hell · Sparmodus
         ollama_probe=lambda: False,
         has_key=lambda: False,
         save_key=lambda _k: True,
@@ -151,7 +151,7 @@ def test_full_run_collects_every_choice():
                                                                      False)
     assert applied == ["light"]
     # Der Überblick nennt jede getroffene Einstellung und die ersten Handgriffe.
-    assert "Deutsch" in con.text and "Hell" in con.text and "Offline" in con.text
+    assert "Deutsch" in con.text and "Hell" in con.text and "Sparmodus" in con.text
     assert "sortiere" in con.text
 
 

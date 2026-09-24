@@ -5,7 +5,8 @@ aus dem Repo heraus ``python polly.py``. Beide Wege rufen ``main()`` auf.
 
 Ein Projekt ist ein Ordner, dessen lose Dateien der Posteingang sind — 'sortiere' (oder 's')
 räumt sie in Kategorie-Ordner ein. Alles Generierte liegt versteckt in EINEM Ordner '.honig'.
-Läuft offline (kostenlos), lokal (Ollama) oder online (OpenRouter, 'modus online').
+Drei Modi: Sparmodus (reine Heuristik, jeder Rechner), Lokal (KI über Ollama) und Cloud
+(KI über OpenRouter) — umschalten mit 'modus spar | lokal | cloud'.
 """
 
 from __future__ import annotations
@@ -125,7 +126,7 @@ class BeehiveShell(cmd.Cmd):
         if self.hive:
             try:
                 seed = config.load_seed(self.hive)
-                parts.append(i18n.t("header.mode", provider=seed.provider))
+                parts.append(i18n.t("header.mode", provider=i18n.modus_name(seed.provider)))
                 n = self._inbox_count()
                 parts.append(i18n.t("header.loose", n=n) if n else i18n.t("header.tidy"))
             except Exception:
@@ -288,7 +289,7 @@ class BeehiveShell(cmd.Cmd):
             config.register_project(hive)
             config.remember_last_hive(hive)
             self.con.info(i18n.t("open.project", name=seed.name or hive.name, path=hive), "📂")
-            self.con.info(i18n.t("open.mode", provider=seed.provider,
+            self.con.info(i18n.t("open.mode", provider=i18n.modus_name(seed.provider),
                                  cats=", ".join(seed.categories)), "🧠")
             self._show_inbox()
             # Eingangs-Verhalten beim Öffnen anwenden (§ Überwachung).
@@ -375,7 +376,7 @@ class BeehiveShell(cmd.Cmd):
         "help.group.pro": [
             ("neu [pfad] · wechsel [nr]", "new [path] · switch [n]", "help.d.new"),
             ("projekte · setup", "projects · setup", "help.d.projects"),
-            ("modus <offline|ollama|online>", "mode <offline|ollama|online>", "help.d.mode"),
+            ("modus <spar|lokal|cloud>", "mode <low|local|cloud>", "help.d.mode"),
             ("modell [name|liste]", "model [name|list]", "help.d.model"),
             ("schluessel [test|setzen|entfernen]", "key [test|set|remove]", "help.d.key"),
             ("flugrouten [setup|test]", "routes [setup|test]", "help.d.routes"),
@@ -746,7 +747,8 @@ class BeehiveShell(cmd.Cmd):
             seed = config.load_seed(self.hive)
             self.con.info(i18n.t("open.project", name=seed.name or self.hive.name,
                                  path=self.hive), "📂")
-            self.con.info(i18n.t("home.mode", provider=seed.provider, watch=seed.watch), "🧠")
+            self.con.info(i18n.t("home.mode", provider=i18n.modus_name(seed.provider),
+                                 watch=seed.watch), "🧠")
             try:
                 from pollysort.store import Store
                 counts = Store(self.hive).status_counts()
@@ -788,7 +790,7 @@ class BeehiveShell(cmd.Cmd):
         counts = Store(self.hive).status_counts()
         seed = config.load_seed(self.hive)
         self.con.info(i18n.t("open.folder", path=self.hive), "📂")
-        self.con.info(i18n.t("home.mode", provider=seed.provider, watch=seed.watch), "🧠")
+        self.con.info(i18n.t("home.mode", provider=i18n.modus_name(seed.provider), watch=seed.watch), "🧠")
         inbox = self._inbox_count()
         if inbox:
             self.con.honey(i18n.t("home.inbox", n=inbox), "📥")
@@ -1044,8 +1046,7 @@ class BeehiveShell(cmd.Cmd):
         self.con.honey(f"Nektar gewechselt — die Königin sammelt jetzt von: {model}", "🍯")
         if self.hive and config.load_seed(self.hive).provider != "openrouter":
             prov = config.load_seed(self.hive).provider
-            self.con.ask(f"Dieses Projekt fliegt im Modus '{prov}'. "
-                         f"'modus online' aktiviert OpenRouter für den Nektar.")
+            self.con.ask(i18n.t("mode.model_hint", name=i18n.modus_name(prov)))
 
     do_modellwechsel = do_modell
 
@@ -1141,8 +1142,8 @@ class BeehiveShell(cmd.Cmd):
             self.con.ask("Achtung: OPENROUTER_API_KEY (Umgebungsvariable) ist weiter gesetzt "
                          "und aktiv — im Terminal/Profil entfernen, falls gewünscht.")
         else:
-            self.con.info("Schlüssel entfernt — OpenRouter-Projekte nutzen jetzt die "
-                          "Offline-Heuristik.", "🔑")
+            self.con.info("Schlüssel entfernt — Cloud-Projekte laufen jetzt im Sparmodus "
+                          "(Heuristik).", "🔑")
 
     # ------------------------------------------------------------------ #
     #  Ansicht & Thema (Dark/Light, statische Ansicht ohne Scrolling)
@@ -1649,22 +1650,25 @@ class BeehiveShell(cmd.Cmd):
             self.con.raw(f"  {mark} [{i}] {name:<18} {p}")
 
     def do_modus(self, arg: str) -> None:
-        """modus <offline|ollama|online> — KI-Backend für DIESES Projekt umstellen."""
-        mapping = {"offline": "offline", "ollama": "ollama",
-                   "online": "openrouter", "openrouter": "openrouter"}
-        provider = mapping.get(arg.strip().lower())
+        """modus <spar|lokal|cloud> — den Modus für DIESES Projekt umstellen.
+
+        Sparmodus = reine Heuristik (jeder Rechner) · Lokal = KI über Ollama · Cloud = KI über
+        OpenRouter. Die alten Namen (offline, ollama, online) gelten weiter.
+        """
+        provider = config.provider_aus_wort(arg)
         if provider is None:
-            self.con.info(f"Modus: {config.load_seed(self.hive).provider}", "🐝")
+            aktuell = i18n.modus_name(config.load_seed(self.hive).provider)
+            self.con.info(i18n.t("mode.current", name=aktuell), "🐝")
             return
         if provider == "openrouter" and not self._ensure_key():
-            self.con.info("Kein Key → Modus unverändert.", "🐝")
+            self.con.info(i18n.t("mode.nokey"), "🐝")
             return
         if provider == "ollama" and not self._ollama_ready(refresh=True):
-            self.con.ask("Kein lokales Ollama erkannt — bitte Ollama starten.")
+            self.con.ask(i18n.t("mode.noollama"))
             return
         self.offline = provider == "offline"
         self._update_seed(provider=provider)
-        self.con.honey(f"Modus für dieses Projekt: {provider}", "🧠")
+        self.con.honey(i18n.t("mode.set", name=i18n.modus_name(provider)), "🧠")
 
     # ------------------------------------------------------------------ #
     #  Einrichtungs-Assistent
@@ -1701,7 +1705,8 @@ class BeehiveShell(cmd.Cmd):
                      "move": " · " + i18n.t("su.done.move")}
         made_txt = f" ({i18n.t('su.done.made', n=made)})" if made else ""
         self.con.honey(i18n.t("su.done", name=name, n=len(categories), made=made_txt,
-                              provider=provider, watch=watch_txt.get(watch, "")), "✅")
+                              provider=i18n.modus_name(provider),
+                              watch=watch_txt.get(watch, "")), "✅")
         self._vorwaermen(hive, categories, provider)
         # Die schon vorhandenen losen Dateien direkt in die Waben einlagern.
         if self._inbox_count():
@@ -1754,7 +1759,7 @@ class BeehiveShell(cmd.Cmd):
         return made
 
     def _choose_mode(self) -> str:
-        """Schritt 2: KI-Backend wählen (offline / lokale Ollama / OpenRouter)."""
+        """Schritt 2: Modus wählen (Sparmodus / Lokal über Ollama / Cloud über OpenRouter)."""
         ollama = self._ollama_ready(refresh=True)   # nur ERREICHBARES Ollama anbieten
         has_key = config.load_credentials() is not None
         opts: list[tuple[str, str]] = [("offline", i18n.t("fr.ai.offline"))]

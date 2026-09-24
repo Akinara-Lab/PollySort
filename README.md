@@ -36,7 +36,7 @@ only the category folders appear.
 - [Command reference](#command-reference)
 - [How it works](#how-it-works)
 - [What lives where](#what-lives-where)
-- [AI modes: offline · ollama · openrouter](#ai-modes)
+- [Modes: low-power · local · cloud](#modes)
 - [Learning: the Wachstafel (meta-learning)](#learning-the-wachstafel)
 - [Stage 2: projects, deadlines & notifications](#stage-2-projects)
 - [Licence](#licence)
@@ -84,7 +84,7 @@ don't fit. PollySort is different:
 | ↩️ | **Undo & quarantine** — move-only, unique-suffix collisions, reversible, never auto-deletes |
 | 🐝 | **Stage 2 project management** — turn a category into a project with charter & deadlines |
 | 🔔 | **Notifications** — optional Discord / e-mail alerts for due deadlines; `.ics` calendar sync |
-| 🔌 | **Three AI modes** — offline heuristic · local Ollama · OpenRouter, switchable per project |
+| 🔌 | **Three modes** — low-power (heuristics, any PC) · local (AI via Ollama) · cloud (AI via API), switchable per project |
 | 🩺 | **`doctor` health-check**, 🌍 **DE/EN UI**, 🎨 **dark/light themes**, 🛟 **abort any prompt** |
 | 🔓 | **Apache-2.0** — real open source: no feature gates, no project limit, commercial use OK |
 
@@ -205,7 +205,8 @@ On the **very first launch** a one-time setup clarifies the AI backend (it detec
 **Setup order: Name → AI mode → Categories → Subfolders → Watch.** For categories there's a
 **proposal mode** that looks at both your loose files *and* your existing folder structure
 (existing subfolders count as categories you already use — adaptive, not rigid) and suggests a
-structure. Online, the **AI** analyzes the documents; offline, a heuristic does. Each project
+structure. In local and cloud mode the **AI** analyzes the documents; in low-power mode a
+heuristic does. Each project
 stores its config in `.honig/hive.toml`, so **multiple projects run independently** side by side.
 
 ```text
@@ -219,8 +220,8 @@ stores its config in `.honig/hive.toml`, so **multiple projects run independentl
 ──────── Set up project ────────
   1) Project name [office]: Law firm
   2) AI mode — how should documents be classified?
-       [1] Offline — heuristic, free, no internet
-       [2] Local AI (Ollama) — free & private
+       [1] Low-power — heuristics only: instant, free, runs on any PC
+       [2] Local — AI on your machine (Ollama), free & private
      Choice [2]: 2
   3) Categories — how should filing work?
        [1] Proposal — look at files & existing folders (the AI reads them)  (recommended)
@@ -306,7 +307,7 @@ below list the **English alias** first and the original **German** name in paren
 |---|---|
 | `new [path]` (`neu`) · `switch [n]` (`wechsel`) | Create a project · switch to another |
 | `projects` (`projekte`) · `setup` | List all projects · reconfigure the current one |
-| `mode <offline\|ollama\|online>` (`modus`) | Choose the AI backend for this project |
+| `mode <low\|local\|cloud>` (`modus`) | Low-power (heuristics) · local (Ollama) · cloud (API) for this project — the old names `offline`/`ollama`/`online` still work |
 | `model [name\|list]` (`modell`) | Switch the OpenRouter model at runtime |
 | `key [test\|set\|remove]` (`schluessel`) | Check / renew / remove the OpenRouter key |
 | `routes [setup\|test]` (`flugrouten`) | Discord / e-mail notifications (opt-in) |
@@ -328,7 +329,7 @@ below list the **English alias** first and the original **German** name in paren
 1. **Scout / Guard** — landing check, MIME, size limit, **SHA-256**; duplicate & crash-recovery
    via the hash. The `.honig/` and category folders are **not** re-scanned. A second run over
    the same set makes **zero** new AI calls.
-2. **Extractor** — a multimodal LLM call (or the offline heuristic) returns title, summary,
+2. **Extractor** — a multimodal LLM call (or the heuristic in low-power mode) returns title, summary,
    keywords, function and a category. The prompt requires the model to pick **exactly one of the
    known categories**; a returned label is then **snapped** onto the known set
    (`snap_category`). Broken JSON → repair-retry → fallback model → otherwise a metadata-only
@@ -340,13 +341,13 @@ below list the **English alias** first and the original **German** name in paren
    Unsure and error cases **stay put**, so the only loose files left are the ones needing you.
 5. **Memory** — every successful assignment is embedded; category centroids grow over time.
 
-If the AI fails repeatedly mid-run (≥ 3 in a row), the run **falls back to the offline
-heuristic** for the rest instead of producing a pile of errors.
+If the AI fails repeatedly mid-run (≥ 3 in a row), the run **falls back to low-power mode**
+(heuristics) for the rest instead of producing a pile of errors.
 
 ### Local mode: memory → one-token decision → review
 
 Writing a title and summary is the slow part of an AI analysis — the category itself is a
-handful of tokens. In **Ollama mode**, PollySort therefore decides first and describes later:
+handful of tokens. In **local mode**, PollySort therefore decides first and describes later:
 
 1. **Memory.** The start of the document is embedded and compared with everything already
    filed. If the closest known document is very similar *and* clearly closer than any other
@@ -365,8 +366,8 @@ Measured on 70 test documents with `qwen3.5:9b` (57 unique, 13 exact duplicates)
 | before (full analysis per file) | 22.2 s | 48.7 s | 97 % |
 | now | **0.21 s** | **4.0 s** | 56 of 57 |
 
-About half of the documents were decided by memory alone. The offline and OpenRouter modes
-are unchanged.
+About half of the documents were decided by memory alone. Low-power and cloud mode are
+unchanged.
 
 ### Preview → apply
 
@@ -413,19 +414,20 @@ Notion. Global settings (last project, credentials, project registry) live under
 
 ---
 
-## AI modes
+## Modes
 
-One provider interface, three backends — chosen per project (`mode <…>`):
+One interface, three modes — chosen per project (`mode low | local | cloud`):
 
-- **offline** — a free heuristic from filename, text start, file type and category names
-  (self-named/discovered categories work without hard-coded rules). No network, no cost.
-- **ollama** — local AI (free & private) when an Ollama server is reachable; automatic CPU
-  fallback if the GPU backend crashes. Decides in **three stages** (below) — fast enough for
-  a laptop without a GPU.
-- **openrouter** — a multimodal model (best quality); the key is stored globally.
+- **Low-power** — pure heuristics from filename, text start, file type and category names
+  (self-named/discovered categories work without hard-coded rules). Instant, free, no network,
+  no model — runs on any PC.
+- **Local** — AI on your own machine via Ollama (free & private); automatic CPU fallback if
+  the GPU backend crashes. Decides in **three stages** (see *How it works*) — fast enough for a
+  laptop without a GPU.
+- **Cloud** — AI via an API (OpenRouter, multimodal, best quality); the key is stored globally.
 
-Switching is config, not code. If the key is missing online, the client degrades cleanly to
-offline.
+Switching is config, not code. Without a key, cloud mode degrades cleanly to low-power mode.
+The old mode names (`offline`, `ollama`, `online`) keep working.
 
 ---
 
@@ -493,9 +495,9 @@ Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
 
 ## Privacy & security
 
-- **offline / ollama:** no document content ever leaves your machine.
-- **openrouter:** document content is sent for analysis (shown at onboarding) — exclude
-  confidential files via `.beeignore`/`exclude` or use offline mode.
+- **Low-power / local:** no document content ever leaves your machine.
+- **Cloud:** document content is sent for analysis (shown at onboarding) — exclude
+  confidential files via `.beeignore`/`exclude` or use low-power or local mode.
 - **No document content is ever logged** (`log.jsonl` holds metadata only).
 - **Move-only guarantee:** no code path deletes or overwrites a user file; deletion happens only
   through the confirmed `trash` → `empty` flow.
@@ -533,24 +535,20 @@ Planned for upcoming releases (see `TODO.md`):
   (two levels: an overarching project + category sub-projects), not only from a sorted category.
 - **Full English UI** — English command names shown in help and all runtime messages in EN mode
   (English aliases already work today).
-- **Real license activation** against a Merchant of Record + signed offline certificate.
-- **Release workflow**, and the renaming of the `pollysort` command to `pollysort`.
+- **An open model of our own** for local mode — small enough for low-power PCs, trained on
+  open synthetic data (research phase).
 
 ---
 
 ## FAQ
-
-**Why is the command `pollysort` and not `pollysort`?**
-The project was renamed to PollySort during the beta; the executable is still `pollysort` for now
-and will be renamed in a later release.
 
 **Does it delete my files?**
 No. It only moves them, with collision-safe names and undo. Deletion is a separate, confirmed
 quarantine step.
 
 **Do I need an API key or the internet?**
-No — the offline heuristic works with no key and no network. Ollama (local) or OpenRouter
-(online) are optional upgrades for higher quality.
+No — low-power mode works with no key, no network and no model. Local mode (Ollama) and
+cloud mode (OpenRouter) are optional upgrades for higher quality.
 
 **What's the bee theme about (`.honig`, "combs", "the Queen")?**
 Flavor. Internally the tool uses a beehive metaphor; it doesn't affect how you use it.

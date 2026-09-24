@@ -23,7 +23,7 @@ def test_doctor_runs_without_network(monkeypatch):
     checks = doctor.run_checks(None)
     assert isinstance(checks, list) and checks
     labels = {c[0] for c in checks}
-    assert {"Python", "KI-Provider"} <= labels
+    assert {"Python", "Modus"} <= labels
     assert "Lizenz" not in labels, "Der Kern ist Apache-2.0 — es gibt keinen Lizenzstatus mehr"
     assert "Modelle" not in labels, "Der Modell-Check gilt nur für Ollama"
     # Jeder Check hat einen gültigen Status.
@@ -48,8 +48,8 @@ def test_doctor_speaks_english(monkeypatch):
         checks = {c[0]: c for c in doctor.run_checks(None)}
     finally:
         i18n.set_language("de")
-    assert {"AI provider", "Database", "Memory"} <= set(checks)
-    assert checks["AI provider"][2] == "offline (heuristics, free)"
+    assert {"Mode", "Database", "Memory"} <= set(checks)
+    assert checks["Mode"][2] == "low-power (heuristics, free)"
     assert checks["Database"][2] == "no project active"
 
 
@@ -83,14 +83,14 @@ def test_doctor_fails_without_chat_model(monkeypatch):
 def test_doctor_models_ok_with_latest_tag(monkeypatch):
     checks = _ollama(monkeypatch, ["qwen3.5:9b", "nomic-embed-text-v2-moe:latest"])
     assert checks["Modelle"][1] == "ok"
-    assert checks["KI-Provider"][1] == "ok"
+    assert checks["Modus"][1] == "ok"
 
 
 def test_doctor_skips_model_check_when_server_is_down(monkeypatch):
     """Server aus → das meldet der Provider-Check; ein zweiter Fehler wäre nur Lärm."""
     checks = _ollama(monkeypatch, None)
     assert "Modelle" not in checks
-    assert checks["KI-Provider"][1] == "warn"
+    assert checks["Modus"][1] == "warn"
 
 
 def test_ollama_has_model_is_tag_tolerant():

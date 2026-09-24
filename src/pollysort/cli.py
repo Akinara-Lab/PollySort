@@ -49,7 +49,8 @@ def main(
     plain: bool = typer.Option(False, "--plain", help="Schmucklos (kein Emoji, keine Animation)."),
     no_emoji: bool = typer.Option(False, "--no-emoji", help="Emojis aus."),
     json_out: bool = typer.Option(False, "--json", help="Maschinen-Ausgabe (wo unterstützt)."),
-    offline: bool = typer.Option(False, "--offline", help="Ohne LLM (kostenfreie Heuristik)."),
+    offline: bool = typer.Option(False, "--offline", "--spar",
+                                 help="Sparmodus: ohne KI (Heuristik, kostenlos)."),
     version: bool = typer.Option(False, "--version", help="Version anzeigen."),
 ):
     if version:
@@ -111,14 +112,14 @@ def init(
 
     if cfg.llm_provider == "openrouter" and not config.load_credentials():
         con.info("Kein OpenRouter-Key gefunden.", "🔑")
-        key = typer.prompt("Bitte OpenRouter API-Key eingeben (leer = Offline-Modus)",
+        key = typer.prompt("Bitte OpenRouter API-Key eingeben (leer = Sparmodus)",
                            default="", hide_input=True)
         if key.strip():
             config.save_credentials(key)
             con.honey(f"Key gespeichert unter {config.CREDENTIALS_PATH} (chmod 600)", "✅")
         else:
             cfg.llm_provider = "offline"
-            con.info("Kein Key → Offline-Modus (heuristische Analyse, keine Kosten).", "🐝")
+            con.info("Kein Key → Sparmodus (heuristische Analyse, keine Kosten).", "🐝")
 
     config.save_config(cfg)
     Journal(hive_path).init_header(hive_path)

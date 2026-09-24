@@ -262,8 +262,7 @@ def _fallback_offline(ctx: Context) -> tuple[int, bool]:
     prior = ctx.client.usage.calls
     ctx.client = OfflineClient(ctx.seed.categories, wachstafel=Wachstafel(ctx.hive).text())
     ctx.memory_ok = None                  # anderes Embedding → Gedächtnis neu bewerten
-    ctx.console.info("KI wiederholt nicht erreichbar — der Rest des Laufs läuft über die "
-                     "Offline-Heuristik (kostenlos, kein Absturz).", "🛟")
+    ctx.console.info(i18n.t("pl.fallback"), "🛟")
     return prior, True
 
 

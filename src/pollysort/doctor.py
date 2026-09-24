@@ -51,7 +51,7 @@ def _provider_check(hive: Path | None) -> Check:
         return (label, "warn", i18n.t("doctor.prov.or_nokey"))
     from .llm.client import verify_openrouter_key
     ok, grund = verify_openrouter_key(key)
-    return (label, "ok" if ok else "fail", f"openrouter: {grund}")
+    return (label, "ok" if ok else "fail", i18n.t("doctor.prov.cloud", reason=grund))
 
 
 def _models_check(hive: Path | None) -> Check | None:
