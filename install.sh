@@ -7,7 +7,12 @@
 #
 #   bash install.sh              installieren
 #   bash install.sh --no-path    installieren, PATH NICHT anfassen
+#   bash install.sh --no-shortcut  ohne Programm-Starter (Menü / Programme / Desktop)
 #   bash install.sh --dry-run    nur zeigen, was passieren würde
+#
+# Der Programm-Starter öffnet die eigene Anwendung (pollysort-app): unter Linux ein
+# Eintrag im Anwendungsmenü, unter macOS ~/Applications/PollySort.app, unter Git-Bash
+# auf Windows Startmenü + Desktop. Immer nur für den aktuellen Benutzer.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -18,12 +23,14 @@ warn() { printf '   \033[33m!\033[0m %s\n' "$1"; }
 err()  { printf '   \033[31m✗ %s\033[0m\n' "$1" >&2; }
 
 TOUCH_PATH=1
+SHORTCUT=1
 DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
     --no-path) TOUCH_PATH=0 ;;
+    --no-shortcut) SHORTCUT=0 ;;
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) err "Unbekannte Option: $arg"; exit 2 ;;
   esac
 done
@@ -74,19 +81,40 @@ ok "Python $("$PY" -c 'import platform; print(platform.python_version())') gefun
 # --------------------------------------------------------------------------- #
 # 2) Installieren — bestes verfügbares Werkzeug
 # --------------------------------------------------------------------------- #
-say "Installiere PollySort (mit Text-Extraktion [extract]) …"
+SYSTEM="$(uname -s)"
+# Das Fenster-Extra [app] (pywebview) bringt unter Windows und macOS ein natives Fenster.
+# Unter Linux bräuchte es zusätzlich GTK- oder Qt-Bindungen aus der Distribution — dort
+# öffnet pollysort-app stattdessen ein randloses Chromium-/Edge-Fenster oder den Browser.
+case "$SYSTEM" in
+  Linux*) EXTRAS=".[extract]" ;;
+  *)      EXTRAS=".[extract,app]" ;;
+esac
+
+# Erst mit dem Extra versuchen; scheitert es, ohne [app] (die App hat Rückfallwege).
+install_mit() {
+  if [ "$DRY_RUN" = 1 ]; then info "[dry-run] $* $EXTRAS"; return 0; fi
+  if "$@" "$EXTRAS"; then return 0; fi
+  if [ "$EXTRAS" != ".[extract]" ]; then
+    warn "Extra [app] ließ sich nicht installieren — PollySort öffnet sich dann im Browser-Fenster."
+    "$@" ".[extract]"
+  else
+    return 1
+  fi
+}
+
+say "Installiere PollySort ($EXTRAS) …"
 BIN_DIR=""
 if command -v uv >/dev/null 2>&1; then
   ok "uv erkannt"
-  run uv tool install --force ".[extract]"
+  install_mit uv tool install --force
   BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 elif command -v pipx >/dev/null 2>&1; then
   ok "pipx erkannt"
-  run pipx install --force ".[extract]"
+  install_mit pipx install --force
   BIN_DIR="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "$HOME/.local/bin")"
 else
   ok "Weder uv noch pipx — verwende pip (Benutzer-Installation)"
-  run "$PY" -m pip install --user ".[extract]"
+  install_mit "$PY" -m pip install --user
   BIN_DIR="$("$PY" -c 'import site,os; print(os.path.join(site.getuserbase(), "bin"))')"
 fi
 info "Programme landen in: $BIN_DIR"
@@ -156,7 +184,85 @@ else
 fi
 
 # --------------------------------------------------------------------------- #
-# 4) Ergebnis
+# 4) Programm-Starter — PollySort wie ein normales Programm öffnen
+# --------------------------------------------------------------------------- #
+HOME_DIR="${POLLYSORT_HOME:-${BEEHIVE_HOME:-$HOME/.pollysort}}"
+SYMBOLE="src/pollysort/web/static"
+
+starter_linux() {
+  local apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+  local datei="$apps/pollysort.desktop"
+  if [ "$DRY_RUN" = 1 ]; then info "[dry-run] würde anlegen: $datei"; return 0; fi
+  mkdir -p "$apps" "$HOME_DIR"
+  cp "$SYMBOLE/pollysort.png" "$HOME_DIR/pollysort.png"
+  cat > "$datei" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=PollySort
+Comment=Lernender Dokumenten-Archivar
+Exec="$BIN_DIR/pollysort-app"
+Icon=$HOME_DIR/pollysort.png
+Terminal=false
+Categories=Office;Utility;
+StartupWMClass=PollySort
+X-PollySort=1
+DESKTOP
+  chmod 644 "$datei"
+  command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$apps" >/dev/null 2>&1 || true
+  ok "Starter im Anwendungsmenü: $datei"
+}
+
+starter_macos() {
+  local app="$HOME/Applications/PollySort.app"
+  if [ "$DRY_RUN" = 1 ]; then info "[dry-run] würde anlegen: $app"; return 0; fi
+  mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+  cp "$SYMBOLE/pollysort.icns" "$app/Contents/Resources/pollysort.icns"
+  cat > "$app/Contents/MacOS/PollySort" <<STARTER
+#!/bin/sh
+# PollySort-Starter (angelegt von install.sh)
+exec "$BIN_DIR/pollysort-app" "\$@"
+STARTER
+  chmod 755 "$app/Contents/MacOS/PollySort"
+  cat > "$app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>PollySort</string>
+  <key>CFBundleDisplayName</key><string>PollySort</string>
+  <key>CFBundleIdentifier</key><string>de.akinara.pollysort</string>
+  <key>CFBundleExecutable</key><string>PollySort</string>
+  <key>CFBundleIconFile</key><string>pollysort</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+</dict></plist>
+PLIST
+  ok "Programm angelegt: $app"
+}
+
+starter_windows() {
+  # Git-Bash auf Windows: dieselbe Verknüpfungs-Logik wie install.ps1.
+  local args=(-NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w tools/windows_verknuepfung.ps1)"
+              -Ziel "$(cygpath -w "$BIN_DIR/pollysort-app.exe")" -Icon "$(cygpath -w "$HOME_DIR/pollysort.ico")")
+  [ "$DRY_RUN" = 1 ] && args+=(-DryRun)
+  if [ "$DRY_RUN" = 0 ]; then mkdir -p "$HOME_DIR"; cp "$SYMBOLE/pollysort.ico" "$HOME_DIR/pollysort.ico"; fi
+  powershell.exe "${args[@]}" || warn "Verknüpfung konnte nicht angelegt werden — Start über:  pollysort-app"
+}
+
+STARTER=0
+if [ "$SHORTCUT" = 0 ]; then
+  warn "--no-shortcut gesetzt — kein Programm-Starter."
+else
+  say "Lege den Programm-Starter an …"
+  case "$SYSTEM" in
+    Linux*)                starter_linux && STARTER=1 ;;
+    Darwin*)               starter_macos && STARTER=1 ;;
+    MINGW*|MSYS*|CYGWIN*)  starter_windows && STARTER=1 ;;
+    *) info "Unbekanntes System ($SYSTEM) — Start über:  pollysort-app" ;;
+  esac
+fi
+
+# --------------------------------------------------------------------------- #
+# 5) Ergebnis
 # --------------------------------------------------------------------------- #
 say "Prüfe Installation …"
 if [ "$DRY_RUN" = 1 ]; then
@@ -165,7 +271,11 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 if command -v pollysort >/dev/null 2>&1; then
   ok "Befehl 'pollysort' verfügbar ($(pollysort-cli --version 2>/dev/null || echo 'bereit'))"
-  say "Fertig! Tippe einfach:  pollysort"
+  if [ "$STARTER" = 1 ]; then
+    say "Fertig! Starte PollySort über dein Programm-Menü — oder tippe:  pollysort"
+  else
+    say "Fertig! Tippe einfach:  pollysort   (eigenes Fenster:  pollysort-app)"
+  fi
 else
   err "'pollysort' ist in dieser Shell noch nicht auffindbar."
   info "Öffne ein neues Terminal — der PATH-Eintrag greift dort."

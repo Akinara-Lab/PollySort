@@ -9,6 +9,53 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — das Flugbrett: PollySort im Browser
+- **`pollysort-web`** (oder `oberflaeche` / `web` in der Konsole) startet eine lokale
+  Browser-Oberfläche auf demselben Kern: Zuhause, Flugloch (Vorschau → Anwenden mit Live-
+  Fortschritt), Rückfragen (Tasten 1–9 · ⏎ · s · v wie in der Konsole), Waben (Umsortieren per
+  Auswahl oder Ziehen), Schwarm & Kalender, Wachstafel & Gedächtnis, Quarantäne, Werkstatt und
+  ein Einrichtungs-Assistent, der auch den Erststart übernimmt.
+- **Retro-Pixel, aber ruhig:** eigene 5×7-Pixel-Schrift und Pixel-Sprites (selbst gezeichnet,
+  ohne Fremd-Schrift oder Downloads), Farb-Semantik aus der Konsole, Kontraste nach WCAG AA,
+  Hell/Dunkel/Automatik. Stil-Tafel unter `/musterbuch.html`.
+- **Gamification in Maßen:** Stufen und Abzeichen ausschließlich aus `spiel.py`; Animationen
+  nur dort, wo auch die Konsole reagiert, und abschaltbar (Voll · Dezent · Aus). Der
+  **Arbeitsmodus** stellt mit einem Klick auf dezent, blendet Fortschritt aus und setzt den
+  Klartext vor die Bienen-Begriffe.
+- **Keine neue Abhängigkeit:** Server aus der Standardbibliothek, nur `127.0.0.1`, Sitzungs-
+  Token, Host- und Origin-Prüfung, strenge Content-Security-Policy. Schlüssel und Flugrouten
+  zeigt der Browser nur maskiert — eingetragen werden sie weiter in der Konsole.
+- Dokumentation für das Team: `docs/flugbrett.md` (Begriffe, Gestaltung, Technik, Testplan).
+
+### Hinzugefügt — PollySort als eigene Anwendung
+- **`pollysort-app`** (oder `anwendung` / `app` in der Konsole): das Flugbrett im eigenen
+  Programmfenster statt im Browser-Tab. Natives Fenster über das optionale Extra **`[app]`**
+  (pywebview), sonst ein randloses Edge-/Chrome-App-Fenster, notfalls der Browser.
+  **Fenster zu = PollySort beendet** (Server und Wache fahren herunter).
+- Unter Windows ein **GUI-Programm ohne Konsolenfenster** mit eigenem Symbol und eigener
+  App-Kennung in der Taskleiste; Diagnose in `~/.pollysort/app.log`, Startfehler als
+  Meldungsfenster.
+- **Installer legen Starter an:** Startmenü + Desktop (Windows, auch aus Git-Bash), Eintrag im
+  Anwendungsmenü (Linux), `~/Applications/PollySort.app` (macOS) — abschaltbar mit
+  `--no-shortcut` / `-NoShortcut`. Die Deinstaller entfernen nur, was erkennbar von PollySort
+  stammt (Verknüpfung, Symbol, Fensterprofil).
+- **App-Symbol** aus der Pixel-Biene (`.ico`, `.png`, `.icns`), reproduzierbar mit
+  `python tools/app_icon.py`.
+- Der Ereignisstrom bemerkt geschlossene Fenster jetzt binnen Sekunden statt erst beim nächsten
+  Lebenszeichen.
+
+### Geändert
+- `CycleSummary.plan` hält je Datei fest, was ein Lauf getan hat bzw. tun würde (nur
+  Metadaten) — Grundlage der Liste „Datei → Wabe" im Browser.
+- Fortschritt buchen ist jetzt eine gemeinsame Funktion (`spiel.buchen`) für Konsole und Browser.
+- Beantwortete **Rückfragen zählen als beigebrachte Korrektur** (Abzeichen „Lehrmeister"),
+  genau wie `zuordnen` — jede Antwort trainiert das Gedächtnis.
+
+### Behoben
+- **„Weise Königin" war unerreichbar:** Die Konsole fragte `Wachstafel.rules()` ab, die
+  Methode heißt `regeln()`; der Fehler wurde still geschluckt und die Zahl der gelernten Regeln
+  kam nie im Fortschritt an.
+
 ### Geändert — alle offenen Punkte aus TEIL 3 der TODO
 - **Vollständig zweisprachig:** alle 155 Befehlsmeldungen der Konsole und die Ausgaben von
   Rückfragen, Daemon, Wächter-/Baubienen, Scan und Empfehlungen laufen über `i18n.t()`. Ein

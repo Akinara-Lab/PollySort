@@ -6,14 +6,18 @@
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #   .\install.ps1 -NoPath      installieren, PATH nicht anfassen
+#   .\install.ps1 -NoShortcut  keine Verknuepfungen im Startmenue / auf dem Desktop
 #   .\install.ps1 -DryRun      nur zeigen, was passieren würde
 #
 # Der PATH wird ausschließlich im BENUTZER-Bereich geändert (HKCU) — nie systemweit,
-# und Administratorrechte sind nicht nötig.
+# und Administratorrechte sind nicht nötig. Dasselbe gilt für die Verknüpfungen
+# „PollySort" im Startmenü und auf dem Desktop: Sie starten die eigene Anwendung
+# (pollysort-app) und liegen nur im Profil des aktuellen Benutzers.
 # ---------------------------------------------------------------------------
 [CmdletBinding()]
 param(
     [switch]$NoPath,
+    [switch]$NoShortcut,
     [switch]$DryRun
 )
 
@@ -98,23 +102,34 @@ Ok "Python $pyAnyVer gefunden ($py)"
 # --------------------------------------------------------------------------- #
 # 2) Installieren
 # --------------------------------------------------------------------------- #
-Say 'Installiere PollySort (mit Text-Extraktion [extract]) ...'
+Say 'Installiere PollySort (mit Text-Extraktion [extract] und eigenem Fenster [app]) ...'
 $binDir = $null
+
+# Erst mit dem Fenster-Extra [app] (pywebview) versuchen. Scheitert das - etwa weil es
+# fuer diese Python-Version noch kein passendes Paket gibt -, ohne: Die Anwendung
+# oeffnet sich dann im randlosen Edge-Fenster statt im nativen.
+function Install-Mit($exe, [string[]]$vorne) {
+    if ($DryRun) { Info "[dry-run] $exe $($vorne -join ' ') .[extract,app]"; return }
+    $r = Invoke-Tool $exe ($vorne + @('.[extract,app]'))
+    if ($r.Code -eq 0) { Ok 'mit eigenem Programmfenster [app]'; return }
+    Warn 'Extra [app] liess sich nicht installieren - PollySort oeffnet sich dann im Edge-Fenster.'
+    Invoke-Tool $exe ($vorne + @('.[extract]')) | Out-Null
+}
 
 if (Has-Command 'uv') {
     Ok 'uv erkannt'
-    if (-not $DryRun) { Invoke-Tool 'uv' @('tool', 'install', '--force', '.[extract]') | Out-Null }
+    Install-Mit 'uv' @('tool', 'install', '--force')
     $binDir = Join-Path $env:USERPROFILE '.local\bin'
 }
 elseif (Has-Command 'pipx') {
     Ok 'pipx erkannt'
-    if (-not $DryRun) { Invoke-Tool 'pipx' @('install', '--force', '.[extract]') | Out-Null }
+    Install-Mit 'pipx' @('install', '--force')
     $binDir = (Invoke-Tool 'pipx' @('environment', '--value', 'PIPX_BIN_DIR')).Ausgabe.Trim()
     if (-not $binDir) { $binDir = Join-Path $env:USERPROFILE '.local\bin' }
 }
 else {
     Ok 'Weder uv noch pipx - verwende pip (Benutzer-Installation)'
-    if (-not $DryRun) { Invoke-Tool $py @('-m', 'pip', 'install', '--user', '.[extract]') | Out-Null }
+    Install-Mit $py @('-m', 'pip', 'install', '--user')
     $userBase = (Invoke-Tool $py @('-c', 'import site; print(site.getuserbase())')).Ausgabe.Trim()
     $binDir = Join-Path $userBase 'Scripts'
 }
@@ -159,7 +174,29 @@ else {
 if ($binDir -and ($env:Path -notlike "*$binDir*")) { $env:Path = "$binDir;$env:Path" }
 
 # --------------------------------------------------------------------------- #
-# 4) Ergebnis
+# 4) Verknuepfungen - PollySort wie ein normales Programm starten
+# --------------------------------------------------------------------------- #
+$verknuepft = $false
+if ($NoShortcut) {
+    Warn '-NoShortcut gesetzt - keine Verknuepfungen.'
+}
+else {
+    Say 'Lege Verknuepfungen an (Startmenue + Desktop) ...'
+    $homeDir = $env:POLLYSORT_HOME
+    if (-not $homeDir) { $homeDir = Join-Path $env:USERPROFILE '.pollysort' }
+    $ico = Join-Path $homeDir 'pollysort.ico'
+    if (-not $DryRun) {
+        # Das Symbol liegt neben den Einstellungen - unabhaengig davon, wohin uv/pipx installieren.
+        New-Item -ItemType Directory -Force -Path $homeDir | Out-Null
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src\pollysort\web\static\pollysort.ico') -Destination $ico -Force
+    }
+    $app = Join-Path $binDir 'pollysort-app.exe'
+    & (Join-Path $PSScriptRoot 'tools\windows_verknuepfung.ps1') -Ziel $app -Icon $ico -DryRun:$DryRun
+    $verknuepft = ($LASTEXITCODE -eq 0)
+}
+
+# --------------------------------------------------------------------------- #
+# 5) Ergebnis
 # --------------------------------------------------------------------------- #
 Say 'Pruefe Installation ...'
 if ($DryRun) {
@@ -170,7 +207,12 @@ if (Has-Command 'pollysort') {
     $ver = (Invoke-Tool 'pollysort-cli' @('--version')).Ausgabe.Trim()
     if (-not $ver) { $ver = 'bereit' }
     Ok "Befehl 'pollysort' verfuegbar ($ver)"
-    Say 'Fertig! Tippe einfach:  pollysort'
+    if ($verknuepft) {
+        Say 'Fertig! Starte PollySort ueber das Startmenue oder den Desktop - oder tippe:  pollysort'
+    }
+    else {
+        Say 'Fertig! Tippe einfach:  pollysort   (eigenes Fenster:  pollysort-app)'
+    }
     exit 0
 }
 else {

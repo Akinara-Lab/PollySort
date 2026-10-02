@@ -42,6 +42,10 @@ class CycleSummary:
     by_category: dict[str, int] = field(default_factory=dict)
     #: Wer entschieden hat: gedaechtnis · nummer · analyse (Plan §8.3).
     quellen: dict[str, int] = field(default_factory=dict)
+    #: Je Datei, was passiert ist (bzw. bei einer Vorschau passieren würde) — nur Metadaten:
+    #: Name, Wabe, Konfidenz, Status, Ziel. Die Browser-Oberfläche (``web/``) zeigt daraus
+    #: die Liste „Datei → Wabe"; die Konsole fasst weiter über ``by_category`` zusammen.
+    plan: list[dict] = field(default_factory=list)
 
     def exit_code(self) -> int:
         # §19: 0 ok · 2 offene Rückfragen · 3 Fehler-Einträge
@@ -299,6 +303,9 @@ def _process_one(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSum
         else:
             store.add_duplicate_path(existing["id"], str(f.path))
             summary.duplicates += 1
+            summary.plan.append({"id": existing["id"], "datei": f.path.name,
+                                 "kategorie": existing.get("kategorie"), "konfidenz": None,
+                                 "status": "dublette", "ziel": None})
             con.info(i18n.t("pl.duplicate", name=f.path.name), "🛡️")
         return
 
@@ -379,9 +386,14 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # -- Move: NUR sicher zugeordnete Dateien wandern in ihren Kategorie-Ordner.
     # Unsichere (needs_review) und Fehlerfälle bleiben liegen — so sind die einzigen
     # losen Dateien im Root genau die, die noch deine Aufmerksamkeit brauchen.
+    ziel = None
     if mode == "move" and entry.status == Status.ASSIGNED:
         dest = mover.move(ctx.hive, entry, dry_run=dry_run,
                           subrouting=getattr(ctx.seed, "subrouting", None))
+        try:                      # nur Anzeige — darf den Move nie gefährden
+            ziel = dest.relative_to(ctx.hive).as_posix()
+        except ValueError:
+            ziel = dest.name
         if dry_run:
             con.info(i18n.t("pl.dry_move", name=f.path.name,
                               dest=dest.relative_to(ctx.hive)), "🧪")
@@ -405,6 +417,10 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     if not dry_run and vorab.kurz and entry.status.value in nacherfassung.ZUSTAENDE:
         nacherfassung.vormerken(ctx.hive, [entry.id])
 
+    summary.plan.append({"id": entry.id, "datei": entry.filename,
+                         "kategorie": entry.funktion.kategorie,
+                         "konfidenz": round(float(entry.confidence or 0.0), 3),
+                         "status": entry.status.value, "ziel": ziel})
     _tally(con, entry, reason, summary)
     return entry
 

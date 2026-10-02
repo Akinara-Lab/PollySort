@@ -1600,7 +1600,583 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "Die neue Analyse sagt {new} statt {old}. Umsortieren? [J/n]: ",
         "en": "The new analysis says {new} instead of {old}. Re-file? [Y/n]: ",
     },
+
+    # ------------------------------------------------------------------ #
+    #  Flugbrett — die Browser-Oberfläche (web/). Bienen-Begriff + Klartext,
+    #  ohne Konsolen-Befehle in den Sätzen (die Seite hat Knöpfe statt Kürzeln).
+    # ------------------------------------------------------------------ #
+    "web.nav": {"de": "Navigation", "en": "Navigation"},
+    "web.nav.home": {"de": "Zuhause", "en": "Home"},
+    "web.nav.home.k": {"de": "Übersicht", "en": "Overview"},
+    "web.nav.inbox": {"de": "Flugloch", "en": "Entrance"},
+    "web.nav.inbox.k": {"de": "Eingang sortieren", "en": "Sort the inbox"},
+    "web.nav.review": {"de": "Rückfragen", "en": "Review"},
+    "web.nav.review.k": {"de": "Unsichere Fälle", "en": "Unsure files"},
+    "web.nav.combs": {"de": "Waben", "en": "Combs"},
+    "web.nav.combs.k": {"de": "Kategorien", "en": "Categories"},
+    "web.nav.swarm": {"de": "Schwarm", "en": "Swarm"},
+    "web.nav.swarm.k": {"de": "Überblick & Termine", "en": "Overview & deadlines"},
+    "web.nav.rules": {"de": "Wachstafel", "en": "Wax tablet"},
+    "web.nav.rules.k": {"de": "Gelernte Regeln", "en": "Learned rules"},
+    "web.nav.trash": {"de": "Quarantäne", "en": "Quarantine"},
+    "web.nav.trash.k": {"de": "Aussortiertes", "en": "Set aside"},
+    "web.nav.workshop": {"de": "Werkstatt", "en": "Workshop"},
+    "web.nav.workshop.k": {"de": "Einstellungen", "en": "Settings"},
+    "web.skip": {"de": "Zum Inhalt springen", "en": "Skip to content"},
+    "web.project": {"de": "Projekt", "en": "Project"},
+    "web.project.new": {"de": "Neues Projekt einrichten …", "en": "Set up a new project …"},
+    "web.mode.title": {
+        "de": "KI-Modus dieses Projekts — in der Werkstatt änderbar",
+        "en": "AI mode of this project — change it in the workshop",
+    },
+    "web.watch.off": {"de": "Wache aus", "en": "Watch off"},
+    "web.watch.notify": {"de": "Wache meldet", "en": "Watch: notify"},
+    "web.watch.move": {"de": "Wache sortiert", "en": "Watch: sorting"},
+    "web.watch.pause": {"de": "Wache pausieren", "en": "Pause the watch"},
+    "web.watch.resume": {"de": "Wache am Flugloch aufstellen", "en": "Post the watch at the entrance"},
+    "web.watchmode.off": {"de": "aus", "en": "off"},
+    "web.watchmode.notify": {"de": "nur melden", "en": "notify only"},
+    "web.watchmode.move": {"de": "sofort sortieren", "en": "sort immediately"},
+    "web.undo": {"de": "Rückflug", "en": "Undo"},
+    "web.undo.title": {
+        "de": "Rückflug: die letzte Verschiebung rückgängig machen",
+        "en": "Undo the last move",
+    },
+    "web.undo.done": {"de": "Rückflug gelandet", "en": "Move undone"},
+    "web.count": {"de": "{n} offen", "en": "{n} open"},
+    "web.log": {"de": "Protokoll", "en": "Log"},
+    "web.log.title": {"de": "Bienen-Protokoll", "en": "Bee log"},
+    "web.log.empty": {"de": "Noch ist nichts passiert.", "en": "Nothing has happened yet."},
+    "web.polly.hello": {"de": "Die Bienen sind bereit.", "en": "The bees are ready."},
+    "web.active": {"de": "aktiv", "en": "active"},
+    "web.welcome": {"de": "Willkommen", "en": "Welcome"},
+    "web.setup.start": {"de": "Projekt einrichten", "en": "Set up a project"},
+    "web.btn.preview": {"de": "Vorschau zeigen", "en": "Show preview"},
+    "web.btn.sort": {"de": "Jetzt sortieren", "en": "Sort now"},
+    "web.btn.apply": {"de": "Anwenden", "en": "Apply"},
+    "web.btn.discard": {"de": "Verwerfen", "en": "Discard"},
+    "web.btn.answer": {"de": "Beantworten", "en": "Answer"},
+    "web.btn.combs": {"de": "Waben ansehen", "en": "Open combs"},
+    "web.btn.show": {"de": "Ansehen", "en": "Show"},
+    "web.btn.calendar": {"de": "Zum Kalender", "en": "Open calendar"},
+    "web.btn.open": {"de": "Öffnen", "en": "Open"},
+    "web.btn.open_existing": {"de": "Bestehendes Projekt öffnen", "en": "Open the existing project"},
+    "web.btn.home": {"de": "Zur Übersicht", "en": "Back to overview"},
+    "web.btn.accept": {"de": "Vorschlag übernehmen", "en": "Accept suggestion"},
+    "web.btn.accept_short": {"de": "Übernehmen", "en": "Accept"},
+    "web.btn.skip": {"de": "Überspringen", "en": "Skip"},
+    "web.btn.view": {"de": "Datei ansehen", "en": "View file"},
+    "web.btn.newcomb": {"de": "In neue Wabe", "en": "New comb"},
+    "web.btn.reanalyze": {"de": "Neu analysieren", "en": "Re-analyse"},
+    "web.btn.quarantine": {"de": "In die Quarantäne", "en": "Move to quarantine"},
+    "web.btn.save": {"de": "Speichern", "en": "Save"},
+    "web.btn.remove": {"de": "Entfernen", "en": "Remove"},
+    "web.btn.keep": {"de": "Behalten", "en": "Keep"},
+    "web.btn.charter": {"de": "Projekt bauen", "en": "Build project"},
+    "web.btn.notify": {"de": "Wächterbienen ausschicken", "en": "Send the guard bees"},
+    "web.btn.reflect": {"de": "Regeln aus Korrekturen ableiten", "en": "Derive rules from corrections"},
+    "web.btn.inscribe": {"de": "In die Wachstafel ritzen", "en": "Inscribe on the tablet"},
+    "web.btn.wipe": {"de": "Wachstafel abwischen", "en": "Wipe the tablet"},
+    "web.btn.rebuild": {"de": "Gedächtnis neu aufbauen", "en": "Rebuild memory"},
+    "web.btn.restore": {"de": "Zurückholen", "en": "Restore"},
+    "web.btn.dups": {"de": "{n} Dublette(n) in die Quarantäne", "en": "Move {n} duplicate(s) to quarantine"},
+    "web.btn.empty": {"de": "Quarantäne endgültig leeren …", "en": "Empty quarantine for good …"},
+    "web.btn.check_modes": {"de": "Verfügbarkeit prüfen", "en": "Check availability"},
+    "web.btn.check": {"de": "Stock-Check starten", "en": "Run hive check"},
+    "web.btn.check_path": {"de": "Ordner prüfen", "en": "Check folder"},
+    "web.btn.scout": {"de": "Spähbienen ausschicken", "en": "Send out the scout bees"},
+    "web.btn.back": {"de": "Zurück", "en": "Back"},
+    "web.btn.next": {"de": "Weiter", "en": "Next"},
+    "web.btn.setup": {"de": "Projekt einrichten", "en": "Set up project"},
+    "web.btn.cancel": {"de": "Abbrechen", "en": "Cancel"},
+    "web.btn.ok": {"de": "Ja, weiter", "en": "Yes, continue"},
+    "web.btn.close": {"de": "Schließen", "en": "Close"},
+    "web.btn.import": {"de": "Importieren", "en": "Import"},
+    "web.btn.scan": {"de": "Ordner scannen", "en": "Scan folder"},
+    "web.btn.move": {"de": "Umsortieren", "en": "Re-file"},
+    "web.st.assigned": {"de": "einsortiert", "en": "filed"},
+    "web.st.indexed": {"de": "erfasst", "en": "indexed"},
+    "web.st.needs_review": {"de": "Rückfrage", "en": "to review"},
+    "web.st.error": {"de": "Fehler", "en": "Errors"},
+    "web.st.dublette": {"de": "Dublette", "en": "duplicate"},
+    "web.st.quarantined": {"de": "Quarantäne", "en": "quarantined"},
+    "web.st.missing": {"de": "verschwunden", "en": "missing"},
+    "web.st.superseded": {"de": "ersetzt", "en": "superseded"},
+    "web.st.pending": {"de": "in Arbeit", "en": "in progress"},
+    "web.st.plan": {"de": "wird einsortiert", "en": "will be filed"},
+    "web.home.inbox": {"de": "Eingang", "en": "Inbox"},
+    "web.home.inbox.some": {
+        "de": "lose Datei(en) warten aufs Sortieren",
+        "en": "loose file(s) waiting to be sorted",
+    },
+    "web.home.review.some": {
+        "de": "Dateien sind unsicher — ordne sie kurz selbst zu.",
+        "en": "files are unsure — assign them yourself in a moment.",
+    },
+    "web.home.sorted": {"de": "Dateien in {n} Waben", "en": "files in {n} combs"},
+    "web.home.errors": {"de": "Dateien konnten nicht gelesen werden.", "en": "files could not be read."},
+    "web.home.deadlines": {
+        "de": "Deadline(s) in den nächsten 7 Tagen",
+        "en": "deadline(s) within the next 7 days",
+    },
+    "web.stock.only_real": {
+        "de": "Zählt nur echte Arbeit — Öffnen und Vorschau zählen nicht.",
+        "en": "Only real work counts — opening the app or previewing doesn't.",
+    },
+    "web.stock.earned": {"de": "verdient", "en": "earned"},
+    "web.stock.open": {"de": "noch offen", "en": "not yet earned"},
+    "web.inbox.loose": {"de": "lose Dateien", "en": "loose files"},
+    "web.inbox.explain": {
+        "de": "Die Vorschau zeigt, wohin jede Datei käme — verschoben wird erst nach „Anwenden“, ohne "
+              "zweite KI-Anfragen. Unsichere Dateien bleiben liegen und landen in den Rückfragen. Nichts "
+              "wird gelöscht; der Rückflug macht jede Verschiebung rückgängig.",
+        "en": "The preview shows where each file would go — nothing moves until you apply it, and applying "
+              "costs no second AI calls. Unsure files stay put and go to review. Nothing is deleted; undo "
+              "reverses any move.",
+    },
+    "web.inbox.files": {"de": "Im Eingang", "en": "In the inbox"},
+    "web.turbo": {"de": "Ultra Swarm — viele Dateien parallel", "en": "Ultra Swarm — many files in parallel"},
+    "web.tools": {"de": "Weitere Werkzeuge: Import & Scan", "en": "More tools: import & scan"},
+    "web.import.title": {"de": "Aus einem anderen Ordner importieren", "en": "Import from another folder"},
+    "web.import.label": {"de": "Ordner", "en": "Folder"},
+    "web.scan.title": {"de": "Handarbeit erkennen", "en": "Detect manual changes"},
+    "web.scan.result": {
+        "de": "{neu} neu · {geaendert} geändert · {verschoben} verschoben · {verschwunden} verschwunden · "
+              "{gelernt} gelernt",
+        "en": "{neu} new · {geaendert} changed · {verschoben} moved · {verschwunden} missing · {gelernt} "
+              "learned",
+    },
+    "web.run.preview": {
+        "de": "Spurbienen schauen nach — nichts wird bewegt …",
+        "en": "Scout bees are looking — nothing is moved …",
+    },
+    "web.run.sort": {"de": "Spurbienen fliegen aus …", "en": "Scout bees are flying out …"},
+    "web.run.preview.title": {"de": "Vorschau läuft", "en": "Preview running"},
+    "web.run.sort.title": {"de": "Sortierlauf", "en": "Sorting run"},
+    "web.preview.title": {"de": "Vorschau: Datei → Wabe", "en": "Preview: file → comb"},
+    "web.preview.would": {"de": "{n} würden einsortiert", "en": "{n} would be filed"},
+    "web.preview.review": {"de": "{n} Rückfrage(n)", "en": "{n} to review"},
+    "web.preview.dups": {"de": "{n} Dublette(n)", "en": "{n} duplicate(s)"},
+    "web.preview.errors": {"de": "{n} Fehler", "en": "{n} error(s)"},
+    "web.preview.cache": {
+        "de": "„Anwenden“ nutzt diese Analyse noch einmal — es entstehen keine zweiten KI-Anfragen.",
+        "en": "Applying reuses this analysis — there are no second AI calls.",
+    },
+    "web.result.title": {"de": "Ergebnis des Sortierlaufs", "en": "Sorting result"},
+    "web.result.none": {"de": "Diesmal wurde nichts einsortiert.", "en": "Nothing was filed this time."},
+    "web.col.target": {"de": "Ziel-Wabe", "en": "Target comb"},
+    "web.col.confidence": {"de": "Sicherheit", "en": "Confidence"},
+    "web.col.status": {"de": "Status", "en": "Status"},
+    "web.col.size": {"de": "Größe", "en": "Size"},
+    "web.col.changed": {"de": "Geändert", "en": "Modified"},
+    "web.col.date": {"de": "Erfasst", "en": "Captured"},
+    "web.col.actions": {"de": "Aktionen", "en": "Actions"},
+    "web.review.case": {"de": "Fall {i} von {n}", "en": "Case {i} of {n}"},
+    "web.review.function": {"de": "Funktion", "en": "Purpose"},
+    "web.review.suggestion": {"de": "Vorschlag", "en": "Suggestion"},
+    "web.review.nosuggestion": {"de": "Kein sicherer Vorschlag", "en": "No confident suggestion"},
+    "web.review.summary": {"de": "Kurzfassung", "en": "Summary"},
+    "web.review.which": {
+        "de": "In welche Wabe gehört die Datei?",
+        "en": "Which comb does this file belong in?",
+    },
+    "web.review.newcomb": {"de": "Neue Wabe, z. B. versicherungen", "en": "New comb, e.g. insurance"},
+    "web.review.learns": {
+        "de": "Jede Antwort trainiert das Gedächtnis.",
+        "en": "Every answer trains the memory.",
+    },
+    "web.review.learned": {"de": "Gelernt: → {cat}", "en": "Learned: → {cat}"},
+    "web.review.alldone": {
+        "de": "Alle Rückfragen beantwortet — das Gedächtnis hat dazugelernt.",
+        "en": "All questions answered — the memory has learned.",
+    },
+    "web.combs.all": {"de": "Alle Waben ({n})", "en": "All combs ({n})"},
+    "web.combs.total": {"de": "{n} Dateien einsortiert", "en": "{n} files filed"},
+    "web.combs.count": {"de": "{n} Einträge", "en": "{n} entries"},
+    "web.combs.project": {"de": "Projekt", "en": "Project"},
+    "web.combs.search": {"de": "Titel, Stichwort, Inhalt …", "en": "Title, keyword, content …"},
+    "web.combs.search_hits": {"de": "Treffer für „{q}“", "en": "Results for “{q}”"},
+    "web.combs.move": {"de": "Umsortieren nach …", "en": "Re-file to …"},
+    "web.combs.drag": {
+        "de": "Tipp: Einen Eintrag auf eine Wabe ziehen sortiert ihn um — PollySort lernt daraus eine Regel.",
+        "en": "Tip: drag an entry onto a comb to re-file it — PollySort learns a rule from it.",
+    },
+    "web.combs.pattern": {"de": "Muster", "en": "Pattern"},
+    "web.charter.title": {
+        "de": "Wabenbau — aus der Wabe ein Projekt machen",
+        "en": "Charter — turn this comb into a project",
+    },
+    "web.charter.who": {
+        "de": "Zuständig (Namen, durch Komma getrennt)",
+        "en": "Responsible (names, comma-separated)",
+    },
+    "web.charter.goal": {"de": "Projektziel (ein Satz)", "en": "Project goal (one sentence)"},
+    "web.charter.deadline": {"de": "Deadline", "en": "Deadline"},
+    "web.charter.built": {
+        "de": "Baubienen haben gebaut — es gibt noch offene Aufgaben.",
+        "en": "Builder bees are done — some tasks are still open.",
+    },
+    "web.reana.title": {"de": "Neu einordnen?", "en": "Re-file?"},
+    "web.reana.text": {
+        "de": "Die neue Analyse sagt {new} statt {old}. Soll die Datei umziehen?",
+        "en": "The new analysis says {new} instead of {old}. Move the file?",
+    },
+    "web.role.queen": {"de": "Königin", "en": "Queen"},
+    "web.role.queen.text": {
+        "de": "Steuert den Schwarm: {waben} Waben, {docs} Dokumente im Katalog.",
+        "en": "Coordinates the swarm: {waben} combs, {docs} documents in the catalogue.",
+    },
+    "web.role.scouts": {"de": "Spurbienen", "en": "Scout bees"},
+    "web.role.scouts.text": {
+        "de": "Sortieren den Eingang. Offen: {review} Rückfrage(n), {errors} Fehler.",
+        "en": "Sort the inbox. Open: {review} to review, {errors} error(s).",
+    },
+    "web.role.builders": {"de": "Baubienen", "en": "Builder bees"},
+    "web.role.builders.text": {
+        "de": "Machen aus Waben Projekte mit Steckbrief (Bienenstock.md) und Deadlines.",
+        "en": "Turn combs into projects with a charter (Bienenstock.md) and deadlines.",
+    },
+    "web.role.guards": {"de": "Wächterbienen", "en": "Guard bees"},
+    "web.role.guards.routes": {
+        "de": "Deadlines in den nächsten 7 Tagen — sie melden sich über deine Flugrouten.",
+        "en": "Deadlines within the next 7 days — reported via your notification routes.",
+    },
+    "web.role.guards.noroutes": {
+        "de": "Deadlines in den nächsten 7 Tagen. Ohne Flugrouten melden sich die Wächterbienen nur hier.",
+        "en": "Deadlines within the next 7 days. Without notification routes the guard bees only report "
+              "here.",
+    },
+    "web.role.foragers": {"de": "Sammelbienen", "en": "Forager bees"},
+    "web.role.foragers.text": {
+        "de": "Merken sich, wo du welche Wabe tatsächlich ablegst.",
+        "en": "Remember where you actually keep each comb.",
+    },
+    "web.cal.hint": {
+        "de": "Deadlines entstehen beim Wabenbau. Die Datei .honig/kalender.ics lässt sich in Outlook, "
+              "Google oder Apple Kalender abonnieren.",
+        "en": "Deadlines come from building a charter. The file .honig/kalender.ics can be subscribed to "
+              "in Outlook, Google or Apple Calendar.",
+    },
+    "web.cal.sent": {
+        "de": "Wächterbienen haben nachgesehen: {n} fällige Deadline(s).",
+        "en": "Guard bees checked: {n} deadline(s) due.",
+    },
+    "web.recommend.title": {"de": "Empfehlungen für die Ablage", "en": "Filing recommendations"},
+    "web.recommend.para": {"de": "PARA", "en": "PARA"},
+    "web.recommend.johnny": {"de": "Johnny Decimal", "en": "Johnny Decimal"},
+    "web.recommend.dewey": {"de": "Dewey", "en": "Dewey"},
+    "web.rules.none": {
+        "de": "Noch keine Regeln. Korrigiere Zuordnungen (Rückfragen, Umsortieren) — daraus leitet die "
+              "Königin Regeln ab.",
+        "en": "No rules yet. Correct some assignments (review, re-filing) — the queen derives rules from "
+              "them.",
+    },
+    "web.rules.corrections": {"de": "{n} Korrektur(en) bisher", "en": "{n} correction(s) so far"},
+    "web.rules.safe": {
+        "de": "Sicher und projektgebunden: Es wird nie Code erzeugt, nur diese Textdatei "
+              "(.honig/wachstafel.md). Die Regeln gelten nur in diesem Projekt.",
+        "en": "Safe and project-scoped: no code is ever generated, only this text file "
+              "(.honig/wachstafel.md). The rules apply only within this project.",
+    },
+    "web.rules.from": {"de": "aus {n} Korrektur(en)", "en": "from {n} correction(s)"},
+    "web.rules.confirm": {
+        "de": "Alle gelernten Regeln werden verworfen. Deine Korrekturen bleiben erhalten — die Königin "
+              "kann die Regeln später neu ableiten.",
+        "en": "All learned rules will be discarded. Your corrections are kept — the queen can derive the "
+              "rules again later.",
+    },
+    "web.memory.title": {"de": "Gedächtnis", "en": "Memory"},
+    "web.memory.vectors": {"de": "{n} Dokumente im Gedächtnis", "en": "{n} documents in memory"},
+    "web.memory.proposals": {"de": "Vorschläge der Königin", "en": "The queen's proposals"},
+    "web.memory.rebuild": {
+        "de": "Alle einsortierten Einträge werden mit dem aktuellen Modell neu eingebettet. Das dauert "
+              "einen Moment.",
+        "en": "All filed entries are re-embedded with the current model. This takes a moment.",
+    },
+    "web.trash.explain": {
+        "de": "Hier liegt, was du aussortiert hast. Nichts davon ist gelöscht — du kannst alles "
+              "zurückholen, bis du die Quarantäne ausdrücklich leerst.",
+        "en": "This is what you have set aside. None of it is deleted — you can restore everything until "
+              "you explicitly empty the quarantine.",
+    },
+    "web.trash.items": {"de": "In der Quarantäne", "en": "In quarantine"},
+    "web.trash.dups": {"de": "Dubletten", "en": "Duplicates"},
+    "web.trash.original": {"de": "Original: {orig} ({cat})", "en": "Original: {orig} ({cat})"},
+    "web.trash.danger": {"de": "Endgültig löschen", "en": "Delete for good"},
+    "web.trash.danger.text": {
+        "de": "{n} Datei(en) liegen in der Quarantäne. Leeren löscht sie unwiderruflich — der einzige Weg, "
+              "auf dem PollySort überhaupt etwas löscht.",
+        "en": "{n} file(s) are in quarantine. Emptying deletes them permanently — the only way PollySort "
+              "ever deletes anything.",
+    },
+    "web.trash.confirm": {
+        "de": "{n} Datei(en) werden unwiderruflich gelöscht. Dafür gibt es keinen Rückflug.",
+        "en": "{n} file(s) will be deleted permanently. There is no undo for this.",
+    },
+    "web.trash.type": {
+        "de": "Zur Bestätigung die Anzahl eintippen: {n}",
+        "en": "Type the number to confirm: {n}",
+    },
+    "web.dup.confirm": {
+        "de": "{n} Dublette(n) in die Quarantäne verschieben? Gelöscht wird dabei nichts.",
+        "en": "Move {n} duplicate(s) to quarantine? Nothing is deleted.",
+    },
+    "web.ws.look": {"de": "Darstellung", "en": "Appearance"},
+    "web.ws.workmode": {"de": "Arbeitsmodus", "en": "Work mode"},
+    "web.ws.workmode.text": {
+        "de": "Für den Büroalltag: dezente Animationen, Stufen und Abzeichen ausgeblendet, Klartext vor "
+              "den Bienen-Begriffen.",
+        "en": "For the working day: subtle animations, levels and badges hidden, plain words before the "
+              "bee terms.",
+    },
+    "web.ws.workmode.on": {"de": "Arbeitsmodus ist an", "en": "Work mode is on"},
+    "web.ws.workmode.off": {"de": "Arbeitsmodus einschalten", "en": "Turn on work mode"},
+    "web.ws.theme": {"de": "Thema", "en": "Theme"},
+    "web.ws.language": {"de": "Sprache", "en": "Language"},
+    "web.lang.de": {"de": "Deutsch", "en": "Deutsch"},
+    "web.lang.en": {"de": "English", "en": "English"},
+    "web.ws.anim": {"de": "Animationen", "en": "Animations"},
+    "web.anim.voll": {"de": "Voll", "en": "Full"},
+    "web.anim.dezent": {"de": "Dezent", "en": "Subtle"},
+    "web.anim.aus": {"de": "Aus", "en": "Off"},
+    "web.ws.anim.text": {
+        "de": "Dezent: Fortschritt ja, fliegende Bienen nein. Die Systemeinstellung „Bewegung reduzieren“ "
+              "gilt immer.",
+        "en": "Subtle: progress yes, flying bees no. The system setting “reduce motion” always applies.",
+    },
+    "web.ws.progress": {"de": "Stufen & Abzeichen", "en": "Levels & badges"},
+    "web.ws.progress.text": {
+        "de": "Zeigt den wachsenden Bienenstock. Gezählt wird trotzdem — nur nicht angezeigt.",
+        "en": "Shows your growing hive. Progress is still counted — just not shown.",
+    },
+    "web.ws.plain": {"de": "Klartext zuerst", "en": "Plain words first"},
+    "web.ws.plain.text": {
+        "de": "„Kategorien“ statt „Waben“ als Hauptbeschriftung; der Bienen-Begriff steht klein darunter.",
+        "en": "“Categories” instead of “combs” as the main label; the bee term stays underneath in small "
+              "print.",
+    },
+    "web.ws.project": {"de": "Dieses Projekt", "en": "This project"},
+    "web.ws.enrich": {"de": "Nacherfassung (nur Lokal)", "en": "Enrichment (local only)"},
+    "web.ws.model_hint": {
+        "de": "Die Nektar-Sorte gilt nur im Modus Cloud.",
+        "en": "The model only applies in cloud mode.",
+    },
+    "web.ws.access": {"de": "Zugänge", "en": "Access"},
+    "web.ws.access.text": {
+        "de": "Zugangsdaten trägst du aus Sicherheitsgründen nur in der Konsole ein. Sie bleiben lokal und "
+              "erscheinen nie im Browser, im Protokoll oder in einem KI-Prompt.",
+        "en": "For security, credentials are only entered in the console. They stay local and never appear "
+              "in the browser, the log or an AI prompt.",
+    },
+    "web.key.env": {"de": "aus Umgebungsvariable", "en": "from environment variable"},
+    "web.key.datei": {"de": "lokal gespeichert", "en": "stored locally"},
+    "web.key.console": {
+        "de": "Braucht einen OpenRouter-Schlüssel — in der Konsole: schluessel setzen",
+        "en": "Needs an OpenRouter key — in the console: key set",
+    },
+    "web.routes.discord": {"de": "Discord", "en": "Discord"},
+    "web.routes.email": {"de": "E-Mail", "en": "Email"},
+    "web.routes.kalender": {"de": "Kalender", "en": "Calendar"},
+    "web.ws.check": {"de": "Stock-Check", "en": "Hive check"},
+    "web.ws.about": {
+        "de": "Konsole: pollysort · Browser: pollysort-web",
+        "en": "Console: pollysort · Browser: pollysort-web",
+    },
+    "web.su.title": {"de": "Projekt einrichten", "en": "Set up a project"},
+    "web.su.title.k": {"de": "Einrichtungs-Assistent", "en": "Setup wizard"},
+    "web.su.step.look": {"de": "Darstellung", "en": "Appearance"},
+    "web.su.step.folder": {"de": "Ordner", "en": "Folder"},
+    "web.su.step.name": {"de": "Name", "en": "Name"},
+    "web.su.step.mode": {"de": "Modus", "en": "Mode"},
+    "web.su.step.combs": {"de": "Waben", "en": "Combs"},
+    "web.su.step.sub": {"de": "Unterordner", "en": "Subfolders"},
+    "web.su.step.watch": {"de": "Wache", "en": "Watch"},
+    "web.su.step.done": {"de": "Fertig", "en": "Done"},
+    "web.su.progress": {"de": "Schritt {i} von {n}", "en": "Step {i} of {n}"},
+    "web.su.look": {"de": "Wie soll PollySort aussehen?", "en": "How should PollySort look?"},
+    "web.su.folder": {"de": "Welcher Ordner soll sortiert werden?", "en": "Which folder should be sorted?"},
+    "web.su.folder.hint": {
+        "de": "Den Pfad z. B. im Explorer aus der Adresszeile kopieren und hier einfügen. Die losen "
+              "Dateien darin sind dein Eingang.",
+        "en": "Copy the path from your file manager's address bar and paste it here. The loose files in it "
+              "are your inbox.",
+    },
+    "web.su.found": {
+        "de": "Ordner gefunden — {n} lose Datei(en) im Eingang.",
+        "en": "Folder found — {n} loose file(s) in the inbox.",
+    },
+    "web.su.create": {"de": "Den Ordner {path} neu anlegen", "en": "Create the folder {path}"},
+    "web.su.redo": {
+        "de": "Oder weiter: Das richtet das Projekt neu ein (die Konfiguration wird überschrieben, deine "
+              "Dateien bleiben, wo sie sind).",
+        "en": "Or continue: this sets the project up again (the configuration is overwritten, your files "
+              "stay where they are).",
+    },
+    "web.su.name": {"de": "Wie soll das Projekt heißen?", "en": "What should the project be called?"},
+    "web.su.name.label": {"de": "Projektname", "en": "Project name"},
+    "web.su.checking": {
+        "de": "Die Spähbienen prüfen, welche KI erreichbar ist …",
+        "en": "Scout bees are checking which AI is reachable …",
+    },
+    "web.su.cat.propose": {"de": "Vorschlag", "en": "Proposal"},
+    "web.su.cat.standard": {"de": "Standard", "en": "Standard"},
+    "web.su.cat.own": {"de": "Eigene", "en": "Custom"},
+    "web.su.cat.own.label": {"de": "Kategorien, durch Komma getrennt", "en": "Categories, comma-separated"},
+    "web.su.cat.empty": {
+        "de": "Bitte mindestens eine Wabe wählen.",
+        "en": "Please choose at least one comb.",
+    },
+    "web.su.scout.hint": {
+        "de": "Die Spähbienen sehen sich die losen Dateien und die vorhandenen Unterordner an und schlagen "
+              "Waben vor, die zu dem passen, was schon da ist.",
+        "en": "The scout bees look at the loose files and the existing subfolders and suggest combs that "
+              "fit what is already there.",
+    },
+    "web.su.added": {"de": "selbst ergänzt", "en": "added by you"},
+    "web.su.sub.none": {
+        "de": "Keine der Waben braucht eine Gliederung nach Datum.",
+        "en": "None of the combs needs a date structure.",
+    },
+    "web.su.watch.hint": {
+        "de": "Die Wache läuft, solange PollySort im Browser geöffnet ist. Sie fasst nur neu hinzukommende "
+              "Dateien an.",
+        "en": "The watch runs while PollySort is open in the browser. It only touches newly arriving files.",
+    },
+    "web.su.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "web.su.done": {
+        "de": "„{name}“ ist eingerichtet: {n} Waben stehen bereit.",
+        "en": "“{name}” is set up: {n} combs are ready.",
+    },
+    "web.su.file_now": {"de": "Jetzt {n} Datei(en) einlagern", "en": "File {n} file(s) now"},
+    "web.su.abort": {
+        "de": "Abbrechen geht jederzeit: einfach eine andere Seite wählen. Gespeichert wird erst mit "
+              "„Projekt einrichten“.",
+        "en": "You can stop at any time: just go to another page. Nothing is saved until you click “Set up "
+              "project”.",
+    },
+    "web.toast.error": {"de": "Das hat nicht geklappt", "en": "That didn't work"},
+    "web.toast.sorted": {"de": "{n} Datei(en) eingelagert.", "en": "{n} file(s) filed."},
+    "web.toast.badge": {"de": "Neues Abzeichen: {name}", "en": "New badge: {name}"},
+    "web.toast.levelup": {"de": "Dein Bienenstock ist gewachsen.", "en": "Your hive has grown."},
+    "web.toast.watch_sorted": {
+        "de": "Wache: {n} neue Datei(en) einsortiert",
+        "en": "Watch: {n} new file(s) filed",
+    },
+    "web.toast.new_files": {"de": "{n} neue Datei(en) im Eingang", "en": "{n} new file(s) in the inbox"},
+    "web.toast.new_files.text": {
+        "de": "Im Flugloch sortieren oder erst die Vorschau ansehen.",
+        "en": "Sort them at the entrance or check the preview first.",
+    },
+    "web.err.busy": {
+        "de": "Die Bienen arbeiten gerade — gleich wieder.",
+        "en": "The bees are busy — one moment.",
+    },
+    "web.err.locked": {
+        "de": "Ein anderer PollySort-Prozess (z. B. die Konsole) arbeitet gerade in diesem Projekt. Bitte "
+              "kurz warten.",
+        "en": "Another PollySort process (e.g. the console) is working in this project. Please wait a "
+              "moment.",
+    },
+    "web.err.noproject": {
+        "de": "Kein Projekt aktiv — richte zuerst eins ein.",
+        "en": "No active project — set one up first.",
+    },
+    "web.err.params": {"de": "Ungültige Anfrage.", "en": "Invalid request."},
+    "web.err.mode": {
+        "de": "Unbekannter Modus. Möglich: Sparmodus, Lokal, Cloud.",
+        "en": "Unknown mode. Options: low-power, local, cloud.",
+    },
+    "web.err.nokey": {
+        "de": "Für Cloud fehlt der OpenRouter-Schlüssel. In der Konsole: schluessel setzen",
+        "en": "Cloud needs an OpenRouter key. In the console: key set",
+    },
+    "web.err.confirm_count": {
+        "de": "Die Bestätigung passt nicht — bitte genau {n} eintippen.",
+        "en": "The confirmation doesn't match — please type exactly {n}.",
+    },
+    "web.err.date": {
+        "de": "Bitte ein Datum im Format JJJJ-MM-TT angeben.",
+        "en": "Please give a date as YYYY-MM-DD.",
+    },
+    "web.err.path": {"de": "Bitte einen Ordner-Pfad angeben.", "en": "Please enter a folder path."},
+    "web.err.path_missing": {
+        "de": "Den Ordner {path} gibt es noch nicht.",
+        "en": "The folder {path} doesn't exist yet.",
+    },
+    "web.err.token": {
+        "de": "Diese Sitzung ist abgelaufen. Bitte die Adresse aus der Konsole neu öffnen (pollysort-web).",
+        "en": "This session has expired. Please open the address from the console again (pollysort-web).",
+    },
+    "web.err.offline": {
+        "de": "PollySort ist nicht erreichbar — läuft pollysort-web noch?",
+        "en": "PollySort isn't reachable — is pollysort-web still running?",
+    },
+    "web.err.unknown": {"de": "Unbekannter Fehler.", "en": "Unknown error."},
+    "web.cli.desc": {
+        "de": "PollySort im Browser — das Flugbrett, nur auf diesem Rechner erreichbar.",
+        "en": "PollySort in the browser, reachable only on this computer.",
+    },
+    "web.cli.arg_path": {
+        "de": "Projekt-Ordner (sonst das zuletzt genutzte Projekt)",
+        "en": "Project folder (otherwise the last used project)",
+    },
+    "web.cli.arg_port": {
+        "de": "Port auf 127.0.0.1 (Standard 8737)",
+        "en": "Port on 127.0.0.1 (default 8737)",
+    },
+    "web.cli.arg_nobrowser": {
+        "de": "Browser nicht automatisch öffnen",
+        "en": "Don't open the browser automatically",
+    },
+    "web.cli.open": {"de": "Flugbrett offen: {url}", "en": "PollySort in the browser: {url}"},
+    "web.cli.stop": {"de": "Strg-C schließt das Flugbrett.", "en": "Ctrl-C closes it."},
+    "web.cli.closed": {"de": "Flugbrett geschlossen.", "en": "Browser interface closed."},
+    "web.cli.failed": {
+        "de": "Das Flugbrett konnte nicht starten: {err}",
+        "en": "The browser interface couldn't start: {err}",
+    },
+    "help.d.web": {"de": "PollySort im Browser öffnen (Flugbrett)", "en": "Open PollySort in the browser"},
+    "web.review.title": {"de": "Titel", "en": "Title"},
+    "help.d.app": {"de": "PollySort im eigenen Programmfenster öffnen",
+                   "en": "Open PollySort in its own window"},
+    "web.app.desc": {"de": "PollySort als eigene Anwendung — das Flugbrett im Programmfenster.",
+                     "en": "PollySort as its own application — in a program window."},
+    "web.app.arg_window": {
+        "de": "Fenster-Art: auto (Standard), nativ (pywebview), app (Edge/Chrome), browser",
+        "en": "Window type: auto (default), nativ (pywebview), app (Edge/Chrome), browser",
+    },
+    "web.app.open": {"de": "Öffne das PollySort-Fenster — schließen bringt dich hierher zurück.",
+                     "en": "Opening the PollySort window — close it to come back here."},
+    "web.app.closed": {"de": "PollySort-Fenster geschlossen.", "en": "PollySort window closed."},
+    "web.app.failed": {"de": "PollySort konnte nicht starten: {err}",
+                       "en": "PollySort could not start: {err}"},
+    "web.app.nowindow": {
+        "de": "Es ließ sich kein Fenster öffnen — weder pywebview noch Edge/Chrome noch ein Browser. "
+              "Installiere das Extra [app] oder starte pollysort-web.",
+        "en": "No window could be opened — neither pywebview nor Edge/Chrome nor a browser. Install "
+              "the [app] extra or run pollysort-web.",
+    },
+    "web.toast.moved": {"de": "{datei} → {neu}", "en": "{datei} → {neu}"},
+    "web.trash.dups.hint": {
+        "de": "Gleicher Inhalt wie eine schon einsortierte Datei. In der Quarantäne liegen sie sicher — "
+              "gelöscht wird erst, wenn du die Quarantäne ausdrücklich leerst.",
+        "en": "Same content as a file that is already filed. They are safe in quarantine — nothing is "
+              "deleted until you explicitly empty it.",
+    },
+    "web.su.ollama_hint": {
+        "de": "Kein lokales Ollama erreichbar. Starte Ollama (ollama serve) und prüfe dann noch einmal.",
+        "en": "No local Ollama reachable. Start Ollama (ollama serve) and check again.",
+    },
 }
+
+
+def katalog(lang: str | None = None) -> dict[str, str]:
+    """Alle Texte einer Sprache (Fallback Deutsch) — für die Browser-Oberfläche (``web/``).
+
+    Die Platzhalter bleiben stehen; die Seite setzt sie selbst ein.
+    """
+    lang = lang or _LANG
+    return {key: entry.get(lang) or entry.get("de") or key for key, entry in _CATALOG.items()}
 
 
 def set_language(lang: str) -> None:

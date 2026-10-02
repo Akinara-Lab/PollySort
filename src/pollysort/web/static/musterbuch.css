@@ -1,0 +1,28 @@
+/* Musterbuch — nur die Zusätze für die Stil-Tafel; alles andere kommt aus app.css. */
+.mb { padding: 28px clamp(16px, 3vw, 40px) 80px; }
+.mb-schalter { gap: 12px; flex-wrap: wrap; }
+.mb-saetze li { margin: 6px 0; }
+.mb-farben { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-top: 12px; }
+.mb-farbe { border: var(--rand) solid var(--linie); background: var(--flaeche); }
+.mb-farbe .muster { height: 56px; border-bottom: var(--rand) solid var(--linie); display: grid; place-items: center; font-weight: 700; }
+.mb-farbe .info { padding: 8px 10px; font-size: .85rem; }
+.mb-farbe code { font-size: .8rem; }
+.mb-alphabet { font-size: 1.6rem; line-height: 1.6; margin: 8px 0; }
+.mb-fliess { font-size: 1.05rem; }
+.mb-sprites { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; margin-top: 12px; }
+.mb-sprite { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; border: var(--rand) dashed var(--linie-leise); text-align: center; }
+.mb-sprite .sprite, .mb-sprite .biene { height: 64px; }
+.mb-sprite b { font-family: var(--mono); font-size: .85rem; }
+.mb-sprite small { color: var(--leise); font-size: .78rem; line-height: 1.3; }
+#mb-zellen .zelle { height: 56px; }
+#mb-flugloch .sprite, #mb-wabe .sprite { height: 48px; }
+.mb-nav .nav-punkt { min-width: 220px; }
+#mb-schlaf .sprite { height: 64px; }
+
+/* Farbflächen — ohne Inline-Styles (CSP), je Token eine Klasse */
+.f-bg { background: var(--bg); } .f-flaeche { background: var(--flaeche); } .f-flaeche-2 { background: var(--flaeche-2); }
+.f-text { background: var(--text); color: var(--bg); } .f-leise { background: var(--leise); color: var(--bg); }
+.f-honig-flaeche { background: var(--honig-flaeche); color: #2B1D0E; } .f-honig { background: var(--flaeche); color: var(--honig); }
+.f-bluete { background: var(--bluete-flaeche); color: var(--bluete); } .f-frage { background: var(--frage-flaeche); color: var(--frage); }
+.f-fehler { background: var(--fehler-flaeche); color: var(--fehler); } .f-wache { background: var(--wache-flaeche); color: var(--wache); }
+.f-linie { background: var(--linie); color: var(--bg); }

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de" data-anim="voll">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>PollySort · Flugbrett</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <a class="sr-only" href="#inhalt" id="sprung">Zum Inhalt</a>
+
+  <header class="kopf">
+    <a class="logo" href="#/zuhause" id="logo" aria-label="PollySort"></a>
+    <div class="kopf-mitte">
+      <label class="sr-only" for="projekt-wahl" id="projekt-wahl-label">Projekt</label>
+      <select id="projekt-wahl" class="projekt-wahl"></select>
+      <span id="modus-chip"></span>
+      <span id="wache-chip"></span>
+    </div>
+    <div class="kopf-rechts">
+      <button class="knopf zweit klein-knopf" id="rueckflug" type="button"></button>
+    </div>
+  </header>
+
+  <div class="rumpf">
+    <nav class="leiste" id="leiste" aria-label="Navigation"></nav>
+    <main id="inhalt" tabindex="-1"></main>
+  </div>
+
+  <footer class="fuss">
+    <span id="polly-biene"></span>
+    <p class="polly" id="polly" aria-live="polite"></p>
+    <button class="knopf leise-knopf klein-knopf" id="protokoll-knopf" type="button" aria-expanded="false" aria-controls="protokoll"></button>
+  </footer>
+
+  <aside class="protokoll" id="protokoll" hidden>
+    <header>
+      <h2 id="protokoll-titel"></h2>
+      <button class="knopf leise-knopf klein-knopf" id="protokoll-zu" type="button"></button>
+    </header>
+    <ol id="protokoll-liste"></ol>
+  </aside>
+
+  <div class="hinweise" id="hinweise" aria-live="polite"></div>
+  <dialog id="dialog"></dialog>
+  <div id="flugraum" aria-hidden="true"></div>
+
+  <noscript><p class="karte">PollySort braucht JavaScript für diese Oberfläche. Die Konsole (<code>pollysort</code>) funktioniert ohne.</p></noscript>
+  <script src="pixel.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@ only the category folders appear.
 - [Key features](#key-features)
 - [Installation](#installation)
 - [First run](#first-run)
+- [Browser interface (Flugbrett)](#browser-interface-flugbrett)
 - [Everyday workflow](#everyday-workflow)
 - [Command reference](#command-reference)
 - [How it works](#how-it-works)
@@ -92,7 +93,8 @@ don't fit. PollySort is different:
 
 ## Installation
 
-**Requirement: Python 3.12+.** PollySort is a pure console tool. An isolated install via
+**Requirement: Python 3.12+.** PollySort is a console tool with an optional local browser
+interface (`pollysort-web`, no extra install). An isolated install via
 [`pipx`](https://pipx.pypa.io) or [`uv`](https://docs.astral.sh/uv/) is recommended — it puts
 the **`pollysort`** command on your PATH on Windows, macOS and Linux without you having to manage
 virtual environments.
@@ -124,6 +126,11 @@ Both installers accept:
 
 - `--dry-run` — show what would happen and change nothing.
 - `--no-path` — install but leave PATH alone (PowerShell: `-DryRun` / `-NoPath`).
+- `--no-shortcut` — no Start-menu/desktop shortcut or app-menu entry (PowerShell: `-NoShortcut`).
+
+They install the **`[app]`** extra too (pywebview — a native window for `pollysort-app`; not on
+Linux, where it would need GTK/Qt bindings from the distribution). If it cannot be installed,
+PollySort still opens in a frameless Edge/Chrome window.
 
 Open a new terminal afterwards so the PATH entry takes effect — or `source` the file the
 installer names.
@@ -253,6 +260,48 @@ all projects, `switch <n>` changes project.
 
 ---
 
+## Browser interface (Flugbrett)
+
+Prefer clicking to typing? PollySort also comes as **its own application**: after running the
+installer, start **PollySort** from the Start menu / desktop (Windows), the application menu
+(Linux) or `~/Applications` (macOS) — or type `pollysort-app`, or `app` (`anwendung`) inside the
+console. It opens a program window of its own; **closing the window quits PollySort**.
+
+| | Command | Opens |
+|---|---|---|
+| 🪟 | `pollysort-app` | its own window — native via the `[app]` extra (pywebview), otherwise a frameless Edge/Chrome app window, otherwise a browser tab |
+| 🌐 | `pollysort-web` | a tab in your browser; `Ctrl-C` stops it |
+
+```bash
+pollysort-app                         # last used project, own window
+pollysort-app --window app            # force the Edge/Chrome app window
+pollysort-web "C:\path\to\dir"        # a specific folder in the browser
+pollysort-web --no-browser --port 9000
+```
+
+Both run a small local server on **127.0.0.1 only** with a one-time session token. On Windows
+`pollysort-app` is installed as a GUI program (no console window); diagnostics go to
+`~/.pollysort/app.log`. The installers create the shortcuts (opt out with `--no-shortcut` /
+`-NoShortcut`), the uninstallers remove them again.
+
+- Everything the console does day to day: **home**, **entrance** (preview → apply with live
+  progress), **review** (keys 1–9 · Enter · s · v, as in the console), **combs** (re-file by
+  picking or dragging — PollySort learns from it), **swarm & calendar**, **rules & memory**,
+  **quarantine**, **workshop** (settings) and a **setup wizard** that also does the first run.
+- **Retro pixel look, calm enough for work:** a self-drawn pixel font and sprites, the console's
+  colour meaning, WCAG AA contrast, dark/light/auto. Levels and badges come only from real work.
+- **Work mode:** one click for subtle animations, hidden levels/badges and plain words before
+  the bee terms (“Categories” above “Combs”). Animations can be set to full · subtle · off, and
+  the system's *reduce motion* setting always wins.
+- **No new dependency, no cloud:** standard-library server, session token, host/origin checks
+  and a strict Content-Security-Policy. API keys and notification credentials are only ever
+  shown masked — you still enter them in the console (`key set`, `routes setup`).
+
+Design notes, glossary and the test plan live in [`docs/flugbrett.md`](docs/flugbrett.md); the
+style tile is served at `/musterbuch.html`.
+
+---
+
 ## Everyday workflow
 
 1. **Drop** loose files into your project folder.
@@ -281,6 +330,8 @@ below list the **English alias** first and the original **German** name in paren
 | `status` | What's here, what's already sorted? |
 | `list [category]` (`liste`) | List sorted entries |
 | `find <word>` (`suche`) | Search titles / keywords / summaries |
+| `app` (`anwendung`) | Open PollySort in its own window — closing it returns to the console |
+| `web` (`oberflaeche`) | Open PollySort in the browser (Flugbrett) — `Ctrl-C` returns to the console |
 
 ### 🎯 Situational
 

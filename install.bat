@@ -8,6 +8,7 @@ REM man danach ueberall einfach `pollysort` tippen kann.
 REM
 REM   Doppelklick auf install.bat   ODER   im Terminal:  install.bat
 REM   install.bat --dry-run         zeigt nur, was passieren wuerde
+REM   install.bat --no-shortcut     ohne Verknuepfungen im Startmenue / auf dem Desktop
 REM ---------------------------------------------------------------------------
 setlocal
 cd /d "%~dp0"
@@ -31,8 +32,10 @@ set "ARGS="
 if "%~1"=="" goto run
 if /i "%~1"=="--dry-run" set "ARGS=%ARGS% -DryRun"
 if /i "%~1"=="--no-path" set "ARGS=%ARGS% -NoPath"
+if /i "%~1"=="--no-shortcut" set "ARGS=%ARGS% -NoShortcut"
 if /i "%~1"=="-DryRun"   set "ARGS=%ARGS% -DryRun"
 if /i "%~1"=="-NoPath"   set "ARGS=%ARGS% -NoPath"
+if /i "%~1"=="-NoShortcut" set "ARGS=%ARGS% -NoShortcut"
 shift
 goto parse
 

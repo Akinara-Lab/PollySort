@@ -51,13 +51,21 @@ extract = [
 ]
 # Schneller Vektor-Store (noch nicht verdrahtet, s. TODO) — hinter demselben HiveMind-Interface.
 vec = ["sqlite-vec>=0.1.1"]
+# Eigenes Programmfenster für `pollysort-app` (Edge WebView2 / WebKit / GTK). Ohne dieses
+# Extra öffnet die App ein randloses Edge-/Chrome-Fenster oder notfalls den Browser.
+app = ["pywebview>=5.0"]
 # Alles Optionale auf einmal.
-full = ["pollysort[extract]"]
+full = ["pollysort[extract,app]"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [project.scripts]
 pollysort = "pollysort.repl:main"          # interaktive Konsole (primär)
 pollysort-cli = "pollysort.cli:app"        # Scripting-/Skript-CLI (sekundär)
+pollysort-web = "pollysort.web.server:main" # Browser-Oberfläche „Flugbrett" (nur 127.0.0.1)
+
+[project.gui-scripts]
+# Die eigene Anwendung: Flugbrett im Programmfenster — unter Windows ohne Konsolenfenster.
+pollysort-app = "pollysort.web.app:main"
 
 [build-system]
 requires = ["hatchling"]
