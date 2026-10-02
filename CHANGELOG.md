@@ -9,6 +9,19 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Neu — BeeNara von Hugging Face laden
+- **`beenara laden` / `beenara pull`** holt das lokale Entscheider-Modell
+  [Kwokou/BeeNara](https://huggingface.co/Kwokou/BeeNara) (ONNX + Tokenizer, ca. 370 MB) nach
+  `~/.pollysort/modelle/BeeNara/`. Alle Dateien stammen aus einem Commit; jede wird gegen die
+  Prüfsumme des Hubs geprüft, bevor sie ihren Namen bekommt. Ein abgebrochener Download setzt
+  an derselben Stelle fort, ein Update lädt nur geänderte Dateien. `beenara.py` aus dem Repo
+  wird bewusst nicht geladen. Ohne neue Abhängigkeit (httpx statt `huggingface_hub`).
+- **Erststart fragt nach** (neuer Schritt 4/5). Enter heißt „später" — 370 MB laufen nie
+  durch bloßes Durchklicken.
+- `beenara` zeigt den Stand, `beenara entfernen` löscht das Modell nach Rückfrage;
+  `pollysort-cli beenara [status|pull]` für Skripte; `doctor` meldet Version und Größe.
+- Ins Sortieren ist BeeNara noch nicht eingebunden.
+
 ### Geändert — alle offenen Punkte aus TEIL 3 der TODO
 - **Vollständig zweisprachig:** alle 155 Befehlsmeldungen der Konsole und die Ausgaben von
   Rückfragen, Daemon, Wächter-/Baubienen, Scan und Empfehlungen laufen über `i18n.t()`. Ein

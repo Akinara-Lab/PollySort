@@ -542,6 +542,27 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
     raise typer.Exit(worst)
 
 
+@app.command("beenara")
+def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull")):
+    """BeeNara (lokales Entscheider-Modell) von Hugging Face laden oder den Stand zeigen."""
+    con = _con()
+    from . import beenara
+    a = aktion.strip().lower()
+    if a in ("pull", "laden", "download", "update"):
+        raise typer.Exit(0 if beenara.laden(con) else 1)
+    if a not in ("status", ""):
+        con.error("pollysort-cli beenara <status|pull>")
+        raise typer.Exit(2)
+    s = beenara.stand()
+    if s.vollstaendig:
+        con.honey(i18n.t("bn.status.ok", version=s.version, mb=s.mb, path=s.pfad), "✅")
+    elif s.angefangen:
+        con.ask(i18n.t("bn.status.partial"))
+    else:
+        con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB), "⬇️")
+    raise typer.Exit(0 if s.vollstaendig else 1)
+
+
 @app.command()
 def shell(hive: str | None = typer.Option(None, "--hive")):
     """Interaktive Bienenstock-Konsole (REPL) — Befehle ohne 'pollysort'-Präfix (§19.1)."""

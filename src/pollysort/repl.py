@@ -228,7 +228,7 @@ class BeehiveShell(cmd.Cmd):
         bewusst NICHT mehr Teil des Erststarts: ohne Projekt gibt es noch keine Deadlines,
         über die jemand benachrichtigt werden könnte — der Hinweis steht jetzt im Überblick.
         """
-        from pollysort import firstrun
+        from pollysort import beenara, firstrun
         cfg = config.load_config()
         if cfg.onboarded:
             # Bestandsnutzer: Einrichtung steht schon — nur die ersten Handgriffe nachreichen.
@@ -242,6 +242,8 @@ class BeehiveShell(cmd.Cmd):
             ollama_probe=self._ollama_ready,
             has_key=lambda: config.load_credentials() is not None,
             save_key=self._save_key,
+            beenara_present=lambda: beenara.stand().vollstaendig,
+            beenara_pull=self._beenara_laden,
             apply_theme=self._apply_theme,
         )
         # Erst nach dem vollständigen Durchlauf schreiben — ein Abbruch hinterlässt nichts.
@@ -262,7 +264,7 @@ class BeehiveShell(cmd.Cmd):
 
     # Befehle, die auch OHNE aktives Projekt erlaubt sind.
     _NO_PROJECT_OK = {"neu", "wechsel", "ordner", "projekte", "setup",
-                      "home", "start", "zuhause", "doctor",
+                      "home", "start", "zuhause", "doctor", "beenara",
                       "modell", "modellwechsel", "flugrouten", "api",
                       "schluessel", "key", "apikey",
                       "thema", "theme", "farbe", "ansicht", "view",
@@ -386,6 +388,7 @@ class BeehiveShell(cmd.Cmd):
             ("nacherfassen [an|aus|jetzt]", "enrich [on|off|now]", "help.d.enrich"),
             ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
             ("doctor", "doctor", "help.d.doctor"),
+            ("beenara [laden|entfernen]", "beenara [pull|remove]", "help.d.beenara"),
             ("sprache <de|en>", "language <de|en>", "help.d.language"),
             ("thema [dunkel|hell|auto]", "theme [dark|light|auto]", "help.d.theme"),
             ("ansicht [statisch|log]", "view [static|log]", "help.d.view"),
@@ -986,6 +989,63 @@ class BeehiveShell(cmd.Cmd):
         self.con.rule("🩺 Doctor")
         for label, status, detail in run_checks(self.hive):
             self.con.raw(f"  {icon.get(status, '•')}  {label:<12} {detail}")
+
+    # ------------------------------------------------------------------ #
+    #  BeeNara — lokales Entscheider-Modell von Hugging Face
+    # ------------------------------------------------------------------ #
+    def do_beenara(self, arg: str) -> None:
+        """beenara [laden|entfernen] — BeeNara von Hugging Face holen (Kwokou/BeeNara)."""
+        sub = arg.strip().lower()
+        if sub in ("laden", "ziehen", "holen", "herunterladen", "aktualisieren",
+                   "pull", "download", "install", "update"):
+            self._beenara_laden()
+        elif sub in ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall"):
+            self._beenara_entfernen()
+        elif sub in ("", "status", "info"):
+            self._beenara_status()
+        else:
+            self.con.ask(i18n.t("bn.usage"))
+
+    def _beenara_laden(self) -> bool:
+        """Laden (auch aus dem Erststart). Ein unerwarteter Fehler darf den Erststart
+        nicht abreißen — er wird gemeldet, die Einrichtung läuft weiter."""
+        from pollysort import beenara
+        try:
+            return beenara.laden(self.con)
+        except Exception as exc:
+            self.con.error(i18n.t("bn.err.download", err=exc))
+            return False
+
+    def _beenara_status(self) -> None:
+        from pollysort import beenara
+        s = beenara.stand()
+        self.con.rule(i18n.t("bn.title"))
+        self.con.info(i18n.t("bn.what"), "🐝")
+        if s.vollstaendig:
+            self.con.honey(i18n.t("bn.status.ok", version=s.version, mb=s.mb, path=s.pfad), "✅")
+        elif s.angefangen:
+            self.con.ask(i18n.t("bn.status.partial"))
+        else:
+            self.con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB),
+                          "⬇️")
+        self.con.info(i18n.t("bn.status.note"), "🧪")
+        self.con.info(i18n.t("bn.usage"), "🐝")
+
+    def _beenara_entfernen(self) -> None:
+        from pollysort import beenara
+        s = beenara.stand()
+        if not s.vollstaendig and not s.angefangen:
+            self.con.info(i18n.t("bn.remove.none"), "🐝")
+            return
+        if not self._ja(i18n.t("bn.remove.confirm", mb=s.mb)):
+            self.con.info(i18n.t("r.cancelled"), "🐝")
+            return
+        try:
+            beenara.entfernen()
+        except OSError as exc:
+            self.con.error(i18n.t("bn.remove.failed", err=exc))
+            return
+        self.con.honey(i18n.t("bn.remove.done"), "🗑️")
 
     def do_sprache(self, arg: str) -> None:
         """sprache <de|en> — UI-Sprache umschalten (auch: language, lang)."""

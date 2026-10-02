@@ -201,6 +201,9 @@ inbox. PollySort does **not** assume the current directory — it remembers your
 On the **very first launch** a one-time setup clarifies the AI backend (it detects a local
 **Ollama** and offers to store an **OpenRouter** key), then a short **3-step tutorial** appears
 (**pick a folder → `preview` → `sort`**), and the wizard walks you through the project setup.
+The setup also offers to download **BeeNara**, the local decider model from Hugging Face
+(~370 MB). Pressing Enter means "later" — `beenara pull` (`beenara laden`) fetches it any time,
+and `pollysort-cli beenara pull` does the same from a script.
 
 **Setup order: Name → AI mode → Categories → Subfolders → Watch.** For categories there's a
 **proposal mode** that looks at both your loose files *and* your existing folder structure
@@ -317,6 +320,7 @@ below list the **English alias** first and the original **German** name in paren
 | `enrich [on\|off\|now]` (`nacherfassen`) | Local mode: let the AI refine titles & summaries after sorting |
 | `person <name> <cat,..>` | Set responsibility in the background |
 | `doctor` | Health-check: Python, AI provider, local models, database, extraction extras, memory |
+| `beenara [pull\|remove]` (`beenara [laden\|entfernen]`) | Download [BeeNara](https://huggingface.co/Kwokou/BeeNara), the local decider model (~370 MB, checksum-verified, resumes after an interruption) · remove it again. Not used for sorting yet |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |
@@ -407,7 +411,8 @@ included, no activation needed.
 
 The Markdown entries start with YAML front-matter and open straight in Obsidian, Logseq or
 Notion. Global settings (last project, credentials, project registry) live under
-`~/.pollysort/`, outside your working folders (relocatable via `POLLYSORT_HOME`). An old
+`~/.pollysort/`, outside your working folders (relocatable via `POLLYSORT_HOME`); a downloaded
+BeeNara sits in `~/.pollysort/modelle/BeeNara/` (`HF_ENDPOINT` points the download at a mirror). An old
 `~/.beehive/` from earlier versions is migrated automatically — copied, never deleted.
 
 > The hidden folder is named `.honig` ("honey") and categories are internally called "combs"

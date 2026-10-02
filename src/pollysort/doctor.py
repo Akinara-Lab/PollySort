@@ -166,11 +166,27 @@ def _memory_check(hive: Path | None) -> Check:
     return (label, "ok", i18n.t("doctor.mem.ok", n=n, model=mind.model() or "n/a"))
 
 
+def _beenara_check(_hive: Path | None) -> Check:
+    """Liegt BeeNara vollständig da? Rein lokal — der Doctor fragt dafür nicht Hugging Face.
+
+    „Nicht geladen" ist kein Warnfall: Das Modell ist optional, und ``pollysort-cli doctor``
+    soll dafür nicht mit Code 1 enden.
+    """
+    from .beenara import stand
+    label = i18n.t("doctor.beenara")
+    s = stand()
+    if s.vollstaendig:
+        return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
+    if s.angefangen:
+        return (label, "warn", i18n.t("doctor.bn.partial"))
+    return (label, "ok", i18n.t("doctor.bn.none"))
+
+
 def run_checks(hive: Path | None) -> list[Check]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles);
     ``None`` heißt „trifft auf diese Umgebung nicht zu" und wird ausgelassen."""
     checks = (_py_check, _provider_check, _models_check, _gpu_check, _db_check, _extras_check,
-              _memory_check)
+              _memory_check, _beenara_check)
     out: list[Check] = []
     for fn in checks:
         try:
