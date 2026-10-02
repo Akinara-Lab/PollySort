@@ -368,6 +368,30 @@ _CATALOG: dict[str, dict[str, str]] = {
     "fr.ai.key_saved": {"de": "Key gespeichert (nur lokal, chmod 600).",
                         "en": "Key saved (local only, chmod 600)."},
 
+    "fr.bn.title": {"de": "BeeNara — lokales Modell für die Ordnerwahl",
+                    "en": "BeeNara — local model for picking folders"},
+    "fr.bn.what": {
+        "de": "Wählt beim Sortieren den passenden Ordner oder sagt, dass keiner passt. "
+              "Läuft offline auf der CPU.",
+        "en": "Picks the right folder while sorting, or says that none fits. "
+              "Runs offline on the CPU.",
+    },
+    "fr.bn.size": {
+        "de": "Einmaliger Download von Hugging Face ({repo}), ca. {mb} MB, dazu die Laufzeit "
+              "(onnxruntime).",
+        "en": "One-time download from Hugging Face ({repo}), about {mb} MB, plus its runtime "
+              "(onnxruntime).",
+    },
+    "fr.bn.now": {"de": "Jetzt herunterladen", "en": "Download now"},
+    "fr.bn.later": {"de": "Später — jederzeit mit 'beenara laden'",
+                    "en": "Later — any time with 'beenara pull'"},
+    "fr.bn.present": {"de": "✅ schon geladen", "en": "✅ already downloaded"},
+    "fr.bn.skipped": {"de": "Kein Download. Später jederzeit: 'beenara laden'.",
+                      "en": "No download. Any time later: 'beenara pull'."},
+    "fr.done.bn_yes": {"de": "BeeNara: geladen ✅", "en": "BeeNara: downloaded ✅"},
+    "fr.done.bn_no": {"de": "BeeNara: nicht geladen — 'beenara laden' holt es.",
+                      "en": "BeeNara: not downloaded — 'beenara pull' fetches it."},
+
     "fr.done.title": {"de": "Fertig eingerichtet", "en": "All set"},
     "fr.done.summary": {
         "de": "Sprache {language} · Darstellung {theme} · KI {ai}",
@@ -514,6 +538,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                       "en": "Set responsibility in the background"},
     "help.d.doctor": {"de": "Health-Check: Python, KI-Provider, Modelle, Datenbank, Gedächtnis",
                       "en": "Health check: Python, AI provider, models, database, memory"},
+    "help.d.beenara": {"de": "Lokales Entscheider-Modell: laden · an/aus · entfernen",
+                       "en": "Local decider model: download · on/off · remove"},
     "help.d.language": {"de": "UI-Sprache umschalten (language / lang)",
                         "en": "Switch the UI language (sprache)"},
     "help.d.theme": {"de": "Dark/Light; 'auto' = tags dunkel, abends hell",
@@ -565,12 +591,144 @@ _CATALOG: dict[str, dict[str, str]] = {
                          "en": "{n} vectors · model changed ({drift}) → 'memory rebuild'"},
     "doctor.mem.ok": {"de": "{n} Vektoren · {model}", "en": "{n} vectors · {model}"},
     "doctor.check_failed": {"de": "Check fehlgeschlagen: {exc}", "en": "check failed: {exc}"},
-    # Dreistufige Entscheidung & Nacherfassung (Plan §8.3)
-    "pl.quellen": {
-        "de": "Entschieden: {mem} aus dem Gedächtnis · {num} per KI-Kurzentscheid · "
-              "{voll} per Vollanalyse",
-        "en": "Decided: {mem} from memory · {num} by quick AI decision · {voll} by full analysis",
+    "doctor.beenara": {"de": "BeeNara", "en": "BeeNara"},
+    "doctor.bn.ok": {"de": "Version {version} · {mb} MB · sortiert mit",
+                     "en": "version {version} · {mb} MB · sorting with it"},
+    "doctor.bn.none": {"de": "nicht geladen (optional) → 'beenara laden'",
+                       "en": "not downloaded (optional) → 'beenara pull'"},
+    "doctor.bn.partial": {"de": "unvollständig → 'beenara laden' setzt fort",
+                          "en": "incomplete → 'beenara pull' resumes"},
+    "doctor.bn.aus": {"de": "Version {version} · ausgeschaltet ('beenara an')",
+                      "en": "version {version} · switched off ('beenara on')"},
+    "doctor.bn.version": {"de": "Version {version}, erwartet {need} → 'beenara laden'",
+                          "en": "version {version}, expected {need} → 'beenara pull'"},
+    "doctor.bn.laufzeit": {"de": "Version {version} · Laufzeit fehlt → 'beenara laden'",
+                           "en": "version {version} · runtime missing → 'beenara pull'"},
+    # BeeNara — lokales Entscheider-Modell von Hugging Face (beenara.py)
+    "bn.title": {"de": "🐝 BeeNara", "en": "🐝 BeeNara"},
+    "bn.what": {
+        "de": "Lokales Entscheider-Modell: wählt den passenden Ordner oder sagt, dass keiner "
+              "passt. Läuft offline auf der CPU.",
+        "en": "Local decider model: picks the right folder or says that none fits. "
+              "Runs offline on the CPU.",
     },
+    "bn.status.ok": {"de": "Geladen: Version {version} · {mb} MB · {path}",
+                     "en": "Downloaded: version {version} · {mb} MB · {path}"},
+    "bn.status.none": {
+        "de": "Nicht geladen. 'beenara laden' holt es von Hugging Face ({repo}, ca. {mb} MB).",
+        "en": "Not downloaded. 'beenara pull' fetches it from Hugging Face ({repo}, about {mb} MB).",
+    },
+    "bn.status.partial": {"de": "Unvollständig — 'beenara laden' setzt den Download fort.",
+                          "en": "Incomplete — 'beenara pull' resumes the download."},
+    # Sortiert BeeNara mit? Ein Grund je Zustand (beenara.warum_nicht).
+    "bn.active.ja": {
+        "de": "Sortiert mit: im Sparmodus statt der Heuristik, im Modus Lokal nach dem Gedächtnis "
+              "— bei 3 bis 9 Ordnern. Unsichere Fälle und „keiner passt“ werden Rückfragen.",
+        "en": "Sorting with it: instead of the heuristics in low-power mode, after the memory in "
+              "local mode — with 3 to 9 folders. Unsure cases and \"none fits\" become reviews.",
+    },
+    "bn.active.aus": {"de": "Ausgeschaltet — 'beenara an' schaltet es wieder ein.",
+                      "en": "Switched off — 'beenara on' switches it back on."},
+    "bn.active.modell": {"de": "Sortiert noch nicht mit: Das Modell ist nicht (vollständig) geladen.",
+                         "en": "Not sorting yet: the model is not (fully) downloaded."},
+    "bn.active.version": {
+        "de": "Sortiert nicht mit: Geladen ist Version {have}, dieses PollySort braucht {need} — "
+              "'beenara laden' holt sie.",
+        "en": "Not sorting: version {have} is downloaded, this PollySort needs {need} — "
+              "'beenara pull' fetches it.",
+    },
+    "bn.active.laufzeit": {
+        "de": "Sortiert noch nicht mit: Die Laufzeit fehlt ({pakete}) — 'beenara laden' "
+              "installiert sie.",
+        "en": "Not sorting yet: the runtime is missing ({pakete}) — 'beenara pull' installs it.",
+    },
+    "bn.project.ok": {"de": "Projekt {name}: BeeNara entscheidet mit.",
+                      "en": "Project {name}: BeeNara takes part."},
+    "bn.project.cloud": {"de": "Projekt {name} läuft im Modus Cloud — dort entscheidet BeeNara "
+                               "nicht mit.",
+                         "en": "Project {name} runs in cloud mode — BeeNara does not take part "
+                               "there."},
+    "bn.project.count": {
+        "de": "Projekt {name} hat {n} Ordner — BeeNara entscheidet bei 3 bis 9 mit, sonst der "
+              "bisherige Weg.",
+        "en": "Project {name} has {n} folders — BeeNara takes part with 3 to 9, otherwise the "
+              "usual path decides.",
+    },
+    "bn.set.on": {"de": "BeeNara an — es sortiert mit, sobald Modell und Laufzeit da sind.",
+                  "en": "BeeNara on — it sorts along as soon as model and runtime are there."},
+    "bn.set.off": {"de": "BeeNara aus — es bleibt geladen, sortiert aber nicht mit.",
+                   "en": "BeeNara off — it stays downloaded but does not sort."},
+    # Keine eckigen Klammern: rich läse „[laden | entfernen]" als Markup und verschluckte es.
+    "bn.usage": {"de": "Nutzung: beenara (Stand) · beenara laden · beenara an · beenara aus · "
+                       "beenara entfernen",
+                 "en": "Usage: beenara (status) · beenara pull · beenara on · beenara off · "
+                       "beenara remove"},
+    # Laufzeit (onnxruntime, tokenizers, numpy)
+    "bn.rt.installing": {"de": "Installiere die Laufzeit ({pakete}) …",
+                         "en": "Installing the runtime ({pakete}) …"},
+    "bn.rt.done": {"de": "Laufzeit installiert — BeeNara sortiert ab dem nächsten Lauf mit.",
+                   "en": "Runtime installed — BeeNara sorts along from the next run."},
+    "bn.rt.failed": {"de": "Laufzeit nicht installiert: {err} — von Hand: {cmd}",
+                     "en": "Runtime not installed: {err} — by hand: {cmd}"},
+    "bn.rt.manual": {
+        "de": "Weder pip noch uv gefunden. Bitte die Laufzeit von Hand installieren: {pakete}",
+        "en": "Neither pip nor uv found. Please install the runtime by hand: {pakete}",
+    },
+    "bn.rt.restart": {"de": "Laufzeit installiert — bitte PollySort neu starten.",
+                      "en": "Runtime installed — please restart PollySort."},
+    # Im Sortierlauf
+    "bn.run.load_failed": {"de": "BeeNara ließ sich nicht öffnen ({err}) — dieser Lauf "
+                                 "entscheidet ohne BeeNara.",
+                           "en": "Could not open BeeNara ({err}) — this run decides without it."},
+    "bn.run.failed": {"de": "BeeNara ist ausgefallen ({err}) — der Rest des Laufs entscheidet "
+                            "ohne BeeNara.",
+                      "en": "BeeNara failed ({err}) — the rest of this run decides without it."},
+    "bn.checking": {"de": "Frage Hugging Face nach der aktuellen Version von {repo} …",
+                    "en": "Asking Hugging Face for the current version of {repo} …"},
+    "bn.current": {"de": "BeeNara ist aktuell (Version {version}) · {path}",
+                   "en": "BeeNara is up to date (version {version}) · {path}"},
+    "bn.start": {
+        "de": "Lade {n} Datei(en), {mb} MB — Version {version} → {path}. "
+              "Strg-C unterbricht, 'beenara laden' setzt später fort.",
+        "en": "Downloading {n} file(s), {mb} MB — version {version} → {path}. "
+              "Ctrl-C pauses, 'beenara pull' resumes later.",
+    },
+    "bn.progress": {"de": "BeeNara laden", "en": "Downloading BeeNara"},
+    "bn.done": {"de": "BeeNara geladen und geprüft (Version {version}, {mb} MB) · {path}",
+                "en": "BeeNara downloaded and verified (version {version}, {mb} MB) · {path}"},
+    "bn.interrupted": {
+        "de": "Download unterbrochen — 'beenara laden' setzt an derselben Stelle fort.",
+        "en": "Download paused — 'beenara pull' resumes where it stopped.",
+    },
+    "bn.err.hub": {"de": "Hugging Face nicht erreichbar: {err}",
+                   "en": "Could not reach Hugging Face: {err}"},
+    "bn.err.layout": {"de": "Im Repo {repo} fehlen erwartete Dateien: {names}",
+                      "en": "The repo {repo} is missing expected files: {names}"},
+    "bn.err.download": {
+        "de": "Download fehlgeschlagen: {err} — 'beenara laden' versucht es erneut und setzt fort.",
+        "en": "Download failed: {err} — 'beenara pull' tries again and resumes.",
+    },
+    "bn.err.hash": {
+        "de": "Prüfsumme von {name} stimmt nicht — die Datei wurde verworfen. "
+              "Bitte 'beenara laden' noch einmal.",
+        "en": "Checksum of {name} does not match — the file was discarded. "
+              "Please run 'beenara pull' again.",
+    },
+    "bn.err.space": {"de": "Zu wenig Speicherplatz: {need} MB nötig, {free} MB frei ({path}).",
+                     "en": "Not enough disk space: {need} MB needed, {free} MB free ({path})."},
+    "bn.remove.confirm": {"de": "BeeNara ({mb} MB) von diesem Rechner entfernen? [j/N]: ",
+                          "en": "Remove BeeNara ({mb} MB) from this computer? [y/N]: "},
+    "bn.remove.done": {"de": "BeeNara entfernt.", "en": "BeeNara removed."},
+    "bn.remove.none": {"de": "BeeNara ist nicht geladen — nichts zu entfernen.",
+                       "en": "BeeNara is not downloaded — nothing to remove."},
+    "bn.remove.failed": {"de": "Entfernen fehlgeschlagen: {err}", "en": "Removing failed: {err}"},
+    # Dreistufige Entscheidung & Nacherfassung (Plan §8.3)
+    "pl.quellen": {"de": "Entschieden: {teile}", "en": "Decided: {teile}"},
+    "pl.quelle.gedaechtnis": {"de": "{n} aus dem Gedächtnis", "en": "{n} from memory"},
+    "pl.quelle.beenara": {"de": "{n} von BeeNara", "en": "{n} by BeeNara"},
+    "pl.quelle.nummer": {"de": "{n} per KI-Kurzentscheid", "en": "{n} by quick AI decision"},
+    "pl.quelle.analyse": {"de": "{n} per Vollanalyse", "en": "{n} by full analysis"},
+    "pl.quelle.heuristik": {"de": "{n} per Heuristik", "en": "{n} by heuristics"},
     "pl.drift_basis": {
         "de": "Das Gedächtnis nutzt seit diesem Update den Dokument-Anfang statt der "
               "KI-Zusammenfassung — so kann es schon vor der KI entscheiden. 'gedaechtnis neu' "

@@ -78,6 +78,9 @@ class Context:
     #: Passt das Gedächtnis zum aktuellen Embedding-Modell und seiner Textbasis? ``None`` =
     #: noch nicht geprüft (siehe :func:`_memory_ok`).
     memory_ok: bool | None = None
+    #: BeeNara für diesen Kontext (siehe :func:`_beenara`) — erst beim ersten Bedarf geöffnet.
+    beenara: object | None = None
+    beenara_geprueft: bool = False
 
     @classmethod
     def build(cls, *, hive, cfg, seed, client, console, journal) -> Context:
@@ -234,8 +237,10 @@ def _prewarm_parallel(ctx: Context, findings, workers: int, cache: dict) -> int:
         return 0
 
     # Die Worker lesen das Gedächtnis aus einer festen Kopie: SQLite-Verbindungen dürfen
-    # nicht zwischen Threads wandern.
-    schnappschuss = _gedaechtnis_sicht(ctx) if entscheidung.unterstuetzt(ctx.client) else None
+    # nicht zwischen Threads wandern. BeeNara wird vorher geöffnet, nicht in den Workern.
+    bee = _beenara(ctx)
+    schnappschuss = (_gedaechtnis_sicht(ctx)
+                     if entscheidung.unterstuetzt(ctx.client) or bee is not None else None)
 
     def prepare(f):
         try:
@@ -266,6 +271,7 @@ def _fallback_offline(ctx: Context) -> tuple[int, bool]:
     prior = ctx.client.usage.calls
     ctx.client = OfflineClient(ctx.seed.categories, wachstafel=Wachstafel(ctx.hive).text())
     ctx.memory_ok = None                  # anderes Embedding → Gedächtnis neu bewerten
+    ctx.beenara_geprueft = False          # im Sparmodus darf BeeNara mitentscheiden
     ctx.console.info(i18n.t("pl.fallback"), "🛟")
     return prior, True
 
@@ -441,16 +447,62 @@ def _gedaechtnis_sicht(ctx: Context) -> entscheidung.Schnappschuss:
         ctx.mind.eintraege(getattr(ctx.client, "embed_model", None)))
 
 
+class _Behutsam:
+    """BeeNara im Sortierlauf: Ein Fehler beim Rechnen wird einmal gemeldet, danach entscheidet
+    für den Rest des Laufs der bisherige Weg — eine Datei darf daran nie scheitern."""
+
+    def __init__(self, bee, con: BeeConsole):
+        self._bee, self._con, self.aus = bee, con, False
+
+    def decide(self, text: str, kategorien: list[str], **kw):
+        if self.aus:
+            return None
+        try:
+            return self._bee.decide(text, kategorien, **kw)
+        except Exception as exc:
+            self.aus = True
+            self._con.error(i18n.t("bn.run.failed", err=exc))
+            return None
+
+
+def _beenara(ctx: Context):
+    """BeeNara für diesen Kontext, oder ``None``: Modus Cloud, abgeschaltet, nicht geladen,
+    Laufzeit fehlt, Ordnerzahl außerhalb 3–9 — oder das Öffnen schlug fehl (einmal gemeldet)."""
+    if ctx.beenara_geprueft:
+        return ctx.beenara
+    ctx.beenara_geprueft = True
+    ctx.beenara = None
+    if entscheidung.beenara_weg(ctx.client) is None \
+            or not entscheidung.beenara_passt(ctx.taxonomy.categories):
+        return None
+    from . import beenara
+    if beenara.warum_nicht(ctx.cfg) is not None:
+        return None
+    try:
+        ctx.beenara = _Behutsam(beenara.oeffnen(), ctx.console)
+    except Exception as exc:
+        ctx.console.error(i18n.t("bn.run.load_failed", err=exc))
+    return ctx.beenara
+
+
 def _analysieren(ctx: Context, f, *, gedaechtnis=None) -> entscheidung.Vorab:
-    """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher."""
+    """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher —
+    im Sparmodus danach mit BeeNara als Entscheider, wenn es bereitsteht."""
+    bee = _beenara(ctx)
     vorab = None
     if entscheidung.unterstuetzt(ctx.client):
         vorab = entscheidung.analysieren(
             ctx.client, f, max_file_mb=ctx.seed.max_file_mb, kategorien=ctx.taxonomy.categories,
-            gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True)
+            gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True,
+            beenara=bee, sprache=i18n.get_language())
     if vorab is None:
         analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
         vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
+        if (bee is not None and ext_status == Status.INDEXED
+                and entscheidung.beenara_weg(ctx.client) == "spar"):
+            vorab = entscheidung.spar_mit_beenara(
+                bee, ctx.client, f, vorab, kategorien=ctx.taxonomy.categories,
+                gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), sprache=i18n.get_language())
     return vorab
 
 
@@ -488,9 +540,14 @@ def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) 
         con.error(i18n.t("pl.errors", n=s.errors))
     if s.needs_review:
         con.ask(i18n.t("pl.review", n=s.needs_review))
-    if s.quellen.get("gedaechtnis") or s.quellen.get("nummer"):
-        con.info(i18n.t("pl.quellen", mem=s.quellen.get("gedaechtnis", 0),
-                        num=s.quellen.get("nummer", 0), voll=s.quellen.get("analyse", 0)), "⚡")
+    if s.quellen.get("gedaechtnis") or s.quellen.get("nummer") or s.quellen.get("beenara"):
+        # Nur nennen, was vorkam; im Sparmodus ist der Rest Heuristik, keine Vollanalyse.
+        rest = "heuristik" if entscheidung.beenara_weg(ctx.client) == "spar" else "analyse"
+        teile = [i18n.t(f"pl.quelle.{schluessel}", n=s.quellen[quelle])
+                 for quelle, schluessel in (("gedaechtnis", "gedaechtnis"), ("beenara", "beenara"),
+                                            ("nummer", "nummer"), ("analyse", rest))
+                 if s.quellen.get(quelle)]
+        con.info(i18n.t("pl.quellen", teile=" · ".join(teile)), "⚡")
     if s.llm_calls:
         # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
         # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen

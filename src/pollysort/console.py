@@ -12,11 +12,14 @@ from contextlib import contextmanager
 from rich.console import Console
 from rich.progress import (
     BarColumn,
+    DownloadColumn,
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
 )
 from rich.text import Text
 from rich.theme import Theme
@@ -201,8 +204,11 @@ class BeeConsole:
 
     # -- Fortschritt (§12) --------------------------------------------------
     @contextmanager
-    def progress(self, description: str = "🐝 verarbeite …"):
-        """Fortschrittsbalken mit Bienen-Skin; im quiet/plain-Modus ein No-Op."""
+    def progress(self, description: str = "🐝 verarbeite …", *, transfer: bool = False):
+        """Fortschrittsbalken mit Bienen-Skin; im quiet/plain-Modus ein No-Op.
+
+        ``transfer=True`` zählt Bytes statt Schritte (Download: Menge, Tempo, Restzeit).
+        """
         if self.quiet or self.plain:
             yield _NullProgress()
             return
@@ -210,9 +216,11 @@ class BeeConsole:
             SpinnerColumn(spinner_name="dots"),
             TextColumn("[bloom]{task.description}"),
             BarColumn(complete_style="honey", finished_style="honey"),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
         ]
+        if transfer:
+            cols += [DownloadColumn(), TransferSpeedColumn(), TimeRemainingColumn()]
+        else:
+            cols += [MofNCompleteColumn(), TimeElapsedColumn()]
         with Progress(*cols, console=self._c, transient=False) as p:
             yield p
 

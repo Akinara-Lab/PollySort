@@ -21,3 +21,13 @@ def _kein_netz(self, request):
 @pytest.fixture(autouse=True)
 def _netz_sperren(monkeypatch):
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _kein_netz)
+
+
+@pytest.fixture(autouse=True)
+def _eigenes_beenara(monkeypatch, tmp_path):
+    """Kein Test sieht ein echtes BeeNara. Liegt das Modell samt Laufzeit auf dem Rechner,
+    würde es sonst in jedem Sortier-Test mitentscheiden — und deren Erwartungen kippen.
+    BeeNara-Tests legen sich ihr Modell selbst hin (``config.POLLYSORT_HOME``)."""
+    from pollysort import beenara, config
+    monkeypatch.setattr(config, "POLLYSORT_HOME", tmp_path / "pollysort-home")
+    beenara.schliessen()
