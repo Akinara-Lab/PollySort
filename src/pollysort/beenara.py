@@ -1,27 +1,36 @@
-"""BeeNara — das lokale Entscheider-Modell von Hugging Face holen.
+"""BeeNara — das lokale Entscheider-Modell: von Hugging Face holen, prüfen, bereitstellen.
 
 BeeNara (https://huggingface.co/Kwokou/BeeNara) liest ein Dokument zusammen mit den
 Ordnernamen und wählt einen davon — oder sagt „keiner passt". Es ist eine ONNX-Datei, die
-offline auf der CPU läuft. Dieses Modul lädt das Modell nur herunter, prüft es und meldet den
-Stand; in den Sortierlauf ist es noch nicht eingebunden.
+offline auf der CPU läuft. Dieses Modul lädt Modell und Laufzeit-Pakete, meldet den Stand und
+öffnet das Modell für den Sortierlauf (:func:`oeffnen`); wie dort entschieden wird, steht in
+:mod:`pollysort.entscheidung`.
 
 Ablage: ``~/.pollysort/modelle/BeeNara/`` — global, nie im Projektordner (der bleibt sauber).
 
 Der Download braucht kein ``huggingface_hub``: httpx ist ohnehin Kern-Abhängigkeit, und die
-Hub-API liefert Größe und Prüfsumme jeder Datei mit. Alle Dateien kommen aus **demselben
-Commit** (``main`` wird einmal aufgelöst), damit nie Modell und Kalibrierung aus zwei
-Versionen zusammenkommen. Jede Datei landet erst als ``.part`` und wird gegen ihre
-Prüfsumme verifiziert; erst wenn alle geprüft sind, bekommen sie gemeinsam ihre Namen. Ein
-abgebrochener Download setzt beim nächsten ``beenara laden`` an derselben Stelle fort.
-``HF_ENDPOINT`` lenkt auf einen Spiegel um.
+Hub-API liefert Größe und Prüfsumme jeder Datei mit. Alle Dateien kommen aus **einem festen
+Commit** (:data:`REVISION`), auf den die Laufzeit in :mod:`pollysort.beenara_laufzeit`
+abgestimmt ist — ein neues BeeNara kommt mit einem PollySort-Update, nie still über ``main``.
+Jede Datei landet erst als ``.part`` und wird gegen ihre Prüfsumme verifiziert; erst wenn
+alle geprüft sind, bekommen sie gemeinsam ihre Namen. Ein abgebrochener Download setzt beim
+nächsten ``beenara laden`` an derselben Stelle fort. ``HF_ENDPOINT`` lenkt auf einen Spiegel um.
+
+Die Laufzeit (``onnxruntime``, ``tokenizers``, ``numpy``) ist das Extra ``pollysort[beenara]``.
+Fehlt sie, installiert ``beenara laden`` sie in die Umgebung, in der PollySort läuft.
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib
+import importlib.util
 import json
 import os
 import shutil
+import subprocess
+import sys
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -32,7 +41,14 @@ import httpx
 from . import __version__, config, i18n
 
 REPO = "Kwokou/BeeNara"
-REVISION = "main"
+#: BeeNara v0.2 (Hub-Stand vom 2026-09-24). Wer diesen Wert anhebt, prüft vorher die Laufzeit
+#: gegen das neue Modell (Stufe-0, Paritätstest) — sonst entscheidet PollySort mit einer
+#: Kalibrierung, für die seine Laufzeit nicht gebaut ist.
+REVISION = "e7497f16b12e0682b0aaaddbb7ebb56f6af797f0"
+
+#: Die Laufzeit-Pakete — genau das Extra ``[beenara]`` aus pyproject.toml.
+PAKETE = ("onnxruntime>=1.30", "tokenizers>=0.20", "numpy>=1.26")
+_MODULE = ("onnxruntime", "tokenizers", "numpy")
 
 #: Was PollySort zum Ausführen braucht. ``beenara.py`` aus dem Repo wird bewusst NICHT
 #: geladen — fremder Code aus dem Netz wird hier nie ausgeführt.
@@ -85,6 +101,11 @@ class Stand:
     def mb(self) -> int:
         return _mb(self.belegt)
 
+    @property
+    def passend(self) -> bool:
+        """Vollständig UND genau der Commit, auf den die Laufzeit abgestimmt ist."""
+        return self.vollstaendig and self.revision == REVISION
+
 
 def _herkunft_lesen(d: Path) -> dict | None:
     try:
@@ -116,9 +137,113 @@ def stand() -> Stand:
 
 def entfernen() -> None:
     """Den BeeNara-Ordner löschen — nur die eigenen Downloads, nichts vom Nutzer."""
+    schliessen()                    # eine offene Sitzung hält unter Windows die Datei fest
     d = ordner()
     if d.exists():
         shutil.rmtree(d)
+
+
+# --------------------------------------------------------------------------- #
+#  Laufzeit: Pakete prüfen, installieren, Modell öffnen
+# --------------------------------------------------------------------------- #
+def laufzeit_fehlt() -> list[str]:
+    """Welche Laufzeit-Pakete fehlen? Leer = BeeNara kann rechnen."""
+    return [m for m in _MODULE if importlib.util.find_spec(m) is None]
+
+
+def warum_nicht(cfg) -> str | None:
+    """Warum BeeNara gerade nicht mitsortiert — ``None`` heißt: bereit.
+
+    ``aus`` (abgeschaltet) · ``modell`` (nicht geladen) · ``version`` (anderer Commit als
+    :data:`REVISION`) · ``laufzeit`` (Pakete fehlen). Modus und Ordnerzahl sind Sache des
+    Projekts und stehen in :mod:`pollysort.entscheidung`.
+    """
+    if not getattr(cfg, "beenara", True):
+        return "aus"
+    s = stand()
+    if not s.vollstaendig:
+        return "modell"
+    if not s.passend:
+        return "version"
+    if laufzeit_fehlt():
+        return "laufzeit"
+    return None
+
+
+def _installationsbefehl() -> list[str] | None:
+    """Wie sich Pakete in genau die Umgebung bringen lassen, in der PollySort läuft.
+
+    pip, wenn vorhanden (venv, pipx); sonst ``uv pip --python`` (uv-Tool-Umgebungen haben
+    kein pip). Außerhalb einer venv mit ``--user``, wie der Installer.
+    """
+    if importlib.util.find_spec("pip") is not None:
+        befehl = [sys.executable, "-m", "pip", "install", "--quiet"]
+        if sys.prefix == sys.base_prefix:
+            befehl.append("--user")
+        return [*befehl, *PAKETE]
+    uv = shutil.which("uv")
+    if uv:
+        return [uv, "pip", "install", "--quiet", "--python", sys.executable, *PAKETE]
+    return None
+
+
+def laufzeit_installieren(con) -> bool:
+    """Fehlende Laufzeit-Pakete installieren. ``True`` = danach alles da."""
+    fehlt = laufzeit_fehlt()
+    if not fehlt:
+        return True
+    befehl = _installationsbefehl()
+    if befehl is None:
+        con.error(i18n.t("bn.rt.manual", pakete=" ".join(PAKETE)))
+        return False
+    con.bloom(i18n.t("bn.rt.installing", pakete=", ".join(fehlt)), "📦")
+    try:
+        r = subprocess.run(befehl, capture_output=True, text=True, timeout=1800)
+    except KeyboardInterrupt:
+        con.raw("")
+        con.info(i18n.t("bn.interrupted"), "⏸️")
+        return False
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        con.error(i18n.t("bn.rt.failed", err=_kurz(exc), cmd=" ".join(befehl)))
+        return False
+    importlib.invalidate_caches()
+    if r.returncode != 0:
+        letzte = ((r.stderr or "") + (r.stdout or "")).strip().splitlines()
+        con.error(i18n.t("bn.rt.failed", err=letzte[-1] if letzte else f"Code {r.returncode}",
+                         cmd=" ".join(befehl)))
+        return False
+    if laufzeit_fehlt():
+        # Installiert, aber in einem Pfad, den dieser Prozess beim Start nicht kannte
+        # (z. B. ein frisch angelegtes Benutzer-site-packages).
+        con.info(i18n.t("bn.rt.restart"), "🔁")
+        return False
+    con.honey(i18n.t("bn.rt.done"), "✅")
+    return True
+
+
+_SITZUNGEN: dict[str, object] = {}
+_SPERRE = threading.Lock()
+
+
+def oeffnen():
+    """Das Modell zum Rechnen öffnen — einmal je Prozess, denn Laden dauert ~3 s.
+
+    Wirft, wenn Laufzeit oder Modell kaputt sind; der Sortierlauf meldet das und macht ohne
+    BeeNara weiter. Thread-sicher: der Ultra Swarm ruft ``decide`` parallel auf, und ONNX
+    Runtime erlaubt das auf einer Sitzung.
+    """
+    with _SPERRE:
+        schluessel = str(ordner())
+        if schluessel not in _SITZUNGEN:
+            from .beenara_laufzeit import BeeNara
+            _SITZUNGEN[schluessel] = BeeNara(ordner(), threads=max(1, min(4, os.cpu_count() or 1)))
+        return _SITZUNGEN[schluessel]
+
+
+def schliessen() -> None:
+    """Offene Sitzungen verwerfen (vor dem Entfernen oder nach einem Update)."""
+    with _SPERRE:
+        _SITZUNGEN.clear()
 
 
 # --------------------------------------------------------------------------- #
@@ -265,12 +390,16 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
     fehlender Platz und Strg-C werden gemeldet statt geworfen — der Erststart darf an einem
     Download nie scheitern. Halbfertige Dateien bleiben für das nächste Mal liegen.
     """
+    d = ordner()
+    if stand().passend:
+        # Der Commit ist fest — liegt er vollständig da, gibt es nichts nachzufragen (auch offline).
+        con.honey(i18n.t("bn.current", version=REVISION[:7], path=d), "✅")
+        return True
     eigener = client is None
     if client is None:
         client = httpx.Client(follow_redirects=True,
                               timeout=httpx.Timeout(30.0, connect=10.0),
                               headers={"User-Agent": f"pollysort/{__version__}"})
-    d = ordner()
     try:
         con.bloom(i18n.t("bn.checking", repo=REPO), "🔎")
         try:
@@ -294,8 +423,15 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
         if offen and not _offene_laden(con, client, sha, dateien, offen):
             return False
         _herkunft_schreiben(d, sha, dateien)
+        schliessen()                    # eine Sitzung auf dem alten Stand nicht weiterbenutzen
         con.honey(i18n.t("bn.done", version=sha[:7], mb=_mb(stand().belegt), path=d), "✅")
         return True
     finally:
         if eigener:
             client.close()
+
+
+def einrichten(con, *, client: httpx.Client | None = None) -> bool:
+    """Alles, was BeeNara zum Sortieren braucht: das Modell, dann fehlende Laufzeit-Pakete.
+    Das ist ``beenara laden`` und die Zusage im Erststart."""
+    return laden(con, client=client) and laufzeit_installieren(con)

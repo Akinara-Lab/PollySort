@@ -157,6 +157,11 @@ pipx install .                 # or:  uv tool install .
 > 🦙 **Robust local AI:** if Ollama's GPU backend crashes (driver issues), PollySort
 > automatically falls back to CPU inference (`num_gpu: 0`) — slower, but it keeps working.
 
+The **`[beenara]`** extra (`onnxruntime`, `tokenizers`, `numpy`) is the runtime of
+[BeeNara](#beenara-the-local-decider). You rarely need it by hand: `beenara pull` installs it
+into the environment PollySort runs in. To bring it along up front:
+`pipx install ".[extract,beenara]"`.
+
 **Update** (after `git pull`): `pipx install --force ".[extract]"` (or `uv tool install --force`).
 
 ### Uninstalling
@@ -202,8 +207,9 @@ On the **very first launch** a one-time setup clarifies the AI backend (it detec
 **Ollama** and offers to store an **OpenRouter** key), then a short **3-step tutorial** appears
 (**pick a folder → `preview` → `sort`**), and the wizard walks you through the project setup.
 The setup also offers to download **BeeNara**, the local decider model from Hugging Face
-(~370 MB). Pressing Enter means "later" — `beenara pull` (`beenara laden`) fetches it any time,
-and `pollysort-cli beenara pull` does the same from a script.
+(~370 MB plus its runtime, see [BeeNara](#beenara-the-local-decider)). Pressing Enter means
+"later" — `beenara pull` (`beenara laden`) fetches it any time, and `pollysort-cli beenara pull`
+does the same from a script.
 
 **Setup order: Name → AI mode → Categories → Subfolders → Watch.** For categories there's a
 **proposal mode** that looks at both your loose files *and* your existing folder structure
@@ -320,7 +326,7 @@ below list the **English alias** first and the original **German** name in paren
 | `enrich [on\|off\|now]` (`nacherfassen`) | Local mode: let the AI refine titles & summaries after sorting |
 | `person <name> <cat,..>` | Set responsibility in the background |
 | `doctor` | Health-check: Python, AI provider, local models, database, extraction extras, memory |
-| `beenara [pull\|remove]` (`beenara [laden\|entfernen]`) | Download [BeeNara](https://huggingface.co/Kwokou/BeeNara), the local decider model (~370 MB, checksum-verified, resumes after an interruption) · remove it again. Not used for sorting yet |
+| `beenara [pull\|on\|off\|remove]` (`beenara [laden\|an\|aus\|entfernen]`) | [BeeNara](#beenara-the-local-decider), the local decider model: download it with its runtime (~370 MB, checksum-verified, resumes after an interruption) · switch it on/off · remove it. Without an argument: is it sorting, and if not, why |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |
@@ -371,8 +377,42 @@ Measured on 70 test documents with `qwen3.5:9b` (57 unique, 13 exact duplicates)
 | before (full analysis per file) | 22.2 s | 48.7 s | 97 % |
 | now | **0.21 s** | **4.0 s** | 56 of 57 |
 
-About half of the documents were decided by memory alone. Low-power and cloud mode are
-unchanged.
+About half of the documents were decided by memory alone. With [BeeNara](#beenara-the-local-decider)
+downloaded, it takes over step 2 from the language model. Cloud mode is unchanged.
+
+### BeeNara: the local decider
+
+[BeeNara](https://huggingface.co/Kwokou/BeeNara) is a small model trained for exactly one
+question: *which of these folders, or none?* It runs on the CPU in about 0.3 s and is
+calibrated — it sorts only when its conformal prediction set holds exactly one folder
+(probability ≥ 0.97), and it is far better than small LLMs at noticing that **no** folder fits.
+
+- **Low-power mode:** BeeNara decides instead of the heuristics (titles and summaries stay
+  heuristic). **Local mode:** after the memory, instead of the one-token decision.
+  **Cloud mode:** not used.
+- **Unsure or "none fits" → review**, with BeeNara's favourite as the suggestion. No second
+  model guesses afterwards.
+- **Your rules still win:** a learned Wachstafel rule, or a memory that clearly points to
+  another folder, takes precedence.
+- **3 to 9 folders** — the range it was trained and calibrated for. Outside it, and for files
+  without local text (images), the usual path decides.
+- `beenara pull` downloads a fixed model version and installs the runtime (`onnxruntime`,
+  `tokenizers`, `numpy` — the `[beenara]` extra) into the environment PollySort runs in.
+  `beenara off` switches it off without deleting it.
+
+Measured on the same 70 test documents (57 unique), 8 folders as in the model card:
+
+| | correct | **wrong** | review |
+|---|---|---|---|
+| low-power, heuristics | 55 | 0 | 2 |
+| low-power, **BeeNara** | **57** | 0 | 0 |
+| low-power, heuristics — *insurance* and *tax* folders missing | 48 | **8** | 1 |
+| low-power, **BeeNara** — *insurance* and *tax* folders missing | 49 | **4** | 4 ✓ |
+| local, BeeNara (29 by memory, 28 by BeeNara) — folders missing | 49 | 4 | 4 ✓ |
+
+With folders missing, a review is the right answer for those 8 documents. The 4 that BeeNara
+still files are insurance policies that end up in *Contracts* — the known weakness from the
+model card when folders have names only.
 
 ### Preview → apply
 
@@ -426,7 +466,8 @@ One interface, three modes — chosen per project (`mode low | local | cloud`):
 
 - **Low-power** — pure heuristics from filename, text start, file type and category names
   (self-named/discovered categories work without hard-coded rules). Instant, free, no network,
-  no model — runs on any PC.
+  no model — runs on any PC. With [BeeNara](#beenara-the-local-decider) downloaded, a small
+  local model picks the folder instead (CPU, ~0.3 s per document, still free and offline).
 - **Local** — AI on your own machine via Ollama (free & private); automatic CPU fallback if
   the GPU backend crashes. Decides in **three stages** (see *How it works*) — fast enough for a
   laptop without a GPU.

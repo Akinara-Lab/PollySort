@@ -167,19 +167,26 @@ def _memory_check(hive: Path | None) -> Check:
 
 
 def _beenara_check(_hive: Path | None) -> Check:
-    """Liegt BeeNara vollständig da? Rein lokal — der Doctor fragt dafür nicht Hugging Face.
+    """Sortiert BeeNara mit? Rein lokal — der Doctor fragt dafür nicht Hugging Face.
 
-    „Nicht geladen" ist kein Warnfall: Das Modell ist optional, und ``pollysort-cli doctor``
-    soll dafür nicht mit Code 1 enden.
+    „Nicht geladen" und „ausgeschaltet" sind keine Warnfälle: BeeNara ist optional, und
+    ``pollysort-cli doctor`` soll dafür nicht mit Code 1 enden. Gewarnt wird, wenn der Nutzer
+    es offensichtlich will, es aber nicht rechnen kann (halb geladen, alte Version, Laufzeit fehlt).
     """
-    from .beenara import stand
+    from .beenara import REVISION, stand, warum_nicht
     label = i18n.t("doctor.beenara")
     s = stand()
-    if s.vollstaendig:
-        return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
-    if s.angefangen:
-        return (label, "warn", i18n.t("doctor.bn.partial"))
-    return (label, "ok", i18n.t("doctor.bn.none"))
+    if not s.vollstaendig:
+        return (label, "warn", i18n.t("doctor.bn.partial")) if s.angefangen \
+            else (label, "ok", i18n.t("doctor.bn.none"))
+    grund = warum_nicht(config.load_config())
+    if grund == "aus":
+        return (label, "ok", i18n.t("doctor.bn.aus", version=s.version))
+    if grund == "version":
+        return (label, "warn", i18n.t("doctor.bn.version", version=s.version, need=REVISION[:7]))
+    if grund == "laufzeit":
+        return (label, "warn", i18n.t("doctor.bn.laufzeit", version=s.version))
+    return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
 
 
 def run_checks(hive: Path | None) -> list[Check]:

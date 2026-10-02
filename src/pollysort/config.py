@@ -143,6 +143,9 @@ class AppConfig(BaseModel):
     tutorial_seen: bool = False                              # 3-Schritt-Erststart-Tutorial gezeigt?
     language: str = "de"                                     # de | en (UI-Sprache)
 
+    # BeeNara (lokales Entscheider-Modell): sortiert mit, sobald Modell und Laufzeit da sind
+    beenara: bool = True                                      # 'beenara aus' schaltet es ab
+
 
 @dataclass
 class HiveSeed:

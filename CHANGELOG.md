@@ -20,7 +20,33 @@ sichtbar ist der Produktname PollySort.
   durch bloßes Durchklicken.
 - `beenara` zeigt den Stand, `beenara entfernen` löscht das Modell nach Rückfrage;
   `pollysort-cli beenara [status|pull]` für Skripte; `doctor` meldet Version und Größe.
-- Ins Sortieren ist BeeNara noch nicht eingebunden.
+
+### Neu — BeeNara entscheidet beim Sortieren mit
+- **Sparmodus:** BeeNara wählt den Ordner statt der Heuristik (Titel und Zusammenfassung
+  bleiben heuristisch). **Lokal:** nach dem Gedächtnis, statt des KI-Kurzentscheids — das 9B
+  wird für die Wahl nicht mehr gebraucht. **Cloud:** unverändert.
+- Sortiert wird nur, wenn BeeNaras konforme Vorhersagemenge genau einen Ordner enthält
+  (kalibriert ≥ 0,97). „Keiner passt" und Unsicherheit werden Rückfragen, mit BeeNaras
+  Favorit als Vorschlag; kein zweites Modell rät nach. Eine gelernte Wachstafel-Regel und ein
+  widersprechendes Gedächtnis haben Vorrang. Gilt bei 3–9 Ordnern (so trainiert und
+  kalibriert), sonst der bisherige Weg.
+- Gemessen auf den 70 Testdokumenten (57 verschiedene): Sparmodus 57 von 57 richtig statt 55;
+  fehlen die Ordner Versicherung und Steuer, sortiert BeeNara 4 Dokumente falsch statt 8 und
+  fragt bei den Steuerbescheiden nach. Die 4 sind Versicherungspolicen unter „Verträge" — die
+  bekannte Schwäche bei Ordnern ohne Beschreibung.
+- **Laufzeit:** neues Extra `[beenara]` (`onnxruntime`, `tokenizers`, `numpy`); `beenara laden`
+  installiert es in die Umgebung, in der PollySort läuft (pip, sonst `uv pip`). Die
+  Laufzeit liegt als Kopie im Paket (`beenara_laufzeit.py`), Code vom Hub wird nie geladen.
+- **Fester Modell-Commit** (`beenara.REVISION`, v0.2): Ein neues BeeNara kommt mit einem
+  PollySort-Update, nie still über `main`. Liegt eine andere Version da, sortiert BeeNara
+  nicht mit, bis `beenara laden` die passende geholt hat.
+- `beenara an` / `beenara aus` schaltet es ab, ohne es zu löschen. `beenara` sagt, ob es
+  mitsortiert und warum nicht (aus, nicht geladen, Version, Laufzeit, Cloud, Ordnerzahl).
+- Ein Ausfall beim Rechnen wird einmal gemeldet; der Rest des Laufs entscheidet ohne BeeNara.
+- Lauf-Zusammenfassung nennt nur die Quellen, die vorkamen („2 aus dem Gedächtnis · 5 von
+  BeeNara"), im Sparmodus „per Heuristik" statt „per Vollanalyse".
+- Tests: Kein Test sieht mehr ein echtes BeeNara auf dem Rechner (eigene `POLLYSORT_HOME` je
+  Test). Live-Test mit dem echten Modell über `BEENARA_MODELL=<ordner>`.
 
 ### Geändert — alle offenen Punkte aus TEIL 3 der TODO
 - **Vollständig zweisprachig:** alle 155 Befehlsmeldungen der Konsole und die Ausgaben von
