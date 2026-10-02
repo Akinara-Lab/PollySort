@@ -544,12 +544,13 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
 
 @app.command("beenara")
 def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull")):
-    """BeeNara (lokales Entscheider-Modell) von Hugging Face laden oder den Stand zeigen."""
+    """BeeNara (lokales Entscheider-Modell) samt Laufzeit laden oder den Stand zeigen.
+    Exit 0 = BeeNara sortiert mit."""
     con = _con()
     from . import beenara
     a = aktion.strip().lower()
     if a in ("pull", "laden", "download", "update"):
-        raise typer.Exit(0 if beenara.laden(con) else 1)
+        raise typer.Exit(0 if beenara.einrichten(con) else 1)
     if a not in ("status", ""):
         con.error("pollysort-cli beenara <status|pull>")
         raise typer.Exit(2)
@@ -560,7 +561,16 @@ def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull")):
         con.ask(i18n.t("bn.status.partial"))
     else:
         con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB), "⬇️")
-    raise typer.Exit(0 if s.vollstaendig else 1)
+    grund = beenara.warum_nicht(config.load_config())
+    if grund is None:
+        con.honey(i18n.t("bn.active.ja"), "⚡")
+    elif grund == "version":
+        con.ask(i18n.t("bn.active.version", have=s.version, need=beenara.REVISION[:7]))
+    elif grund == "laufzeit":
+        con.ask(i18n.t("bn.active.laufzeit", pakete=", ".join(beenara.laufzeit_fehlt())))
+    elif grund == "aus":
+        con.info(i18n.t("bn.active.aus"), "💤")
+    raise typer.Exit(0 if grund is None else 1)
 
 
 @app.command()

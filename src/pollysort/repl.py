@@ -242,7 +242,7 @@ class BeehiveShell(cmd.Cmd):
             ollama_probe=self._ollama_ready,
             has_key=lambda: config.load_credentials() is not None,
             save_key=self._save_key,
-            beenara_present=lambda: beenara.stand().vollstaendig,
+            beenara_present=lambda: beenara.stand().passend and not beenara.laufzeit_fehlt(),
             beenara_pull=self._beenara_laden,
             apply_theme=self._apply_theme,
         )
@@ -994,11 +994,15 @@ class BeehiveShell(cmd.Cmd):
     #  BeeNara — lokales Entscheider-Modell von Hugging Face
     # ------------------------------------------------------------------ #
     def do_beenara(self, arg: str) -> None:
-        """beenara [laden|entfernen] — BeeNara von Hugging Face holen (Kwokou/BeeNara)."""
+        """beenara [laden|an|aus|entfernen] — BeeNara, das lokale Entscheider-Modell (Kwokou/BeeNara)."""
         sub = arg.strip().lower()
         if sub in ("laden", "ziehen", "holen", "herunterladen", "aktualisieren",
                    "pull", "download", "install", "update"):
             self._beenara_laden()
+        elif sub in ("an", "ein", "on", "enable"):
+            self._beenara_schalten(True)
+        elif sub in ("aus", "off", "disable"):
+            self._beenara_schalten(False)
         elif sub in ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall"):
             self._beenara_entfernen()
         elif sub in ("", "status", "info"):
@@ -1007,17 +1011,23 @@ class BeehiveShell(cmd.Cmd):
             self.con.ask(i18n.t("bn.usage"))
 
     def _beenara_laden(self) -> bool:
-        """Laden (auch aus dem Erststart). Ein unerwarteter Fehler darf den Erststart
-        nicht abreißen — er wird gemeldet, die Einrichtung läuft weiter."""
+        """Modell und Laufzeit holen (auch aus dem Erststart). Ein unerwarteter Fehler darf
+        den Erststart nicht abreißen — er wird gemeldet, die Einrichtung läuft weiter."""
         from pollysort import beenara
         try:
-            return beenara.laden(self.con)
+            return beenara.einrichten(self.con)
         except Exception as exc:
             self.con.error(i18n.t("bn.err.download", err=exc))
             return False
 
+    def _beenara_schalten(self, an: bool) -> None:
+        cfg = config.load_config()
+        cfg.beenara = an
+        config.save_config(cfg)
+        self.con.honey(i18n.t("bn.set.on" if an else "bn.set.off"), "🐝")
+
     def _beenara_status(self) -> None:
-        from pollysort import beenara
+        from pollysort import beenara, entscheidung
         s = beenara.stand()
         self.con.rule(i18n.t("bn.title"))
         self.con.info(i18n.t("bn.what"), "🐝")
@@ -1028,7 +1038,32 @@ class BeehiveShell(cmd.Cmd):
         else:
             self.con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB),
                           "⬇️")
-        self.con.info(i18n.t("bn.status.note"), "🧪")
+        grund = beenara.warum_nicht(config.load_config())
+        if grund is None:
+            self.con.honey(i18n.t("bn.active.ja"), "⚡")
+            # Für das offene Projekt sagen, ob es dort wirklich greift.
+            if self.hive and config.is_setup(self.hive):
+                from pollysort.hive_mind import Taxonomy
+                seed = config.load_seed(self.hive)
+                name = seed.name or self.hive.name
+                # Wie der Sortierlauf: die lebende Taxonomie, vor dem ersten Lauf der Seed.
+                kats = Taxonomy(self.hive).categories or seed.categories
+                if seed.provider == "openrouter":
+                    self.con.info(i18n.t("bn.project.cloud", name=name), "☁️")
+                elif not entscheidung.beenara_passt(kats):
+                    self.con.info(i18n.t("bn.project.count", name=name,
+                                         n=len(entscheidung.ordner_namen(kats))), "🗂️")
+                else:
+                    self.con.info(i18n.t("bn.project.ok", name=name), "📂")
+        elif grund == "version":
+            self.con.ask(i18n.t("bn.active.version", have=s.version,
+                                need=beenara.REVISION[:7]))
+        elif grund == "laufzeit":
+            self.con.ask(i18n.t("bn.active.laufzeit", pakete=", ".join(beenara.laufzeit_fehlt())))
+        elif grund == "aus":
+            self.con.info(i18n.t("bn.active.aus"), "💤")
+        elif s.vollstaendig or s.angefangen:
+            self.con.info(i18n.t("bn.active.modell"), "⬇️")
         self.con.info(i18n.t("bn.usage"), "🐝")
 
     def _beenara_entfernen(self) -> None:

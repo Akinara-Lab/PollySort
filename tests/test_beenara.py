@@ -17,8 +17,8 @@ import pytest
 
 from pollysort import beenara, config, doctor, i18n
 
-SHA_A = "a" * 40
-SHA_B = "b" * 40
+SHA_A = beenara.REVISION          # der festgenagelte Commit
+SHA_B = "b" * 40                  # ein späterer, auf den ein Update den Pin anhebt
 
 DATEIEN = {
     "onnx/beenara.onnx": bytes(range(256)) * 40,              # 10 240 Bytes, LFS
@@ -64,7 +64,7 @@ class Hub:
         if self.down:
             raise httpx.ConnectError("getaddrinfo failed", request=request)
         path = request.url.path
-        if path == f"/api/models/{beenara.REPO}/revision/main":
+        if path == f"/api/models/{beenara.REPO}/revision/{beenara.REVISION}":
             assert request.url.params.get("blobs") == "true"
             return httpx.Response(200, json={"sha": self.sha, "siblings": self._siblings()})
         resolve = f"/{beenara.REPO}/resolve/{self.sha}/"
@@ -164,13 +164,27 @@ def test_fremder_code_und_modellkarte_bleiben_auf_dem_hub(ziel, hub):
     assert not (ziel / "beenara.py").exists()
 
 
-def test_zweites_laden_laedt_nichts_neu(ziel, hub):
+def test_zweites_laden_fragt_nicht_einmal_nach(ziel, hub):
+    """Der Commit ist fest — liegt er vollständig da, geht 'beenara laden' nicht ins Netz
+    (und klappt so auch offline)."""
     _laden(hub)
     hub.requests.clear()
     con = Con()
     assert _laden(hub, con) is True
-    assert hub.geladen() == []
+    assert hub.requests == []
     assert "aktuell" in con.text
+
+
+def test_andere_version_wird_nachgeladen(ziel, hub, monkeypatch):
+    """Liegt ein anderer Commit da als der, auf den die Laufzeit abgestimmt ist, sortiert
+    BeeNara nicht mit, bis 'beenara laden' den passenden geholt hat."""
+    _laden(hub)
+    monkeypatch.setattr(beenara, "laufzeit_fehlt", lambda: [])
+    monkeypatch.setattr(beenara, "REVISION", SHA_B)
+    assert beenara.warum_nicht(config.AppConfig()) == "version"
+    hub.sha = SHA_B
+    assert _laden(hub) is True
+    assert beenara.warum_nicht(config.AppConfig()) is None
 
 
 def test_abgebrochener_download_setzt_fort(ziel, hub):
@@ -250,8 +264,9 @@ def test_strg_c_behaelt_den_rest_fuer_das_naechste_mal(ziel, hub):
     assert "tokenizer/tokenizer.json" in hub.geladen()
 
 
-def test_update_laedt_nur_geaenderte_dateien(ziel, hub):
+def test_update_laedt_nur_geaenderte_dateien(ziel, hub, monkeypatch):
     _laden(hub)
+    monkeypatch.setattr(beenara, "REVISION", SHA_B)       # PollySort-Update hebt den Pin
     hub.sha = SHA_B
     hub.files["onnx/calibration.json"] = b'{"option_temperature": 1.3}'
     hub.requests.clear()
@@ -261,11 +276,12 @@ def test_update_laedt_nur_geaenderte_dateien(ziel, hub):
     assert beenara.stand().revision == SHA_B
 
 
-def test_abgebrochenes_update_mischt_keine_versionen(ziel, hub):
+def test_abgebrochenes_update_mischt_keine_versionen(ziel, hub, monkeypatch):
     """Neues Modell neben alter Kalibrierung wäre schlimmer als ein altes Modell: Die
     Kalibrierung gehört zu genau einem Artefakt. Bricht das Update ab, bleibt v1 ganz."""
     _laden(hub)
     alt_onnx = DATEIEN["onnx/beenara.onnx"]
+    monkeypatch.setattr(beenara, "REVISION", SHA_B)
     hub.sha = SHA_B
     hub.files["onnx/beenara.onnx"] = bytes(reversed(alt_onnx))
     hub.files["onnx/calibration.json"] = b'{"option_temperature": 1.3}'
@@ -317,8 +333,18 @@ def test_doctor_zeigt_beenara(ziel, hub, monkeypatch):
     assert check()[1] == "warn"
 
     _laden(hub)
+    monkeypatch.setattr(beenara, "laufzeit_fehlt", lambda: ["onnxruntime"])
     _, status, detail = check()
-    assert status == "ok" and "aaaaaaa" in detail
+    assert status == "warn" and "Laufzeit fehlt" in detail, "Modell da, Laufzeit nicht"
+
+    monkeypatch.setattr(beenara, "laufzeit_fehlt", lambda: [])
+    _, status, detail = check()
+    assert status == "ok" and SHA_A[:7] in detail
+
+    monkeypatch.setattr(doctor.config, "load_config",
+                        lambda: config.AppConfig(llm_provider="offline", beenara=False))
+    _, status, detail = check()
+    assert status == "ok" and "ausgeschaltet" in detail
 
 
 def test_entfernen_loescht_nur_den_modellordner(ziel, hub):
@@ -354,7 +380,7 @@ def test_konsole_entfernen_fragt_vorher(ziel, hub, monkeypatch):
 
 def test_konsole_laden_ruft_den_download(ziel, monkeypatch):
     calls: list[int] = []
-    monkeypatch.setattr(beenara, "laden", lambda _con: calls.append(1) or True)
+    monkeypatch.setattr(beenara, "einrichten", lambda _con: calls.append(1) or True)
     sh = _shell(Con())
     for wort in ("laden", "pull", "ziehen", "update"):
         sh.do_beenara(wort)
@@ -365,7 +391,7 @@ def test_unerwarteter_fehler_reisst_den_erststart_nicht_ab(ziel, monkeypatch):
     def boom(_con):
         raise RuntimeError("kaputt")
 
-    monkeypatch.setattr(beenara, "laden", boom)
+    monkeypatch.setattr(beenara, "einrichten", boom)
     con = Con()
     assert _shell(con)._beenara_laden() is False
     assert "kaputt" in con.text
@@ -391,6 +417,139 @@ def test_meldungen_ueberleben_rich_markup():
             continue
         for text in entry.values():
             assert Text.from_markup(text).plain == text, f"{key}: {text!r}"
+
+
+# --------------------------------------------------------------------------- #
+#  Laufzeit (onnxruntime, tokenizers, numpy) — nie ein echtes pip im Test
+# --------------------------------------------------------------------------- #
+class Lauf:
+    """Ersatz für subprocess.run: merkt sich den Befehl, „installiert" auf Wunsch."""
+
+    def __init__(self, code=0, stderr="", danach_da=True):
+        self.code, self.stderr, self.danach_da = code, stderr, danach_da
+        self.befehle: list[list[str]] = []
+
+    def __call__(self, befehl, **_kw):
+        import subprocess
+        self.befehle.append(list(befehl))
+        return subprocess.CompletedProcess(befehl, self.code, stdout="", stderr=self.stderr)
+
+
+def _laufzeit(monkeypatch, lauf: Lauf, *, pip=True, uv=None):
+    import importlib.util as iu
+    fehlt = {"wert": ["onnxruntime", "tokenizers"]}
+    echt = iu.find_spec
+
+    def find_spec(name, *a, **k):
+        if name in ("onnxruntime", "tokenizers", "numpy"):
+            return None if name in fehlt["wert"] else object()
+        if name == "pip":
+            return object() if pip else None
+        return echt(name, *a, **k)
+
+    def run(befehl, **kw):
+        res = lauf(befehl, **kw)
+        if lauf.code == 0 and lauf.danach_da:
+            fehlt["wert"] = []
+        return res
+
+    monkeypatch.setattr(beenara.importlib.util, "find_spec", find_spec)
+    monkeypatch.setattr(beenara.shutil, "which", lambda _n: uv)
+    monkeypatch.setattr(beenara.subprocess, "run", run)
+
+
+def test_laufzeit_kommt_per_pip_in_die_eigene_umgebung(monkeypatch):
+    import sys
+    lauf = Lauf()
+    _laufzeit(monkeypatch, lauf)
+    con = Con()
+    assert beenara.laufzeit_installieren(con) is True
+    befehl = lauf.befehle[0]
+    assert befehl[:4] == [sys.executable, "-m", "pip", "install"], "genau dieser Interpreter"
+    assert set(beenara.PAKETE) <= set(befehl)
+    assert "installiert" in con.text
+
+
+def test_uv_tool_umgebung_ohne_pip_nimmt_uv(monkeypatch):
+    import sys
+    lauf = Lauf()
+    _laufzeit(monkeypatch, lauf, pip=False, uv="C:/uv/uv.exe")
+    assert beenara.laufzeit_installieren(Con()) is True
+    assert lauf.befehle[0][:5] == ["C:/uv/uv.exe", "pip", "install", "--quiet", "--python"]
+    assert sys.executable in lauf.befehle[0]
+
+
+def test_ohne_pip_und_uv_nennt_den_befehl(monkeypatch):
+    lauf = Lauf()
+    _laufzeit(monkeypatch, lauf, pip=False, uv=None)
+    con = Con()
+    assert beenara.laufzeit_installieren(con) is False
+    assert lauf.befehle == []
+    assert "onnxruntime>=1.30" in con.text
+
+
+def test_fehlgeschlagene_installation_zeigt_den_befehl(monkeypatch):
+    lauf = Lauf(code=1, stderr="ERROR: No matching distribution found for onnxruntime")
+    _laufzeit(monkeypatch, lauf)
+    con = Con()
+    assert beenara.laufzeit_installieren(con) is False
+    assert "No matching distribution" in con.text and "pip install" in con.text
+
+
+def test_installiert_aber_erst_nach_neustart_sichtbar(monkeypatch):
+    _laufzeit(monkeypatch, Lauf(danach_da=False))
+    con = Con()
+    assert beenara.laufzeit_installieren(con) is False
+    assert "neu starten" in con.text
+
+
+def test_einrichten_holt_modell_und_laufzeit(ziel, hub, monkeypatch):
+    lauf = Lauf()
+    _laufzeit(monkeypatch, lauf)
+    with hub.client() as client:
+        assert beenara.einrichten(Con(), client=client) is True
+    assert beenara.stand().passend and lauf.befehle
+    assert beenara.warum_nicht(config.AppConfig()) is None
+
+
+def test_einrichten_installiert_nichts_ohne_modell(ziel, hub, monkeypatch):
+    lauf = Lauf()
+    _laufzeit(monkeypatch, lauf)
+    hub.down = True
+    with hub.client() as client:
+        assert beenara.einrichten(Con(), client=client) is False
+    assert lauf.befehle == [], "Ohne Modell keine Pakete"
+
+
+def test_warum_nicht_nennt_jeden_grund(ziel, hub, monkeypatch):
+    assert beenara.warum_nicht(config.AppConfig()) == "modell"
+    assert beenara.warum_nicht(config.AppConfig(beenara=False)) == "aus"
+    _laden(hub)
+    monkeypatch.setattr(beenara, "laufzeit_fehlt", lambda: ["onnxruntime"])
+    assert beenara.warum_nicht(config.AppConfig()) == "laufzeit"
+    monkeypatch.setattr(beenara, "laufzeit_fehlt", lambda: [])
+    assert beenara.warum_nicht(config.AppConfig()) is None
+
+
+def test_konsole_schaltet_an_und_aus(monkeypatch):
+    gespeichert: list[bool] = []
+    monkeypatch.setattr(config, "load_config", lambda: config.AppConfig())
+    monkeypatch.setattr(config, "save_config", lambda cfg: gespeichert.append(cfg.beenara))
+    sh = _shell(Con())
+    sh.do_beenara("aus")
+    sh.do_beenara("on")
+    assert gespeichert == [False, True]
+
+
+def test_extra_und_installationsliste_sind_gleich():
+    """`pip install pollysort[beenara]` und `beenara laden` müssen dieselben Pakete holen."""
+    import tomllib
+    from pathlib import Path
+    daten = tomllib.loads((Path(__file__).resolve().parent.parent / "pyproject.toml")
+                          .read_text(encoding="utf-8"))
+    extras = daten["project"]["optional-dependencies"]
+    assert tuple(extras["beenara"]) == beenara.PAKETE
+    assert any("beenara" in x for x in extras["full"])
 
 
 def test_beenara_geht_auch_ohne_projekt():
