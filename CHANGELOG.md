@@ -9,6 +9,22 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Schneller — Sortieren mit BeeNara etwa doppelt so schnell
+- Gemessen über den Dienst des Flugbretts, 70 Testdokumente, Laptop auf Akku, abwechselnd in
+  vier Runden: **vorher 734–860 ms je Datei (Median 752), jetzt 350–476 ms (Median 353)**.
+  Die Entscheidungen bleiben gleich: Stufe-0 mit 6 Threads 420/420 wie die PyTorch-Referenz.
+- **BeeNara rechnet mit 6 statt 4 Threads** (Core Ultra 7 255H: 4 → 481 ms, 6 → 368 ms,
+  8 → 380 ms mit mehr Streuung, 16 → 861 ms). Höchstens 6, nie mehr als Kerne da sind;
+  `POLLYSORT_BEENARA_THREADS` überschreibt.
+- **Das Gedächtnis wird einmal je Lauf geladen** statt für jede Datei aus SQLite und JSON; was
+  der Lauf lernt, wird nachgetragen. Jede andere Änderung (Korrektur, Papierkorb, Umbenennen,
+  Neuaufbau) erhöht `HiveMind.version` und lädt neu. Mit numpy rechnet der Vergleich als
+  Matrix-Produkt. Das hilft auch dem Modus Lokal.
+- **Jede Datei wird je Analyse nur einmal gelesen** (`extractor.einmal_lesen`) — vorher lasen
+  Heuristik und BeeNara sie im Sparmodus nacheinander.
+- Flugbrett: Während einer langen Aktion sind die Knöpfe ihrer Karte gesperrt — „Herunterladen"
+  lässt sich während des Downloads nicht noch einmal anklicken.
+
 ### Hinzugefügt — BeeNara im Flugbrett
 - **Werkstatt:** BeeNara-Karte mit demselben Stand wie `beenara` in der Konsole; herunterladen
   (mit Fortschritt in MB, Laufzeit wird mitinstalliert), an/aus, entfernen mit Bestätigung.

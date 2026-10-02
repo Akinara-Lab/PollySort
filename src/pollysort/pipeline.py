@@ -14,7 +14,7 @@ from . import entscheidung, i18n, mover, nacherfassung
 from .assigner import assign
 from .config import AppConfig, HiveSeed
 from .console import BeeConsole
-from .extractor import extract, gedaechtnis_text
+from .extractor import einmal_lesen, extract, gedaechtnis_text
 from .feedback import Feedback
 from .guards import IgnoreMatcher, has_landed, within_size_limit
 from .hive_mind import HiveMind, Taxonomy
@@ -81,6 +81,11 @@ class Context:
     #: BeeNara für diesen Kontext (siehe :func:`_beenara`) — erst beim ersten Bedarf geöffnet.
     beenara: object | None = None
     beenara_geprueft: bool = False
+    #: Die Gedächtnis-Kopie dieses Kontexts, das Modell und die Gedächtnis-Version, zu der sie
+    #: gehört (siehe :func:`_gedaechtnis_sicht`) — einmal geladen, danach wächst sie mit.
+    sicht: entscheidung.Schnappschuss | None = None
+    sicht_modell: str | None = None
+    sicht_version: int = -1
 
     @classmethod
     def build(cls, *, hive, cfg, seed, client, console, journal) -> Context:
@@ -415,9 +420,14 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # merken — auch wenn die Confidence noch unter der Schwelle liegt. So bootstrappt der
     # Stock aus dem Kaltstart heraus; falsche Frühlabels korrigiert 'pollysort assign' (§24).
     if not dry_run and vec is not None and entry.funktion.kategorie != "_unassigned":
-        ctx.mind.remember(entry.id, entry.funktion.kategorie, vec,
-                          getattr(ctx.client, "embed_model", None))
+        modell = getattr(ctx.client, "embed_model", None)
+        aktuell = ctx.sicht is not None and ctx.sicht_modell == modell \
+            and ctx.sicht_version == ctx.mind.version
+        ctx.mind.remember(entry.id, entry.funktion.kategorie, vec, modell)
         ctx.memory_ok = None              # erster Eintrag kann den Zustand ändern
+        if aktuell:                       # nachtragen statt das ganze Gedächtnis neu zu laden
+            ctx.sicht.merken(entry.id, entry.funktion.kategorie, vec)
+            ctx.sicht_version = ctx.mind.version
 
     # Nur heuristisch erfasst → die KI verfeinert Titel/Zusammenfassung später.
     if not dry_run and vorab.kurz and entry.status.value in nacherfassung.ZUSTAENDE:
@@ -445,9 +455,16 @@ def _memory_ok(ctx: Context) -> bool:
 def _gedaechtnis_sicht(ctx: Context) -> entscheidung.Schnappschuss:
     """Das Gedächtnis, wie Stufe A es sehen darf: nur Vektoren des aktuellen Modells samt
     Textbasis. Ein Altbestand aus einem anderen Modell (vor 'gedaechtnis neu') bleibt so
-    außen vor, statt Ähnlichkeiten zwischen zwei Vektorräumen vorzutäuschen."""
-    return entscheidung.Schnappschuss(
-        ctx.mind.eintraege(getattr(ctx.client, "embed_model", None)))
+    außen vor, statt Ähnlichkeiten zwischen zwei Vektorräumen vorzutäuschen.
+
+    Einmal je Kontext geladen und danach in ``ingest`` nachgetragen. Hat sich das Gedächtnis
+    anders geändert (Korrektur, Papierkorb, Umbenennen, Neuaufbau — ``HiveMind.version``) oder
+    wechselt das Modell (Offline-Fallback), wird neu geladen."""
+    modell = getattr(ctx.client, "embed_model", None)
+    if ctx.sicht is None or ctx.sicht_modell != modell or ctx.sicht_version != ctx.mind.version:
+        ctx.sicht = entscheidung.Schnappschuss(ctx.mind.eintraege(modell))
+        ctx.sicht_modell, ctx.sicht_version = modell, ctx.mind.version
+    return ctx.sicht
 
 
 class _Behutsam:
@@ -492,22 +509,26 @@ def _beenara(ctx: Context):
 
 def _analysieren(ctx: Context, f, *, gedaechtnis=None) -> entscheidung.Vorab:
     """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher —
-    im Sparmodus danach mit BeeNara als Entscheider, wenn es bereitsteht."""
+    im Sparmodus danach mit BeeNara als Entscheider, wenn es bereitsteht. Jede Datei wird
+    dabei nur einmal gelesen, auch wenn Heuristik und BeeNara beide ihren Text brauchen."""
     bee = _beenara(ctx)
     vorab = None
-    if entscheidung.unterstuetzt(ctx.client):
-        vorab = entscheidung.analysieren(
-            ctx.client, f, max_file_mb=ctx.seed.max_file_mb, kategorien=ctx.taxonomy.categories,
-            gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True,
-            beenara=bee, sprache=i18n.get_language())
-    if vorab is None:
-        analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
-        vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
-        if (bee is not None and ext_status == Status.INDEXED
-                and entscheidung.beenara_weg(ctx.client) == "spar"):
-            vorab = entscheidung.spar_mit_beenara(
-                bee, ctx.client, f, vorab, kategorien=ctx.taxonomy.categories,
-                gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), sprache=i18n.get_language())
+    with einmal_lesen():
+        if entscheidung.unterstuetzt(ctx.client):
+            vorab = entscheidung.analysieren(
+                ctx.client, f, max_file_mb=ctx.seed.max_file_mb,
+                kategorien=ctx.taxonomy.categories,
+                gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True,
+                beenara=bee, sprache=i18n.get_language())
+        if vorab is None:
+            analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
+            vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
+            if (bee is not None and ext_status == Status.INDEXED
+                    and entscheidung.beenara_weg(ctx.client) == "spar"):
+                vorab = entscheidung.spar_mit_beenara(
+                    bee, ctx.client, f, vorab, kategorien=ctx.taxonomy.categories,
+                    gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx),
+                    sprache=i18n.get_language())
     return vorab
 
 

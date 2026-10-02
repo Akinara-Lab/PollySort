@@ -449,17 +449,34 @@
   // ------------------------------------------------------------------ //
   //  Arbeit: lange Aktionen mit Fortschritt
   // ------------------------------------------------------------------ //
+  // Während eine lange Aktion läuft, sind die Knöpfe ihrer Karte gesperrt — sonst startet ein
+  // zweiter Klick dieselbe Aktion noch einmal (z. B. „Herunterladen" während des Downloads).
+  function karteSperren() {
+    const lauf = $('#lauf');
+    const karte = lauf && lauf.closest('section');
+    if (!karte) return () => {};
+    const knoepfe = $$('button, input, select', karte).filter((k) => !k.disabled);
+    knoepfe.forEach((k) => { k.disabled = true; });
+    karte.setAttribute('aria-busy', 'true');
+    return () => {
+      knoepfe.forEach((k) => { k.disabled = false; });
+      karte.removeAttribute('aria-busy');
+    };
+  }
+
   async function arbeit(name, daten) {
     if (S.lauf) { hinweis({ titel: t('web.err.busy'), art: 'fehler' }); return null; }
     S.lauf = { name, erledigt: 0, gesamt: 0, text: '' };
     rahmenZeichnen();
     laufZeichnen();
+    const freigeben = karteSperren();
     try {
       return await tun(name, daten);
     } catch (e) {
       fehler(e);
       return null;
     } finally {
+      freigeben();
       S.lauf = null;
       await zustandLaden();
       rahmenZeichnen();

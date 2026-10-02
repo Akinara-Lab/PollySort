@@ -160,20 +160,95 @@ def beste_je_kategorie(vec: list[float], eintraege) -> dict[str, float]:
     return beste
 
 
-class Schnappschuss:
-    """Feste Kopie des Gedächtnisses für die parallelen Worker des Ultra Swarm.
+def _numpy():
+    """numpy, falls installiert (kommt mit dem Extra [beenara]) — sonst ``None``."""
+    try:
+        import numpy
+    except ImportError:
+        return None
+    return numpy
 
-    SQLite-Verbindungen dürfen nicht zwischen Threads wandern; die Worker lesen deshalb
-    aus dieser Kopie. Was während des Laufs neu gelernt wird, sehen sie nicht — das kostet
-    höchstens einen KI-Aufruf mehr, nie eine falsche Zuordnung.
+
+class Schnappschuss:
+    """Kopie des Gedächtnisses für einen Sortierlauf.
+
+    SQLite-Verbindungen dürfen nicht zwischen Threads wandern; die parallelen Worker des Ultra
+    Swarm lesen deshalb aus dieser Kopie. Im einthreadigen Teil wächst sie mit (``merken``) —
+    so muss nicht jede Datei das ganze Gedächtnis neu aus der Datenbank laden (vorher ~50 ms je
+    Datei bei 57 Einträgen, wachsend mit dem Archiv).
+
+    Mit numpy rechnet ``beste_je_kategorie`` alle Ähnlichkeiten als eine Matrix-Multiplikation
+    (float32, Abweichung zur reinen Python-Rechnung < 1e-6); ohne numpy wie bisher.
     """
 
     def __init__(self, eintraege):
         self._eintraege = list(eintraege)
         self._anzahl = Counter(kat for _b, kat, _v in self._eintraege)
+        # Normierte Vektoren als Matrix mit Reserve-Zeilen (erst bei Bedarf gebaut): Neu
+        # Gelerntes wird hineingeschrieben, statt die Matrix je Datei neu aufzubauen.
+        self._matrix = None
+        self._zeilen = 0
+
+    @staticmethod
+    def _normiert(np, vec):
+        v = np.asarray(vec, dtype=np.float32)
+        n = float(np.linalg.norm(v))
+        return v / n if n else v                  # Nullvektor: Ähnlichkeit 0 wie bei _cosine
+
+    def _matrix_bauen(self, np) -> bool:
+        if len({len(v) for _b, _k, v in self._eintraege}) != 1:
+            return False                          # gemischte Dimensionen: wie bisher rechnen
+        dim = len(self._eintraege[0][2])
+        m = np.zeros((len(self._eintraege) + 64, dim), dtype=np.float32)
+        for i, (_b, _k, v) in enumerate(self._eintraege):
+            m[i] = self._normiert(np, v)
+        # Erst die Zeilenzahl, dann die Matrix — ein paralleler Leser (Ultra Swarm) sieht
+        # entweder keine Matrix (und baut selbst) oder eine vollständige.
+        self._zeilen = len(self._eintraege)
+        self._matrix = m
+        return True
 
     def beste_je_kategorie(self, vec: list[float]) -> dict[str, float]:
-        return beste_je_kategorie(vec, self._eintraege)
+        np = _numpy()
+        if np is None or not self._eintraege:
+            return beste_je_kategorie(vec, self._eintraege)
+        if self._matrix is None and not self._matrix_bauen(np):
+            return beste_je_kategorie(vec, self._eintraege)
+        q = np.asarray(vec, dtype=np.float32)
+        nq = float(np.linalg.norm(q))
+        if q.shape[0] != self._matrix.shape[1] or nq == 0:
+            return beste_je_kategorie(vec, self._eintraege)
+        aehnlich = (self._matrix[:self._zeilen] @ (q / nq)).tolist()
+        beste: dict[str, float] = {}
+        for (_bid, kat, _v), s in zip(self._eintraege, aehnlich):
+            if kat != "_unassigned" and s > beste.get(kat, -1.0):
+                beste[kat] = s
+        return beste
+
+    def merken(self, bee_id: str, kategorie: str, vec: list[float]) -> None:
+        """Was der Lauf gerade gelernt hat, auch hier nachtragen (wie ``HiveMind.remember``:
+        ein Eintrag je Datei, ein zweites Mal ersetzt den ersten)."""
+        for i, (bid, kat, _v) in enumerate(self._eintraege):
+            if bid == bee_id:                     # selten (Wiederholung nach Fehler): neu bauen
+                self._anzahl[kat] -= 1
+                del self._eintraege[i]
+                self._matrix = None
+                break
+        self._eintraege.append((bee_id, kategorie, vec))
+        self._anzahl[kategorie] += 1
+        m = self._matrix
+        if m is None:
+            return
+        if len(vec) != m.shape[1]:
+            self._matrix = None
+            return
+        np = _numpy()
+        if self._zeilen == m.shape[0]:            # Reserve aufgebraucht: verdoppeln
+            groesser = np.zeros((2 * m.shape[0], m.shape[1]), dtype=np.float32)
+            groesser[:self._zeilen] = m[:self._zeilen]
+            self._matrix = m = groesser
+        m[self._zeilen] = self._normiert(np, vec)
+        self._zeilen += 1
 
     def count(self, kategorie: str) -> int:
         return self._anzahl.get(kategorie, 0)

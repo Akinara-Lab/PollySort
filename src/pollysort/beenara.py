@@ -225,6 +225,23 @@ _SITZUNGEN: dict[str, object] = {}
 _SPERRE = threading.Lock()
 
 
+def threads() -> int:
+    """Wie viele CPU-Threads eine Entscheidung nutzt.
+
+    Gemessen am 2026-10-02 auf einem Core Ultra 7 255H (6 P-, 8 E-, 2 LP-Kerne, Akku), Median
+    über 40 Dokumente mit 8 Ordnern: 2 → 810 ms · 4 → 481 ms · **6 → 368 ms** · 8 → 380 ms
+    (streut stärker) · 16 → 861 ms · ONNX-Standard (alle Kerne) → 493 ms. Mehr Threads ziehen
+    die Effizienzkerne mit hinein und bremsen. ``POLLYSORT_BEENARA_THREADS`` überschreibt das.
+    """
+    try:
+        gewuenscht = int(os.environ.get("POLLYSORT_BEENARA_THREADS", "0"))
+    except ValueError:
+        gewuenscht = 0
+    if gewuenscht > 0:
+        return gewuenscht
+    return max(1, min(6, os.cpu_count() or 1))
+
+
 def oeffnen():
     """Das Modell zum Rechnen öffnen — einmal je Prozess, denn Laden dauert ~3 s.
 
@@ -236,7 +253,7 @@ def oeffnen():
         schluessel = str(ordner())
         if schluessel not in _SITZUNGEN:
             from .beenara_laufzeit import BeeNara
-            _SITZUNGEN[schluessel] = BeeNara(ordner(), threads=max(1, min(4, os.cpu_count() or 1)))
+            _SITZUNGEN[schluessel] = BeeNara(ordner(), threads=threads())
         return _SITZUNGEN[schluessel]
 
 
