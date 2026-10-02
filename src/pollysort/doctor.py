@@ -166,11 +166,34 @@ def _memory_check(hive: Path | None) -> Check:
     return (label, "ok", i18n.t("doctor.mem.ok", n=n, model=mind.model() or "n/a"))
 
 
+def _beenara_check(_hive: Path | None) -> Check:
+    """Sortiert BeeNara mit? Rein lokal — der Doctor fragt dafür nicht Hugging Face.
+
+    „Nicht geladen" und „ausgeschaltet" sind keine Warnfälle: BeeNara ist optional, und
+    ``pollysort-cli doctor`` soll dafür nicht mit Code 1 enden. Gewarnt wird, wenn der Nutzer
+    es offensichtlich will, es aber nicht rechnen kann (halb geladen, alte Version, Laufzeit fehlt).
+    """
+    from .beenara import REVISION, stand, warum_nicht
+    label = i18n.t("doctor.beenara")
+    s = stand()
+    if not s.vollstaendig:
+        return (label, "warn", i18n.t("doctor.bn.partial")) if s.angefangen \
+            else (label, "ok", i18n.t("doctor.bn.none"))
+    grund = warum_nicht(config.load_config())
+    if grund == "aus":
+        return (label, "ok", i18n.t("doctor.bn.aus", version=s.version))
+    if grund == "version":
+        return (label, "warn", i18n.t("doctor.bn.version", version=s.version, need=REVISION[:7]))
+    if grund == "laufzeit":
+        return (label, "warn", i18n.t("doctor.bn.laufzeit", version=s.version))
+    return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
+
+
 def run_checks(hive: Path | None) -> list[Check]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles);
     ``None`` heißt „trifft auf diese Umgebung nicht zu" und wird ausgelassen."""
     checks = (_py_check, _provider_check, _models_check, _gpu_check, _db_check, _extras_check,
-              _memory_check)
+              _memory_check, _beenara_check)
     out: list[Check] = []
     for fn in checks:
         try:

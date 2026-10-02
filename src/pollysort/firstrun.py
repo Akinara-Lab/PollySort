@@ -1,6 +1,7 @@
 """Erststart-Assistent — die globale Grundeinrichtung vor dem ersten Projekt.
 
-Vier Schritte in fester Reihenfolge: **Sprache → Darstellung → KI-Backend → Überblick**.
+Fünf Schritte in fester Reihenfolge: **Sprache → Darstellung → KI-Backend → BeeNara →
+Überblick**.
 
 Die Reihenfolge ist Absicht:
 
@@ -10,10 +11,13 @@ Die Reihenfolge ist Absicht:
 * **KI-Backend mit ehrlicher Verfügbarkeits-Anzeige**: Ollama wird genau hier einmal
   geprüft (nicht bei jedem Start), und eine nicht erreichbare Option wird als solche
   gezeigt statt angeboten und dann zu scheitern.
+* **BeeNara nur auf Zusage**: Das lokale Entscheider-Modell ist ein Download von rund
+  370 MB. Er läuft nur, wenn der Nutzer ihn ausdrücklich wählt — Enter heißt „später".
 * **Überblick am Ende** — was ist eingestellt, was kommt als Nächstes.
 
 Das Modul ist bewusst frei von Terminal- und Shell-Details: alles, was der Assistent von
-außen braucht (fragen, Ollama prüfen, Key speichern, Thema anwenden), wird hineingereicht.
+außen braucht (fragen, Ollama prüfen, Key speichern, Thema anwenden, Modell laden), wird
+hineingereicht.
 Dadurch ist der komplette Ablauf ohne echtes Terminal testbar — vorher steckte er
 untestbar in der REPL.
 
@@ -34,7 +38,7 @@ LANGUAGES = ("en", "de")
 THEMES = ("dark", "light", "auto")
 PROVIDERS = ("offline", "ollama", "openrouter")
 
-_STEPS = 4
+_STEPS = 5
 
 
 @dataclass
@@ -45,6 +49,7 @@ class FirstRun:
     theme: str = "dark"
     provider: str = "offline"
     key_saved: bool = False
+    beenara: bool = False          # liegt das Modell nach der Einrichtung vollständig da?
 
 
 # --------------------------------------------------------------------------- #
@@ -77,7 +82,7 @@ def _label(con, text: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-#  Die vier Schritte
+#  Die Schritte
 # --------------------------------------------------------------------------- #
 def step_language(con, ask: Callable[[str], str]) -> str:
     """Schritt 1 — Sprache. Zweisprachig gefragt, weil die Wahl ja erst hier fällt."""
@@ -159,6 +164,33 @@ def step_ai(con, ask: Callable[[str], str], *,
     return provider, False
 
 
+def step_beenara(con, ask: Callable[[str], str], *,
+                 present: Callable[[], bool],
+                 pull: Callable[[], bool]) -> bool:
+    """Schritt 4 — BeeNara von Hugging Face laden? Gibt zurück, ob das Modell danach da ist.
+
+    Vorauswahl ist „später": Ein Download von 370 MB passiert nie, nur weil jemand die
+    Einrichtung mit Enter durchklickt. Liegt das Modell schon da, wird nicht gefragt.
+    """
+    from .beenara import REPO, UNGEFAEHR_MB
+    con.raw("")
+    con.honey(f"4/{_STEPS} · {i18n.t('fr.bn.title')}", "🐝")
+    if present():
+        _label(con, i18n.t("fr.bn.present"))
+        return True
+    _label(con, i18n.t("fr.bn.what"))
+    _label(con, i18n.t("fr.bn.size", repo=REPO, mb=UNGEFAEHR_MB))
+    _label(con, f"[1] {i18n.t('fr.bn.now')}")
+    _label(con, f"[2] {i18n.t('fr.bn.later')}")
+    n = _choose(ask, "      " + i18n.t("fr.choice", default=2), count=2, default=2,
+                words={"j": 1, "ja": 1, "y": 1, "yes": 1, "laden": 1, "pull": 1,
+                       "n": 2, "nein": 2, "no": 2, "später": 2, "spaeter": 2, "later": 2})
+    if n == 2:
+        _label(con, i18n.t("fr.bn.skipped"))
+        return False
+    return bool(pull())
+
+
 def show_next_steps(con) -> None:
     """Die drei ersten Handgriffe zeigen (ersetzt das frühere Extra-Tutorial).
 
@@ -174,14 +206,15 @@ def show_next_steps(con) -> None:
 
 
 def step_summary(con, result: FirstRun) -> None:
-    """Schritt 4 — Überblick: was ist jetzt eingestellt, was kommt als Nächstes."""
+    """Schritt 5 — Überblick: was ist jetzt eingestellt, was kommt als Nächstes."""
     lang_lbl = "English" if result.language == "en" else "Deutsch"
     theme_lbl = i18n.t(f"fr.short.{result.theme}")
     ai_lbl = i18n.t(f"fr.short.{result.provider}")
 
     con.raw("")
-    con.honey(f"4/{_STEPS} · {i18n.t('fr.done.title')}", "✅")
+    con.honey(f"5/{_STEPS} · {i18n.t('fr.done.title')}", "✅")
     _label(con, i18n.t("fr.done.summary", language=lang_lbl, theme=theme_lbl, ai=ai_lbl))
+    _label(con, i18n.t("fr.done.bn_yes" if result.beenara else "fr.done.bn_no"))
     _label(con, i18n.t("fr.done.change"))
     show_next_steps(con)
 
@@ -193,12 +226,15 @@ def run(con, ask: Callable[[str], str], *,
         ollama_probe: Callable[[], bool],
         has_key: Callable[[], bool],
         save_key: Callable[[str], bool],
+        beenara_present: Callable[[], bool],
+        beenara_pull: Callable[[], bool],
         apply_theme: Callable[[str], str] | None = None) -> FirstRun:
     """Die Grundeinrichtung durchlaufen und die Auswahl zurückgeben.
 
     Schreibt **nichts** in die Config — das macht der Aufrufer, damit ein Abbruch
     (``AbortAction`` aus ``ask``) sauber nach oben durchschlägt und nichts halb
-    Gespeichertes hinterlässt.
+    Gespeichertes hinterlässt. Der BeeNara-Download ist die Ausnahme: Er ist der letzte
+    Schritt mit einer Frage, und ``beenara_pull`` meldet Fehler und Strg-C selbst.
     """
     con.rule("Setup · Einrichtung")
     result = FirstRun()
@@ -206,6 +242,7 @@ def run(con, ask: Callable[[str], str], *,
     result.theme = step_theme(con, ask, apply_theme)
     result.provider, result.key_saved = step_ai(
         con, ask, ollama_probe=ollama_probe, has_key=has_key, save_key=save_key)
+    result.beenara = step_beenara(con, ask, present=beenara_present, pull=beenara_pull)
     step_summary(con, result)
     con.rule()
     return result

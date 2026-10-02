@@ -55,7 +55,12 @@ vec = ["sqlite-vec>=0.1.1"]
 # Extra öffnet die App ein randloses Edge-/Chrome-Fenster oder notfalls den Browser.
 app = ["pywebview>=5.0"]
 # Alles Optionale auf einmal.
-full = ["pollysort[extract,app]"]
+# Laufzeit für BeeNara, das lokale Entscheider-Modell (ONNX auf der CPU, kein torch). Das
+# Modell selbst holt `beenara laden` von Hugging Face und installiert dieses Extra mit, falls
+# es fehlt — gleiche Liste wie beenara.PAKETE.
+beenara = ["onnxruntime>=1.30", "tokenizers>=0.20", "numpy>=1.26"]
+# Alles Optionale auf einmal.
+full = ["pollysort[extract,app,beenara]"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [project.scripts]

@@ -9,6 +9,35 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Schneller — Sortieren mit BeeNara etwa doppelt so schnell
+- Gemessen über den Dienst des Flugbretts, 70 Testdokumente, Laptop auf Akku, abwechselnd in
+  vier Runden: **vorher 734–860 ms je Datei (Median 752), jetzt 350–476 ms (Median 353)**.
+  Die Entscheidungen bleiben gleich: Stufe-0 mit 6 Threads 420/420 wie die PyTorch-Referenz.
+- **BeeNara rechnet mit 6 statt 4 Threads** (Core Ultra 7 255H: 4 → 481 ms, 6 → 368 ms,
+  8 → 380 ms mit mehr Streuung, 16 → 861 ms). Höchstens 6, nie mehr als Kerne da sind;
+  `POLLYSORT_BEENARA_THREADS` überschreibt.
+- **Das Gedächtnis wird einmal je Lauf geladen** statt für jede Datei aus SQLite und JSON; was
+  der Lauf lernt, wird nachgetragen. Jede andere Änderung (Korrektur, Papierkorb, Umbenennen,
+  Neuaufbau) erhöht `HiveMind.version` und lädt neu. Mit numpy rechnet der Vergleich als
+  Matrix-Produkt. Das hilft auch dem Modus Lokal.
+- **Jede Datei wird je Analyse nur einmal gelesen** (`extractor.einmal_lesen`) — vorher lasen
+  Heuristik und BeeNara sie im Sparmodus nacheinander.
+- Flugbrett: Während einer langen Aktion sind die Knöpfe ihrer Karte gesperrt — „Herunterladen"
+  lässt sich während des Downloads nicht noch einmal anklicken.
+
+### Hinzugefügt — BeeNara im Flugbrett
+- **Werkstatt:** BeeNara-Karte mit demselben Stand wie `beenara` in der Konsole; herunterladen
+  (mit Fortschritt in MB, Laufzeit wird mitinstalliert), an/aus, entfernen mit Bestätigung.
+- **Assistent:** Im Schritt „Modus" ein Haken „BeeNara mit herunterladen" (Vorauswahl: aus).
+  Bisher sah, wer über die App einstieg, die BeeNara-Frage nie.
+- **Flugloch:** „Entschieden: 5 von BeeNara" statt „{teile}"; im Plan steht je Datei, wer
+  entschieden hat. Die Modus-Auswahl sagt „mit BeeNara", wenn es mitsortiert.
+- Kern: `beenara.bericht()` und `pipeline.quellen_text()` — je eine Quelle für Konsole, CLI und
+  Flugbrett. `WebKonsole.progress(transfer=True)`, gedrosselt auf ein Ereignis je Prozent.
+  Beim ersten Lauf meldet PollySort „BeeNara wird geladen …".
+- Wächter-Tests: Jeder Aufruf der Seite hat einen Endpunkt (und umgekehrt), jeder Text bekommt
+  alle seine Platzhalter.
+
 ### Hinzugefügt — das Flugbrett: PollySort im Browser
 - **`pollysort-web`** (oder `oberflaeche` / `web` in der Konsole) startet eine lokale
   Browser-Oberfläche auf demselben Kern: Zuhause, Flugloch (Vorschau → Anwenden mit Live-
@@ -55,6 +84,44 @@ sichtbar ist der Produktname PollySort.
 - **„Weise Königin" war unerreichbar:** Die Konsole fragte `Wachstafel.rules()` ab, die
   Methode heißt `regeln()`; der Fehler wurde still geschluckt und die Zahl der gelernten Regeln
   kam nie im Fortschritt an.
+### Neu — BeeNara von Hugging Face laden
+- **`beenara laden` / `beenara pull`** holt das lokale Entscheider-Modell
+  [Kwokou/BeeNara](https://huggingface.co/Kwokou/BeeNara) (ONNX + Tokenizer, ca. 370 MB) nach
+  `~/.pollysort/modelle/BeeNara/`. Alle Dateien stammen aus einem Commit; jede wird gegen die
+  Prüfsumme des Hubs geprüft, bevor sie ihren Namen bekommt. Ein abgebrochener Download setzt
+  an derselben Stelle fort, ein Update lädt nur geänderte Dateien. `beenara.py` aus dem Repo
+  wird bewusst nicht geladen. Ohne neue Abhängigkeit (httpx statt `huggingface_hub`).
+- **Erststart fragt nach** (neuer Schritt 4/5). Enter heißt „später" — 370 MB laufen nie
+  durch bloßes Durchklicken.
+- `beenara` zeigt den Stand, `beenara entfernen` löscht das Modell nach Rückfrage;
+  `pollysort-cli beenara [status|pull]` für Skripte; `doctor` meldet Version und Größe.
+
+### Neu — BeeNara entscheidet beim Sortieren mit
+- **Sparmodus:** BeeNara wählt den Ordner statt der Heuristik (Titel und Zusammenfassung
+  bleiben heuristisch). **Lokal:** nach dem Gedächtnis, statt des KI-Kurzentscheids — das 9B
+  wird für die Wahl nicht mehr gebraucht. **Cloud:** unverändert.
+- Sortiert wird nur, wenn BeeNaras konforme Vorhersagemenge genau einen Ordner enthält
+  (kalibriert ≥ 0,97). „Keiner passt" und Unsicherheit werden Rückfragen, mit BeeNaras
+  Favorit als Vorschlag; kein zweites Modell rät nach. Eine gelernte Wachstafel-Regel und ein
+  widersprechendes Gedächtnis haben Vorrang. Gilt bei 3–9 Ordnern (so trainiert und
+  kalibriert), sonst der bisherige Weg.
+- Gemessen auf den 70 Testdokumenten (57 verschiedene): Sparmodus 57 von 57 richtig statt 55;
+  fehlen die Ordner Versicherung und Steuer, sortiert BeeNara 4 Dokumente falsch statt 8 und
+  fragt bei den Steuerbescheiden nach. Die 4 sind Versicherungspolicen unter „Verträge" — die
+  bekannte Schwäche bei Ordnern ohne Beschreibung.
+- **Laufzeit:** neues Extra `[beenara]` (`onnxruntime`, `tokenizers`, `numpy`); `beenara laden`
+  installiert es in die Umgebung, in der PollySort läuft (pip, sonst `uv pip`). Die
+  Laufzeit liegt als Kopie im Paket (`beenara_laufzeit.py`), Code vom Hub wird nie geladen.
+- **Fester Modell-Commit** (`beenara.REVISION`, v0.2): Ein neues BeeNara kommt mit einem
+  PollySort-Update, nie still über `main`. Liegt eine andere Version da, sortiert BeeNara
+  nicht mit, bis `beenara laden` die passende geholt hat.
+- `beenara an` / `beenara aus` schaltet es ab, ohne es zu löschen. `beenara` sagt, ob es
+  mitsortiert und warum nicht (aus, nicht geladen, Version, Laufzeit, Cloud, Ordnerzahl).
+- Ein Ausfall beim Rechnen wird einmal gemeldet; der Rest des Laufs entscheidet ohne BeeNara.
+- Lauf-Zusammenfassung nennt nur die Quellen, die vorkamen („2 aus dem Gedächtnis · 5 von
+  BeeNara"), im Sparmodus „per Heuristik" statt „per Vollanalyse".
+- Tests: Kein Test sieht mehr ein echtes BeeNara auf dem Rechner (eigene `POLLYSORT_HOME` je
+  Test). Live-Test mit dem echten Modell über `BEENARA_MODELL=<ordner>`.
 
 ### Geändert — alle offenen Punkte aus TEIL 3 der TODO
 - **Vollständig zweisprachig:** alle 155 Befehlsmeldungen der Konsole und die Ausgaben von

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -53,8 +55,40 @@ def _strip_font_blocks(text: str) -> str:
     return "\n\n".join(kept)
 
 
+_lokal = threading.local()
+
+
+@contextmanager
+def einmal_lesen():
+    """Innerhalb dieses Blocks wird jede Datei höchstens einmal gelesen (je Thread).
+
+    Im Sparmodus liest erst die Heuristik eine Datei und gleich danach BeeNara dieselbe noch
+    einmal; ohne diesen Block arbeitet markitdown zweimal. Bewusst nur für die Dauer einer
+    Analyse und nicht über Änderungszeiten: Die löst Windows nur auf Millisekunden auf, eine
+    kurz darauf gleich groß überschriebene Datei sähe sonst alt aus.
+    """
+    aussen = getattr(_lokal, "texte", None)
+    if aussen is None:
+        _lokal.texte = {}
+    try:
+        yield
+    finally:
+        if aussen is None:
+            _lokal.texte = None
+
+
 def _extract_text(path: Path) -> str | None:
     """Textformate → String (markitdown für DOCX/CSV/HTML, sonst roh)."""
+    texte = getattr(_lokal, "texte", None)
+    if texte is None:
+        return _extract_text_neu(path)
+    schluessel = str(path)
+    if schluessel not in texte:
+        texte[schluessel] = _extract_text_neu(path)
+    return texte[schluessel]
+
+
+def _extract_text_neu(path: Path) -> str | None:
     text: str | None = None
     if _MD is not None:
         try:

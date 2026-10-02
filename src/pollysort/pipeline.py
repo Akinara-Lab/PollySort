@@ -14,7 +14,7 @@ from . import entscheidung, i18n, mover, nacherfassung
 from .assigner import assign
 from .config import AppConfig, HiveSeed
 from .console import BeeConsole
-from .extractor import extract, gedaechtnis_text
+from .extractor import einmal_lesen, extract, gedaechtnis_text
 from .feedback import Feedback
 from .guards import IgnoreMatcher, has_landed, within_size_limit
 from .hive_mind import HiveMind, Taxonomy
@@ -78,6 +78,14 @@ class Context:
     #: Passt das Gedächtnis zum aktuellen Embedding-Modell und seiner Textbasis? ``None`` =
     #: noch nicht geprüft (siehe :func:`_memory_ok`).
     memory_ok: bool | None = None
+    #: BeeNara für diesen Kontext (siehe :func:`_beenara`) — erst beim ersten Bedarf geöffnet.
+    beenara: object | None = None
+    beenara_geprueft: bool = False
+    #: Die Gedächtnis-Kopie dieses Kontexts, das Modell und die Gedächtnis-Version, zu der sie
+    #: gehört (siehe :func:`_gedaechtnis_sicht`) — einmal geladen, danach wächst sie mit.
+    sicht: entscheidung.Schnappschuss | None = None
+    sicht_modell: str | None = None
+    sicht_version: int = -1
 
     @classmethod
     def build(cls, *, hive, cfg, seed, client, console, journal) -> Context:
@@ -234,8 +242,10 @@ def _prewarm_parallel(ctx: Context, findings, workers: int, cache: dict) -> int:
         return 0
 
     # Die Worker lesen das Gedächtnis aus einer festen Kopie: SQLite-Verbindungen dürfen
-    # nicht zwischen Threads wandern.
-    schnappschuss = _gedaechtnis_sicht(ctx) if entscheidung.unterstuetzt(ctx.client) else None
+    # nicht zwischen Threads wandern. BeeNara wird vorher geöffnet, nicht in den Workern.
+    bee = _beenara(ctx)
+    schnappschuss = (_gedaechtnis_sicht(ctx)
+                     if entscheidung.unterstuetzt(ctx.client) or bee is not None else None)
 
     def prepare(f):
         try:
@@ -266,6 +276,7 @@ def _fallback_offline(ctx: Context) -> tuple[int, bool]:
     prior = ctx.client.usage.calls
     ctx.client = OfflineClient(ctx.seed.categories, wachstafel=Wachstafel(ctx.hive).text())
     ctx.memory_ok = None                  # anderes Embedding → Gedächtnis neu bewerten
+    ctx.beenara_geprueft = False          # im Sparmodus darf BeeNara mitentscheiden
     ctx.console.info(i18n.t("pl.fallback"), "🛟")
     return prior, True
 
@@ -409,18 +420,26 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # merken — auch wenn die Confidence noch unter der Schwelle liegt. So bootstrappt der
     # Stock aus dem Kaltstart heraus; falsche Frühlabels korrigiert 'pollysort assign' (§24).
     if not dry_run and vec is not None and entry.funktion.kategorie != "_unassigned":
-        ctx.mind.remember(entry.id, entry.funktion.kategorie, vec,
-                          getattr(ctx.client, "embed_model", None))
+        modell = getattr(ctx.client, "embed_model", None)
+        aktuell = ctx.sicht is not None and ctx.sicht_modell == modell \
+            and ctx.sicht_version == ctx.mind.version
+        ctx.mind.remember(entry.id, entry.funktion.kategorie, vec, modell)
         ctx.memory_ok = None              # erster Eintrag kann den Zustand ändern
+        if aktuell:                       # nachtragen statt das ganze Gedächtnis neu zu laden
+            ctx.sicht.merken(entry.id, entry.funktion.kategorie, vec)
+            ctx.sicht_version = ctx.mind.version
 
     # Nur heuristisch erfasst → die KI verfeinert Titel/Zusammenfassung später.
     if not dry_run and vorab.kurz and entry.status.value in nacherfassung.ZUSTAENDE:
         nacherfassung.vormerken(ctx.hive, [entry.id])
 
+    # Wer entschieden hat — dieselbe Zählung wie in summary.quellen (None: nicht analysiert).
+    quelle = ((vorab.quelle if vorab.kategorie is not None else "analyse")
+              if ext_status == Status.INDEXED else None)
     summary.plan.append({"id": entry.id, "datei": entry.filename,
                          "kategorie": entry.funktion.kategorie,
                          "konfidenz": round(float(entry.confidence or 0.0), 3),
-                         "status": entry.status.value, "ziel": ziel})
+                         "status": entry.status.value, "ziel": ziel, "quelle": quelle})
     _tally(con, entry, reason, summary)
     return entry
 
@@ -436,21 +455,80 @@ def _memory_ok(ctx: Context) -> bool:
 def _gedaechtnis_sicht(ctx: Context) -> entscheidung.Schnappschuss:
     """Das Gedächtnis, wie Stufe A es sehen darf: nur Vektoren des aktuellen Modells samt
     Textbasis. Ein Altbestand aus einem anderen Modell (vor 'gedaechtnis neu') bleibt so
-    außen vor, statt Ähnlichkeiten zwischen zwei Vektorräumen vorzutäuschen."""
-    return entscheidung.Schnappschuss(
-        ctx.mind.eintraege(getattr(ctx.client, "embed_model", None)))
+    außen vor, statt Ähnlichkeiten zwischen zwei Vektorräumen vorzutäuschen.
+
+    Einmal je Kontext geladen und danach in ``ingest`` nachgetragen. Hat sich das Gedächtnis
+    anders geändert (Korrektur, Papierkorb, Umbenennen, Neuaufbau — ``HiveMind.version``) oder
+    wechselt das Modell (Offline-Fallback), wird neu geladen."""
+    modell = getattr(ctx.client, "embed_model", None)
+    if ctx.sicht is None or ctx.sicht_modell != modell or ctx.sicht_version != ctx.mind.version:
+        ctx.sicht = entscheidung.Schnappschuss(ctx.mind.eintraege(modell))
+        ctx.sicht_modell, ctx.sicht_version = modell, ctx.mind.version
+    return ctx.sicht
+
+
+class _Behutsam:
+    """BeeNara im Sortierlauf: Ein Fehler beim Rechnen wird einmal gemeldet, danach entscheidet
+    für den Rest des Laufs der bisherige Weg — eine Datei darf daran nie scheitern."""
+
+    def __init__(self, bee, con: BeeConsole):
+        self._bee, self._con, self.aus = bee, con, False
+
+    def decide(self, text: str, kategorien: list[str], **kw):
+        if self.aus:
+            return None
+        try:
+            return self._bee.decide(text, kategorien, **kw)
+        except Exception as exc:
+            self.aus = True
+            self._con.error(i18n.t("bn.run.failed", err=exc))
+            return None
+
+
+def _beenara(ctx: Context):
+    """BeeNara für diesen Kontext, oder ``None``: Modus Cloud, abgeschaltet, nicht geladen,
+    Laufzeit fehlt, Ordnerzahl außerhalb 3–9 — oder das Öffnen schlug fehl (einmal gemeldet)."""
+    if ctx.beenara_geprueft:
+        return ctx.beenara
+    ctx.beenara_geprueft = True
+    ctx.beenara = None
+    if entscheidung.beenara_weg(ctx.client) is None \
+            or not entscheidung.beenara_passt(ctx.taxonomy.categories):
+        return None
+    from . import beenara
+    if beenara.warum_nicht(ctx.cfg) is not None:
+        return None
+    if not beenara.ist_offen():
+        ctx.console.bloom(i18n.t("bn.run.loading"), "🐝")   # ~3 s beim ersten Lauf
+    try:
+        ctx.beenara = _Behutsam(beenara.oeffnen(), ctx.console)
+    except Exception as exc:
+        ctx.console.error(i18n.t("bn.run.load_failed", err=exc))
+    return ctx.beenara
 
 
 def _analysieren(ctx: Context, f, *, gedaechtnis=None) -> entscheidung.Vorab:
-    """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher."""
+    """Dreistufig, wo der Client es kann (Ollama); sonst die volle Analyse wie bisher —
+    im Sparmodus danach mit BeeNara als Entscheider, wenn es bereitsteht. Jede Datei wird
+    dabei nur einmal gelesen, auch wenn Heuristik und BeeNara beide ihren Text brauchen."""
+    bee = _beenara(ctx)
     vorab = None
-    if entscheidung.unterstuetzt(ctx.client):
-        vorab = entscheidung.analysieren(
-            ctx.client, f, max_file_mb=ctx.seed.max_file_mb, kategorien=ctx.taxonomy.categories,
-            gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True)
-    if vorab is None:
-        analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
-        vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
+    with einmal_lesen():
+        if entscheidung.unterstuetzt(ctx.client):
+            vorab = entscheidung.analysieren(
+                ctx.client, f, max_file_mb=ctx.seed.max_file_mb,
+                kategorien=ctx.taxonomy.categories,
+                gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx), memory_ok=True,
+                beenara=bee, sprache=i18n.get_language())
+        if vorab is None:
+            analysis, ext_status, reason = extract(f, ctx.client, max_file_mb=ctx.seed.max_file_mb)
+            vorab = entscheidung.Vorab(analysis, ext_status, reason, None)
+            if (bee is not None and ext_status == Status.INDEXED
+                    and entscheidung.beenara_weg(ctx.client) == "spar"):
+                vorab = entscheidung.spar_mit_beenara(
+                    bee, ctx.client, f, vorab, kategorien=ctx.taxonomy.categories,
+                    gedaechtnis=gedaechtnis or _gedaechtnis_sicht(ctx),
+                    sprache=i18n.get_language())
     return vorab
 
 
@@ -467,6 +545,25 @@ def _tally(con: BeeConsole, entry: BeeEntry, reason, summary: CycleSummary) -> N
     else:
         summary.errors += 1
         con.error(i18n.t("pl.entry_error", name=entry.filename, reason=reason))
+
+
+def quelle_name(quelle: str | None, client) -> str | None:
+    """Wer entschieden hat, als Schlüssel für die Anzeige. Im Sparmodus heißt der Rest
+    „Heuristik", nicht „Vollanalyse" — dort schreibt keine KI eine Analyse."""
+    if quelle == "analyse" and entscheidung.beenara_weg(client) == "spar":
+        return "heuristik"
+    return quelle
+
+
+def quellen_text(s: CycleSummary, client) -> str | None:
+    """„Entschieden: 2 aus dem Gedächtnis · 5 von BeeNara" — nur, was vorkam. ``None``, wenn
+    alles die Vollanalyse bzw. die Heuristik war (dann gibt es nichts zu unterscheiden).
+    Konsole und Flugbrett zeigen denselben Text."""
+    if not (s.quellen.get("gedaechtnis") or s.quellen.get("nummer") or s.quellen.get("beenara")):
+        return None
+    teile = [i18n.t(f"pl.quelle.{quelle_name(q, client)}", n=s.quellen[q])
+             for q in ("gedaechtnis", "beenara", "nummer", "analyse") if s.quellen.get(q)]
+    return i18n.t("pl.quellen", teile=" · ".join(teile))
 
 
 def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) -> None:
@@ -488,9 +585,9 @@ def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) 
         con.error(i18n.t("pl.errors", n=s.errors))
     if s.needs_review:
         con.ask(i18n.t("pl.review", n=s.needs_review))
-    if s.quellen.get("gedaechtnis") or s.quellen.get("nummer"):
-        con.info(i18n.t("pl.quellen", mem=s.quellen.get("gedaechtnis", 0),
-                        num=s.quellen.get("nummer", 0), voll=s.quellen.get("analyse", 0)), "⚡")
+    text = quellen_text(s, ctx.client)
+    if text:
+        con.info(text, "⚡")
     if s.llm_calls:
         # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
         # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen

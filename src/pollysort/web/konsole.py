@@ -168,24 +168,36 @@ class WebKonsole(BeeConsole):
         pass
 
     @contextmanager
-    def progress(self, description: str = "🐝 verarbeite …"):
-        yield _WebFortschritt(self)
+    def progress(self, description: str = "🐝 verarbeite …", *, transfer: bool = False):
+        # transfer=True: Bytes statt Schritte (BeeNara-Download) — die Seite zeigt dann MB.
+        yield _WebFortschritt(self, einheit="bytes" if transfer else None)
 
 
 class _WebFortschritt:
     """Fortschritt als Ereignisse: dieselbe Schnittstelle wie ``rich.progress.Progress``."""
 
-    def __init__(self, konsole: WebKonsole):
+    def __init__(self, konsole: WebKonsole, *, einheit: str | None = None):
         self._k = konsole
+        self._einheit = einheit
         self._aufgaben: dict[int, dict] = {}
         self._nr = itertools.count(1)
 
     def _senden(self, tid: int) -> None:
         a = self._aufgaben[tid]
+        if self._einheit == "bytes":
+            # Ein Download kommt in 1-MB-Stücken — ein Ereignis je Prozent reicht, sonst
+            # verdrängen ein paar hundert Fortschritte das Protokoll (der Bus merkt sich 200).
+            prozent = int(100 * a["erledigt"] / a["gesamt"]) if a["gesamt"] else 0
+            if prozent == a.get("gemeldet") and a["erledigt"] < a["gesamt"]:
+                return
+            a["gemeldet"] = prozent
         if self._k._senke is not None:
+            ereignis = {"art": "fortschritt", "erledigt": a["erledigt"],
+                        "gesamt": a["gesamt"], "text": a["text"]}
+            if self._einheit:
+                ereignis["einheit"] = self._einheit
             try:
-                self._k._senke({"art": "fortschritt", "erledigt": a["erledigt"],
-                                "gesamt": a["gesamt"], "text": a["text"]})
+                self._k._senke(ereignis)
             except Exception:
                 pass
 

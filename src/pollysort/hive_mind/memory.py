@@ -63,6 +63,9 @@ class HiveMind:
             if alt:
                 self._con.execute("UPDATE vectors SET model=? WHERE model IS NULL", (alt[0],))
         self._con.commit()
+        #: Steigt mit jeder Änderung. Eine Kopie (entscheidung.Schnappschuss) gilt nur, solange
+        #: sie zur selben Version gehört — sonst wird sie neu gebaut (pipeline._gedaechtnis_sicht).
+        self.version = 0
 
     # -- Schreiben ----------------------------------------------------------
     def remember(self, bee_id: str, kategorie: str, vec: list[float],
@@ -85,16 +88,19 @@ class HiveMind:
                 (model,),
             )
         self._con.commit()
+        self.version += 1
 
     def forget(self, bee_id: str) -> None:
         self._con.execute("DELETE FROM vectors WHERE bee_id=?", (bee_id,))
         self._con.commit()
+        self.version += 1
 
     def reset(self) -> None:
         """Alle Vektoren verwerfen (für den Reindex). Das Modell-Meta wird beim
         Neu-Einbetten ohnehin überschrieben."""
         self._con.execute("DELETE FROM vectors")
         self._con.commit()
+        self.version += 1
 
     # -- Embedding-Modell / Gesundheit (F1) --------------------------------
     def model(self) -> str | None:
@@ -139,11 +145,13 @@ class HiveMind:
         """Kategorie eines Eintrags im Gedächtnis ändern (Migration/Korrektur, §14.3)."""
         self._con.execute("UPDATE vectors SET kategorie=? WHERE bee_id=?", (kategorie, bee_id))
         self._con.commit()
+        self.version += 1
 
     def relabel_category(self, src: str, dst: str) -> None:
         """Alle Vektoren einer Kategorie umhängen (Merge, §14.3)."""
         self._con.execute("UPDATE vectors SET kategorie=? WHERE kategorie=?", (dst, src))
         self._con.commit()
+        self.version += 1
 
     # -- Lesen --------------------------------------------------------------
     def _all(self) -> list[tuple[str, str, list[float]]]:

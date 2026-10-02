@@ -137,34 +137,77 @@ def test_ai_failed_key_save_falls_back_to_offline():
 # --------------------------------------------------------------------------- #
 #  Gesamtlauf
 # --------------------------------------------------------------------------- #
+def _kein_download():
+    raise AssertionError("BeeNara darf ohne Zusage nicht geladen werden")
+
+
 def test_full_run_collects_every_choice():
     con = FakeConsole()
     applied: list[str] = []
     res = firstrun.run(
-        con, scripted("2", "2", "1"),          # Deutsch · Hell · Sparmodus
+        con, scripted("2", "2", "1", "1"),     # Deutsch · Hell · Sparmodus · BeeNara laden
         ollama_probe=lambda: False,
         has_key=lambda: False,
         save_key=lambda _k: True,
+        beenara_present=lambda: False,
+        beenara_pull=lambda: True,
         apply_theme=applied.append,
     )
     assert (res.language, res.theme, res.provider, res.key_saved) == ("de", "light", "offline",
                                                                      False)
+    assert res.beenara is True
     assert applied == ["light"]
     # Der Überblick nennt jede getroffene Einstellung und die ersten Handgriffe.
     assert "Deutsch" in con.text and "Hell" in con.text and "Sparmodus" in con.text
+    assert "BeeNara: geladen" in con.text
     assert "sortiere" in con.text
+    assert "5/5" in con.text
 
 
 def test_full_run_is_english_end_to_end():
     con = FakeConsole()
     res = firstrun.run(
-        con, scripted("1", "1", "1"),
+        con, scripted("1", "1", "1", ""),
         ollama_probe=lambda: False, has_key=lambda: False,
-        save_key=lambda _k: True, apply_theme=None,
+        save_key=lambda _k: True, beenara_present=lambda: False,
+        beenara_pull=_kein_download, apply_theme=None,
     )
     assert res.language == "en"
+    assert res.beenara is False
     assert "How to get going" in con.text
+    assert "beenara pull" in con.text
     assert "Wahl" not in con.text, "Im EN-Modus darf keine deutsche Zeile stehen bleiben"
+
+
+# --------------------------------------------------------------------------- #
+#  Schritt 4 — BeeNara
+# --------------------------------------------------------------------------- #
+def test_beenara_enter_means_later():
+    """Enter darf keinen Download von 370 MB auslösen — wer durchklickt, lädt nichts."""
+    con = FakeConsole()
+    assert firstrun.step_beenara(con, scripted(""), present=lambda: False,
+                                 pull=_kein_download) is False
+    assert "beenara laden" in con.text
+
+
+@pytest.mark.parametrize("answer", ["1", "ja", "yes", "pull"])
+def test_beenara_downloads_on_yes(answer):
+    calls: list[int] = []
+    ok = firstrun.step_beenara(FakeConsole(), scripted(answer), present=lambda: False,
+                               pull=lambda: calls.append(1) or True)
+    assert ok is True and calls == [1]
+
+
+def test_beenara_failed_download_is_reported_as_missing():
+    assert firstrun.step_beenara(FakeConsole(), scripted("1"), present=lambda: False,
+                                 pull=lambda: False) is False
+
+
+def test_beenara_already_there_asks_nothing():
+    con = FakeConsole()
+    assert firstrun.step_beenara(con, scripted(), present=lambda: True,
+                                 pull=_kein_download) is True
+    assert "schon geladen" in con.text
 
 
 def test_abort_propagates_and_persists_nothing():
@@ -179,7 +222,8 @@ def test_abort_propagates_and_persists_nothing():
 
     with pytest.raises(Abort):
         firstrun.run(FakeConsole(), ask, ollama_probe=lambda: False,
-                     has_key=lambda: False, save_key=lambda _k: True)
+                     has_key=lambda: False, save_key=lambda _k: True,
+                     beenara_present=lambda: False, beenara_pull=_kein_download)
 
 
 # --------------------------------------------------------------------------- #
