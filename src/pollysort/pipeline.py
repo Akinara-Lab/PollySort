@@ -423,10 +423,13 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     if not dry_run and vorab.kurz and entry.status.value in nacherfassung.ZUSTAENDE:
         nacherfassung.vormerken(ctx.hive, [entry.id])
 
+    # Wer entschieden hat — dieselbe Zählung wie in summary.quellen (None: nicht analysiert).
+    quelle = ((vorab.quelle if vorab.kategorie is not None else "analyse")
+              if ext_status == Status.INDEXED else None)
     summary.plan.append({"id": entry.id, "datei": entry.filename,
                          "kategorie": entry.funktion.kategorie,
                          "konfidenz": round(float(entry.confidence or 0.0), 3),
-                         "status": entry.status.value, "ziel": ziel})
+                         "status": entry.status.value, "ziel": ziel, "quelle": quelle})
     _tally(con, entry, reason, summary)
     return entry
 
@@ -478,6 +481,8 @@ def _beenara(ctx: Context):
     from . import beenara
     if beenara.warum_nicht(ctx.cfg) is not None:
         return None
+    if not beenara.ist_offen():
+        ctx.console.bloom(i18n.t("bn.run.loading"), "🐝")   # ~3 s beim ersten Lauf
     try:
         ctx.beenara = _Behutsam(beenara.oeffnen(), ctx.console)
     except Exception as exc:
@@ -521,6 +526,25 @@ def _tally(con: BeeConsole, entry: BeeEntry, reason, summary: CycleSummary) -> N
         con.error(i18n.t("pl.entry_error", name=entry.filename, reason=reason))
 
 
+def quelle_name(quelle: str | None, client) -> str | None:
+    """Wer entschieden hat, als Schlüssel für die Anzeige. Im Sparmodus heißt der Rest
+    „Heuristik", nicht „Vollanalyse" — dort schreibt keine KI eine Analyse."""
+    if quelle == "analyse" and entscheidung.beenara_weg(client) == "spar":
+        return "heuristik"
+    return quelle
+
+
+def quellen_text(s: CycleSummary, client) -> str | None:
+    """„Entschieden: 2 aus dem Gedächtnis · 5 von BeeNara" — nur, was vorkam. ``None``, wenn
+    alles die Vollanalyse bzw. die Heuristik war (dann gibt es nichts zu unterscheiden).
+    Konsole und Flugbrett zeigen denselben Text."""
+    if not (s.quellen.get("gedaechtnis") or s.quellen.get("nummer") or s.quellen.get("beenara")):
+        return None
+    teile = [i18n.t(f"pl.quelle.{quelle_name(q, client)}", n=s.quellen[q])
+             for q in ("gedaechtnis", "beenara", "nummer", "analyse") if s.quellen.get(q)]
+    return i18n.t("pl.quellen", teile=" · ".join(teile))
+
+
 def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) -> None:
     con = ctx.console
     con.rule(i18n.t("pl.rule.preview") if dry_run else i18n.t("pl.rule.done"))
@@ -540,14 +564,9 @@ def _finish(ctx: Context, s: CycleSummary, mode: str, *, dry_run: bool = False) 
         con.error(i18n.t("pl.errors", n=s.errors))
     if s.needs_review:
         con.ask(i18n.t("pl.review", n=s.needs_review))
-    if s.quellen.get("gedaechtnis") or s.quellen.get("nummer") or s.quellen.get("beenara"):
-        # Nur nennen, was vorkam; im Sparmodus ist der Rest Heuristik, keine Vollanalyse.
-        rest = "heuristik" if entscheidung.beenara_weg(ctx.client) == "spar" else "analyse"
-        teile = [i18n.t(f"pl.quelle.{schluessel}", n=s.quellen[quelle])
-                 for quelle, schluessel in (("gedaechtnis", "gedaechtnis"), ("beenara", "beenara"),
-                                            ("nummer", "nummer"), ("analyse", rest))
-                 if s.quellen.get(quelle)]
-        con.info(i18n.t("pl.quellen", teile=" · ".join(teile)), "⚡")
+    text = quellen_text(s, ctx.client)
+    if text:
+        con.info(text, "⚡")
     if s.llm_calls:
         # Ehrlich bleiben: Offline gibt es gar keine KI-Anfragen, und lokale Inferenz
         # (Ollama) kostet nichts. Ein „~0.0006 €" für einen Lauf auf dem eigenen

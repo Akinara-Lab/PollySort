@@ -246,6 +246,57 @@ def schliessen() -> None:
         _SITZUNGEN.clear()
 
 
+def ist_offen() -> bool:
+    """Ist das Modell in diesem Prozess schon geladen? (Dann kostet der nächste Lauf nichts.)"""
+    with _SPERRE:
+        return str(ordner()) in _SITZUNGEN
+
+
+def bericht(cfg, hive: Path | None = None) -> list[tuple[str, str, str]]:
+    """Der Stand als Zeilen ``(art, emoji, text)`` — dieselben in Konsole, CLI und Flugbrett.
+
+    ``art`` ist eine Methode der Konsole (``honey`` · ``ask`` · ``info``). Mit ``hive`` sagt die
+    letzte Zeile, ob BeeNara in genau diesem Projekt mitentscheidet (Modus, Ordnerzahl).
+    """
+    from . import entscheidung
+    s = stand()
+    zeilen: list[tuple[str, str, str]] = []
+    if s.vollstaendig:
+        zeilen.append(("honey", "✅", i18n.t("bn.status.ok", version=s.version, mb=s.mb,
+                                             path=s.pfad)))
+    elif s.angefangen:
+        zeilen.append(("ask", "❓", i18n.t("bn.status.partial")))
+    else:
+        zeilen.append(("info", "⬇️", i18n.t("bn.status.none", repo=REPO, mb=UNGEFAEHR_MB)))
+    grund = warum_nicht(cfg)
+    if grund is None:
+        zeilen.append(("honey", "⚡", i18n.t("bn.active.ja")))
+        if hive is not None and config.is_setup(hive):
+            from .hive_mind import Taxonomy
+            seed = config.load_seed(hive)
+            name = seed.name or hive.name
+            # Wie der Sortierlauf: die lebende Taxonomie, vor dem ersten Lauf der Seed.
+            kats = Taxonomy(hive).categories or seed.categories
+            if seed.provider == "openrouter":
+                zeilen.append(("info", "☁️", i18n.t("bn.project.cloud", name=name)))
+            elif not entscheidung.beenara_passt(kats):
+                zeilen.append(("info", "🗂️", i18n.t("bn.project.count", name=name,
+                                                    n=len(entscheidung.ordner_namen(kats)))))
+            else:
+                zeilen.append(("info", "📂", i18n.t("bn.project.ok", name=name)))
+    elif grund == "version":
+        zeilen.append(("ask", "❓", i18n.t("bn.active.version", have=s.version,
+                                           need=REVISION[:7])))
+    elif grund == "laufzeit":
+        zeilen.append(("ask", "❓", i18n.t("bn.active.laufzeit",
+                                           pakete=", ".join(laufzeit_fehlt()))))
+    elif grund == "aus":
+        zeilen.append(("info", "💤", i18n.t("bn.active.aus")))
+    elif s.vollstaendig or s.angefangen:
+        zeilen.append(("info", "⬇️", i18n.t("bn.active.modell")))
+    return zeilen
+
+
 # --------------------------------------------------------------------------- #
 #  Download
 # --------------------------------------------------------------------------- #

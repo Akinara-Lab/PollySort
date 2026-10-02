@@ -680,6 +680,7 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bn.run.load_failed": {"de": "BeeNara ließ sich nicht öffnen ({err}) — dieser Lauf "
                                  "entscheidet ohne BeeNara.",
                            "en": "Could not open BeeNara ({err}) — this run decides without it."},
+    "bn.run.loading": {"de": "BeeNara wird geladen …", "en": "Loading BeeNara …"},
     "bn.run.failed": {"de": "BeeNara ist ausgefallen ({err}) — der Rest des Laufs entscheidet "
                             "ohne BeeNara.",
                       "en": "BeeNara failed ({err}) — the rest of this run decides without it."},
@@ -2325,6 +2326,41 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "Kein lokales Ollama erreichbar. Starte Ollama (ollama serve) und prüfe dann noch einmal.",
         "en": "No local Ollama reachable. Start Ollama (ollama serve) and check again.",
     },
+    # Flugbrett × BeeNara — Werkstatt, Assistent, Sortierplan
+    "web.btn.bn_pull": {"de": "Herunterladen", "en": "Download"},
+    "web.btn.bn_finish": {"de": "Vervollständigen", "en": "Complete"},
+    "web.btn.bn_remove": {"de": "Entfernen", "en": "Remove"},
+    "web.bn.use": {"de": "Beim Sortieren", "en": "When sorting"},
+    "web.bn.chip.on": {"de": "sortiert mit", "en": "sorting with it"},
+    "web.bn.chip.off": {"de": "ausgeschaltet", "en": "switched off"},
+    "web.bn.chip.incomplete": {"de": "unvollständig", "en": "incomplete"},
+    "web.bn.chip.missing": {"de": "nicht geladen", "en": "not downloaded"},
+    "web.bn.remove.text": {
+        "de": "BeeNara ({mb} MB) von diesem Rechner entfernen? Sortiert wird danach wieder wie "
+              "vorher. Deine Dokumente bleiben, wie sie sind.",
+        "en": "Remove BeeNara ({mb} MB) from this computer? Sorting then works as it did before. "
+              "Your documents stay as they are.",
+    },
+    "web.bn.mode_note": {"de": "mit BeeNara: ein lokales Modell wählt den Ordner",
+                         "en": "with BeeNara: a local model picks the folder"},
+    "web.run.beenara.title": {"de": "BeeNara laden", "en": "Downloading BeeNara"},
+    "web.toast.bn.ready": {"de": "BeeNara ist bereit", "en": "BeeNara is ready"},
+    "web.toast.bn.ready.text": {"de": "Ab dem nächsten Sortierlauf entscheidet es mit.",
+                                "en": "It takes part from the next sorting run."},
+    "web.toast.bn.failed": {"de": "BeeNara ist noch nicht bereit", "en": "BeeNara is not ready yet"},
+    "web.toast.bn.failed.text": {"de": "Was fehlt, steht im Protokoll und in der Werkstatt.",
+                                 "en": "What is missing is in the log and in the workshop."},
+    "web.su.bn.label": {"de": "BeeNara nach dem Einrichten mit herunterladen",
+                        "en": "Also download BeeNara after setup"},
+    "web.su.bn.row": {"de": "BeeNara", "en": "BeeNara"},
+    "web.su.bn.yes": {"de": "wird nach dem Einrichten geladen", "en": "downloads after setup"},
+    "web.su.bn.no": {"de": "später — jederzeit in der Werkstatt", "en": "later — any time in the workshop"},
+    "web.su.bn.ready": {"de": "schon bereit", "en": "already ready"},
+    "web.src.gedaechtnis": {"de": "Gedächtnis", "en": "memory"},
+    "web.src.beenara": {"de": "BeeNara", "en": "BeeNara"},
+    "web.src.nummer": {"de": "KI-Kurzentscheid", "en": "quick AI decision"},
+    "web.src.analyse": {"de": "Vollanalyse", "en": "full analysis"},
+    "web.src.heuristik": {"de": "Heuristik", "en": "heuristics"},
 }
 
 

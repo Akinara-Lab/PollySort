@@ -237,6 +237,23 @@ class Dienst:
         except OSError:
             return False
 
+    def _beenara(self, *, zeilen: bool = True) -> dict:
+        """Der Stand von BeeNara — für Kopfzeile, Assistent und Werkstatt. Rein lokal, kein Netz.
+        ``zeilen``: dieselben Statuszeilen wie ``beenara`` in der Konsole (beenara.bericht)."""
+        from .. import beenara
+        cfg = config.load_config()
+        s = beenara.stand()
+        grund = beenara.warum_nicht(cfg)
+        info = {"bereit": grund is None, "grund": grund, "an": bool(cfg.beenara),
+                "vorhanden": s.vollstaendig, "angefangen": s.angefangen, "passend": s.passend,
+                "version": s.version, "mb": s.mb, "ungefaehr_mb": beenara.UNGEFAEHR_MB,
+                "repo": beenara.REPO}
+        if zeilen:
+            hive = self.hive if self.hive and config.is_setup(self.hive) else None
+            info["zeilen"] = [{"art": art, "emoji": emoji, "text": text}
+                              for art, emoji, text in beenara.bericht(cfg, hive)]
+        return info
+
     @staticmethod
     def _provider(name: str) -> str:
         provider = config.provider_aus_wort(name)
@@ -286,6 +303,7 @@ class Dienst:
             "erststart": not cfg.onboarded, "einstellungen": self._einstellungen(cfg),
             "projekt": projekt, "projekte": self._projektliste(), "stock": stock,
             "wache": self.wache.status(), "beschaeftigt": self._arbeit.locked(),
+            "beenara": self._beenara(zeilen=False),
         }
 
     @ansicht
@@ -422,16 +440,20 @@ class Dienst:
                 "flugrouten": {"discord": fr.discord.enabled, "email": fr.email.enabled,
                                "kalender": fr.calendar.enabled},
                 "modell": cfg.llm_model,
-                "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()]}
+                "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()],
+                "beenara": self._beenara()}
 
     # ------------------------------------------------------------------ #
     #  Sortieren
     # ------------------------------------------------------------------ #
     def _summary(self, s, ctx: Context) -> dict:
+        from ..pipeline import quelle_name, quellen_text
         teile = sorted(s.by_category.items(), key=lambda x: -x[1])
         plan = []
         for p in s.plan:
-            plan.append({**p, "wabe": self._wabe(p.get("kategorie"))})
+            q = quelle_name(p.get("quelle"), ctx.client)
+            plan.append({**p, "wabe": self._wabe(p.get("kategorie")),
+                         "quelle_text": i18n.t(f"web.src.{q}") if q else ""})
         provider = getattr(ctx.cfg, "llm_provider", "")
         return {
             "eingelagert": s.stored, "verschoben": s.moved, "dubletten": s.duplicates,
@@ -439,7 +461,7 @@ class Dienst:
             "ki_anfragen": s.llm_calls, "modus": provider,
             "kosten": round(s.est_cost_eur, 4) if provider == "openrouter" else None,
             "waben": [{"name": cat, "anzahl": n} for cat, n in teile],
-            "quellen": dict(s.quellen), "plan": plan,
+            "quellen": dict(s.quellen), "quellen_text": quellen_text(s, ctx.client), "plan": plan,
             "sauber": bool(s.stored and not s.needs_review and not s.errors),
         }
 
@@ -935,6 +957,42 @@ class Dienst:
         from ..doctor import run_checks
         return {"checks": [{"titel": label, "status": status, "detail": detail}
                            for label, status, detail in run_checks(self.hive)]}
+
+    # -- BeeNara (lokales Entscheider-Modell) — wie 'beenara laden|an|aus|entfernen' --------
+    @auftrag("beenara_laden")
+    def beenara_laden(self) -> dict:
+        """Modell von Hugging Face und Laufzeit-Pakete holen. Lang: Fortschritt kommt in Bytes.
+        Ein Fehler wird gemeldet, nicht geworfen — der Stand danach sagt, was fehlt."""
+        from .. import beenara
+        try:
+            ok = beenara.einrichten(self.con)
+        except Exception as exc:          # wie in der Konsole: nie die Oberfläche abreißen
+            self.con.error(i18n.t("bn.err.download", err=exc))
+            ok = False
+        return {"ok": ok, "beenara": self._beenara()}
+
+    @auftrag("beenara_schalten", sperre=False)
+    def beenara_schalten(self, an: bool = True) -> dict:
+        cfg = config.load_config()
+        cfg.beenara = bool(an)
+        config.save_config(cfg)
+        self.con.honey(i18n.t("bn.set.on" if an else "bn.set.off"), "🐝")
+        return self._beenara()
+
+    @auftrag("beenara_entfernen")
+    def beenara_entfernen(self) -> dict:
+        """Nur die eigenen Downloads unter ~/.pollysort/modelle/BeeNara — die Seite fragt vorher."""
+        from .. import beenara
+        s = beenara.stand()
+        if not s.vollstaendig and not s.angefangen:
+            self.con.info(i18n.t("bn.remove.none"), "🐝")
+            return self._beenara()
+        try:
+            beenara.entfernen()
+        except OSError as exc:
+            raise Ungueltig(i18n.t("bn.remove.failed", err=exc))
+        self.con.honey(i18n.t("bn.remove.done"), "🗑️")
+        return self._beenara()
 
     # ------------------------------------------------------------------ #
     #  Projekte & Einrichtung

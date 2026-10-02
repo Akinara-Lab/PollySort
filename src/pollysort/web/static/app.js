@@ -394,8 +394,9 @@
       S.lauf.erledigt = e.erledigt;
       S.lauf.gesamt = e.gesamt;
       S.lauf.text = e.text;
+      S.lauf.einheit = e.einheit || null;
       laufZeichnen(vorher);
-      if (e.erledigt > 0) fliegen($('#station-eingang'), $('#station-waben'), { geist: S.lauf.name === 'vorschau' });
+      if (e.erledigt > 0 && !e.einheit) fliegen($('#station-eingang'), $('#station-waben'), { geist: S.lauf.name === 'vorschau' });
       return;
     }
     if (e.art === 'wache') {
@@ -465,6 +466,17 @@
     }
   }
 
+  // Der Fortschritt einer langen Aktion — im Flugloch, in der Werkstatt und im Assistenten.
+  function laufBlock() {
+    return `<div id="lauf" hidden class="stapel">
+            <div class="zeile weit"><b id="lauf-titel"></b><span id="lauf-zahl" class="mono"></span></div>
+            <div id="lauf-balken"></div>
+            <div id="lauf-text" class="fortschritt-text"></div>
+          </div>`;
+  }
+
+  const mb = (bytes) => Math.round(bytes / 1e6);
+
   function laufZeichnen(vorher) {
     const ort = $('#lauf');
     if (!ort) return;
@@ -472,7 +484,13 @@
     ort.hidden = false;
     const anteil = S.lauf.gesamt ? S.lauf.erledigt / S.lauf.gesamt : 0;
     $('#lauf-balken').innerHTML = wabenbalken(anteil, 18, vorher);
-    $('#lauf-zahl').textContent = S.lauf.gesamt ? `${S.lauf.erledigt}/${S.lauf.gesamt}` : '';
+    $('#lauf-zahl').textContent = !S.lauf.gesamt ? ''
+      : S.lauf.einheit === 'bytes' ? `${mb(S.lauf.erledigt)}/${mb(S.lauf.gesamt)} MB` : `${S.lauf.erledigt}/${S.lauf.gesamt}`;
+    if (S.lauf.name === 'beenara_laden') {
+      $('#lauf-titel').textContent = t('web.run.beenara.title');
+      $('#lauf-text').textContent = S.lauf.text || t('bn.checking', { repo: (S.z.beenara || {}).repo || '' });
+      return;
+    }
     $('#lauf-text').textContent = S.lauf.text || t(S.lauf.name === 'vorschau' ? 'web.run.preview' : 'web.run.sort');
     $('#lauf-titel').textContent = t(S.lauf.name === 'vorschau' ? 'web.run.preview.title' : 'web.run.sort.title');
   }
@@ -555,7 +573,7 @@
       const v = S.vorschau;
       const zeilen = v.plan.map((z) => `<tr><td class="datei">${esc(z.datei)}</td>
         <td>${z.status === 'assigned' ? `<b>${esc(z.wabe.name)}</b>${z.ziel ? `<div class="pfad">${esc(z.ziel)}</div>` : ''}` : '<span class="leise">—</span>'}</td>
-        <td>${konfidenz(z.konfidenz)}</td><td>${statusChip(z.status === 'assigned' ? 'plan' : z.status)}</td></tr>`).join('');
+        <td>${konfidenz(z.konfidenz)}${z.quelle_text ? `<div class="leise klein">${esc(z.quelle_text)}</div>` : ''}</td><td>${statusChip(z.status === 'assigned' ? 'plan' : z.status)}</td></tr>`).join('');
       vorschau = `<section class="karte" id="vorschau-karte" aria-labelledby="vorschau-titel">
         <div class="zeile weit"><h2 id="vorschau-titel">${esc(t('web.preview.title'))}</h2><span class="chip bluete">${esc(t('pl.rule.preview'))}</span></div>
         <div class="plan-summe">
@@ -576,7 +594,6 @@
     if (S.ergebnis) {
       const e = S.ergebnis;
       const max = Math.max(1, ...e.waben.map((w) => w.anzahl));
-      const quellen = e.quellen || {};
       const ki = e.ki_anfragen ? (e.modus === 'openrouter'
         ? t('pl.calls_online', { n: e.ki_anfragen, cost: (e.kosten || 0).toFixed(4) })
         : e.modus === 'ollama' ? t('pl.calls_local', { n: e.ki_anfragen }) : t('pl.calls_offline', { n: e.ki_anfragen })) : '';
@@ -591,7 +608,7 @@
           ${e.dubletten ? `<a class="chip bluete" href="#/quarantaene">${esc(t('web.preview.dups', { n: e.dubletten }))}</a>` : ''}
           ${e.fehler ? `<a class="chip fehler" href="#/waben/_fehler">${esc(t('web.preview.errors', { n: e.fehler }))}</a>` : ''}
         </div>
-        ${(quellen.gedaechtnis || quellen.nummer) ? `<p class="hinweis">${esc(t('pl.quellen', { mem: quellen.gedaechtnis || 0, num: quellen.nummer || 0, voll: quellen.analyse || 0 }))}</p>` : ''}
+        ${e.quellen_text ? `<p class="hinweis">${esc(e.quellen_text)}</p>` : ''}
         ${ki ? `<p class="hinweis">${esc(ki)}</p>` : ''}
       </section>`;
     }
@@ -608,11 +625,7 @@
             <div class="bahn"></div>
             <div class="station" id="station-waben">${P.sprite('wabe')}<b>${px(p.waben)}</b><span>${esc(t('web.nav.combs'))}</span></div>
           </div>
-          <div id="lauf" hidden class="stapel">
-            <div class="zeile weit"><b id="lauf-titel"></b><span id="lauf-zahl" class="mono"></span></div>
-            <div id="lauf-balken"></div>
-            <div id="lauf-text" class="fortschritt-text"></div>
-          </div>
+          ${laufBlock()}
           <div class="zeile" id="flug-aktionen">
             <button class="knopf gross" type="button" data-tun="vorschau" ${dateien.length ? '' : 'disabled'}>${P.sprite('lupe')}${esc(t('web.btn.preview'))} <span class="tastenkuerzel">v</span></button>
             <button class="knopf zweit gross" type="button" data-tun="sortieren" ${dateien.length ? '' : 'disabled'}>${P.sprite('topf')}${esc(t('web.btn.sort'))} <span class="tastenkuerzel">s</span></button>
@@ -836,6 +849,10 @@
       `<button type="button" data-tun="${name}" data-wert="${esc(wert)}" aria-pressed="${String(wert) === String(aktiv) ? 'true' : 'false'}">${esc(t(key))}</button>`).join('')}</div>`;
   }
 
+  // Sparmodus und Lokal entscheiden mit BeeNara anders — das soll man bei der Wahl sehen.
+  const bnHinweis = (modus) => (modus !== 'openrouter' && S.z.beenara && S.z.beenara.bereit
+    ? `<small>${esc(t('web.bn.mode_note'))}</small>` : '');
+
   async function seiteWerkstatt() {
     const w = await lesen('werkstatt');
     const e = w.einstellungen;
@@ -844,8 +861,22 @@
     const modusWahl = p ? [['offline', 'fr.ai.offline'], ['ollama', 'fr.ai.ollama'], ['openrouter', 'fr.ai.openrouter']].map(([wert, key]) => {
       const gesperrt = modi && !modi[wert];
       return `<label class="wahl ${gesperrt ? 'gesperrt' : ''}"><input type="radio" name="modus" value="${wert}" data-modus ${p.modus === wert ? 'checked' : ''} ${gesperrt ? 'disabled' : ''}>
-        <span>${esc(t(key))}${gesperrt ? `<small>${esc(t(wert === 'ollama' ? 'web.su.ollama_hint' : 'web.key.console'))}</small>` : ''}</span></label>`;
+        <span>${esc(t(key))}${gesperrt ? `<small>${esc(t(wert === 'ollama' ? 'web.su.ollama_hint' : 'web.key.console'))}</small>` : bnHinweis(wert)}</span></label>`;
     }).join('') : '';
+    const bn = w.beenara;
+    const bnChip = bn.bereit ? ['wache', 'web.bn.chip.on'] : bn.grund === 'aus' ? ['aus', 'web.bn.chip.off']
+      : bn.vorhanden || bn.angefangen ? ['frage', 'web.bn.chip.incomplete'] : ['aus', 'web.bn.chip.missing'];
+    const bnUnfertig = !bn.vorhanden || bn.angefangen || bn.grund === 'version' || bn.grund === 'laufzeit';
+    const beenaraKarte = `<section class="karte" aria-labelledby="bn-titel"><div class="zeile weit"><h2 id="bn-titel">${esc(t('fr.bn.title'))}</h2>
+        <span class="chip ${bnChip[0]}">${esc(t(bnChip[1]))}</span></div>
+      <p class="hinweis">${esc(t('bn.what'))} ${esc(t('fr.bn.size', { repo: bn.repo, mb: bn.ungefaehr_mb }))}</p>
+      ${bn.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
+      ${laufBlock()}
+      <div class="zeile abstand">
+        ${bnUnfertig ? `<button class="knopf" type="button" data-tun="bn-laden">${esc(t(bn.vorhanden || bn.angefangen ? 'web.btn.bn_finish' : 'web.btn.bn_pull'))}</button>` : ''}
+        ${bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
+        ${bn.vorhanden || bn.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bn-entfernen" data-mb="${esc(bn.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
+      </div></section>`;
     const checks = S.check ? `<table class="liste"><tbody>${S.check.map((c) => `<tr><td>${c.status === 'ok' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'}</td>
       <td><b>${esc(c.titel)}</b></td><td class="klein">${esc(c.detail)}</td></tr>`).join('')}</tbody></table>` : '';
     return `${seitenKopf('web.nav.workshop', 'web.nav.workshop.k')}
@@ -877,6 +908,7 @@
               <button class="knopf zweit klein-knopf" type="submit">${esc(t('web.btn.save'))}</button></div>
               <small class="leise">${esc(t('web.ws.model_hint'))}</small></form>
           </div></section>` : ''}
+        ${beenaraKarte}
         <section class="karte"><h2>${esc(t('web.ws.access'))}</h2>
           <table class="liste"><tbody>
             <tr><td>🔑 <b>${esc(t('r.key.title'))}</b></td><td>${w.schluessel.quelle ? `<span class="mono">${esc(w.schluessel.maskiert)}</span> <span class="leise klein">(${esc(t('web.key.' + w.schluessel.quelle))})</span>` : `<span class="leise">${esc(t('r.key.none'))}</span>`}</td><td><code>schluessel setzen</code></td></tr>
@@ -898,7 +930,9 @@
   // -- Einrichtung (Assistent) ------------------------------------------------
   function neueEinrichtung() {
     return { schritt: S.z && S.z.erststart ? 0 : 1, pfad: '', pruefung: null, anlegen: false, name: '', modus: 'offline',
-      katWahl: 'vorschlag', vorschlag: null, aus: {}, extra: [], eigene: '', unterordner: null, subAn: {}, wache: 'off', fertig: null };
+      katWahl: 'vorschlag', vorschlag: null, aus: {}, extra: [], eigene: '', unterordner: null, subAn: {}, wache: 'off', fertig: null,
+      // BeeNara: wie im Erststart der Konsole nur auf Zusage — ohne Haken lädt nichts.
+      beenara: false };
   }
 
   const SCHRITTE = ['web.su.step.look', 'web.su.step.folder', 'web.su.step.name', 'web.su.step.mode',
@@ -962,8 +996,11 @@
           <div class="wahl-gruppe">${[['offline', 'fr.ai.offline'], ['ollama', 'fr.ai.ollama'], ['openrouter', 'fr.ai.openrouter']].map(([wert, key]) => {
             const gesperrt = m && !m[wert];
             return `<label class="wahl ${gesperrt ? 'gesperrt' : ''}"><input type="radio" name="su-modus" value="${wert}" ${e.modus === wert ? 'checked' : ''} ${gesperrt || !m ? 'disabled' : ''}>
-              <span>${esc(t(key))}${m && m[wert] && wert !== 'offline' ? ` <small>${esc(t(wert === 'openrouter' ? 'fr.ai.keyset' : 'fr.ai.found'))}</small>` : ''}${gesperrt ? `<small>${esc(t(wert === 'ollama' ? 'web.su.ollama_hint' : 'web.key.console'))}</small>` : ''}</span></label>`;
-          }).join('')}</div>`;
+              <span>${esc(t(key))}${m && m[wert] && wert !== 'offline' ? ` <small>${esc(t(wert === 'openrouter' ? 'fr.ai.keyset' : 'fr.ai.found'))}</small>` : ''}${gesperrt ? `<small>${esc(t(wert === 'ollama' ? 'web.su.ollama_hint' : 'web.key.console'))}</small>` : bnHinweis(wert)}</span></label>`;
+          }).join('')}</div>
+          ${S.z.beenara && !S.z.beenara.bereit ? `<div class="abstand"><b>${esc(t('fr.bn.title'))}</b>
+            <p class="hinweis">${esc(t('fr.bn.what'))} ${esc(t('fr.bn.size', { repo: S.z.beenara.repo, mb: S.z.beenara.ungefaehr_mb }))}</p>
+            <label class="zeile"><input type="checkbox" id="su-beenara" ${e.beenara ? 'checked' : ''}> ${esc(t('web.su.bn.label'))}</label></div>` : ''}`;
         weiter = !!m;
         break;
       }
@@ -1005,6 +1042,7 @@
         if (e.fertig) {
           inhalt = `<div class="leer-zustand">${P.sprite('topf')}<h2 data-px="${esc(t('su.done.title'))}">${esc(t('su.done.title'))}</h2>
             <p>${esc(t('web.su.done', { name: e.fertig.name, n: e.fertig.waben }))}</p></div>
+            ${e.beenara ? laufBlock() : ''}
             <div class="zeile">${e.fertig.lose ? `<button class="knopf gross" type="button" data-tun="su-einlagern">${esc(t('web.su.file_now', { n: e.fertig.lose }))}</button>
               <button class="knopf zweit" type="button" data-tun="su-vorschau">${esc(t('web.btn.preview'))}</button>` : ''}
               <a class="knopf zweit" href="#/zuhause">${esc(t('web.btn.home'))}</a></div>`;
@@ -1019,7 +1057,8 @@
           <tr><td>${esc(t('web.su.step.mode'))}</td><td>${esc(t('mode.' + e.modus))}</td></tr>
           <tr><td>${esc(t('web.su.step.combs'))}</td><td>${kats.map((k) => `<span class="chip">${esc(k.charAt(0).toUpperCase() + k.slice(1))}</span>`).join(' ')}</td></tr>
           <tr><td>${esc(t('web.su.step.sub'))}</td><td>${sub.length ? sub.map((x) => `${esc(x.name)} → <span class="mono">${esc(x.muster)}</span>`).join('<br>') : '—'}</td></tr>
-          <tr><td>${esc(t('web.su.step.watch'))}</td><td>${esc(t('su.watch.' + e.wache))}</td></tr></tbody></table>`;
+          <tr><td>${esc(t('web.su.step.watch'))}</td><td>${esc(t('su.watch.' + e.wache))}</td></tr>
+          <tr><td>${esc(t('web.su.bn.row'))}</td><td>${esc(t(S.z.beenara && S.z.beenara.bereit ? 'web.su.bn.ready' : e.beenara ? 'web.su.bn.yes' : 'web.su.bn.no'))}</td></tr></tbody></table>`;
       }
     }
     const letzter = e.schritt >= 7;
@@ -1170,6 +1209,13 @@
     });
   }
 
+  // Ergebnis von 'beenara_laden' (null = Fehler, schon gemeldet) als Hinweis unten rechts.
+  function bnMelden(r) {
+    if (!r) return;
+    if (r.ok) hinweis({ titel: t('web.toast.bn.ready'), text: t('web.toast.bn.ready.text'), art: 'erfolg' });
+    else hinweis({ titel: t('web.toast.bn.failed'), text: t('web.toast.bn.failed.text'), art: 'fehler' });
+  }
+
   async function einstellen(daten) {
     try {
       const e = await tun('einstellungen', daten);
@@ -1293,6 +1339,17 @@
     nacherfassung: async (el) => { try { await tun('projekt_einstellen', { nacherfassung: bool(el.dataset.wert) }); seiteZeichnen(true); } catch (e) { fehler(e); } },
     'modi-pruefen': async () => { try { S.modi = await tun('modi_pruefen'); } catch (e) { fehler(e); } seiteZeichnen(true); },
     'stock-check': async () => { try { S.check = (await tun('stock_check')).checks; } catch (e) { fehler(e); } seiteZeichnen(true); },
+    // -- BeeNara (Werkstatt) --
+    'bn-laden': async () => { bnMelden(await arbeit('beenara_laden')); seiteZeichnen(true); },
+    'bn-schalten': async (el) => {
+      try { await tun('beenara_schalten', { an: bool(el.dataset.wert) }); } catch (e) { fehler(e); }
+      await zustandLaden(); seiteZeichnen(true);
+    },
+    'bn-entfernen': async (el) => {
+      if (!await bestaetigen({ titel: t('web.btn.bn_remove'), text: t('web.bn.remove.text', { mb: el.dataset.mb }), ja: t('web.btn.bn_remove'), gefahr: true })) return;
+      try { await tun('beenara_entfernen'); hinweis({ titel: t('bn.remove.done') }); } catch (e) { fehler(e); }
+      await zustandLaden(); seiteZeichnen(true);
+    },
     wechseln: async (el) => {
       try {
         const r = await tun('wechseln', { pfad: el.dataset.pfad });
@@ -1321,7 +1378,12 @@
       (e.unterordner || []).forEach((x) => { if (e.subAn[x.key] !== false && kats.includes(x.key)) unterordner[x.key] = x.muster; });
       const r = await arbeit('einrichten', { pfad: e.pruefung.pfad, name: e.name || e.pruefung.name, modus: e.modus, kategorien: kats, unterordner, wache: e.wache, anlegen: e.anlegen });
       if (r) { e.fertig = r; await zustandLaden(); rahmenZeichnen(); }
-      seiteZeichnen(true);
+      await seiteZeichnen(true);
+      // Zugesagt im Schritt „Modus" — erst jetzt, damit die Einrichtung nie am Download hängt.
+      if (r && e.beenara && !(S.z.beenara || {}).bereit) {
+        bnMelden(await arbeit('beenara_laden'));
+        await seiteZeichnen(true);
+      }
     },
     'su-einlagern': () => { S.e = null; location.hash = '#/flugloch'; setTimeout(() => sortierenStarten(false), 80); },
     'su-vorschau': () => { S.e = null; location.hash = '#/flugloch'; setTimeout(vorschauStarten, 80); },
@@ -1330,7 +1392,10 @@
   async function einrichtungWeiter() {
     const e = S.e;
     if (e.schritt === 2) e.name = $('#name').value.trim();
-    if (e.schritt === 3) { const m = $('input[name="su-modus"]:checked'); if (m) e.modus = m.value; }
+    if (e.schritt === 3) {
+      const m = $('input[name="su-modus"]:checked'); if (m) e.modus = m.value;
+      const bn = $('#su-beenara'); if (bn) e.beenara = bn.checked;
+    }
     if (e.schritt === 4 && e.katWahl === 'eigene') e.eigene = $('#eigene').value;
     if (e.schritt === 4 && !gewaehlteKategorien().length) { hinweis({ titel: t('web.su.cat.empty'), art: 'fehler' }); return; }
     if (e.schritt === 5) $$('[data-sub]').forEach((c) => { e.subAn[c.dataset.sub] = c.checked; });

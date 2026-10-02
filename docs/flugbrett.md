@@ -84,6 +84,7 @@ Die Bienen-Begriffe stammen ausnahmslos aus dem Code und den Texten der Konsole 
 | Nektar-Quelle · Nektar-Sorte | API-Schlüssel · KI-Modell | OpenRouter | Werkstatt |
 | Ultra Swarm | Turbo | parallele KI-Analysen | Option im Flugloch |
 | Sparmodus · Lokal · Cloud | KI-Modus | Heuristik · Ollama · OpenRouter | Kopfzeile, Werkstatt |
+| BeeNara | lokales Entscheider-Modell | wählt im Sparmodus und im Modus Lokal den Ordner (`beenara`) | Werkstatt (laden · an/aus · entfernen), Assistent (Schritt „Modus") |
 | Dein Bienenstock · Stufen · Abzeichen | Fortschritt | `spiel.py` | Zuhause (abschaltbar) |
 | Flugbrett *(neu)* | Browser-Oberfläche | dieses Paket `pollysort.web` | Name im Code & in der Konsole |
 
@@ -246,6 +247,24 @@ Kern (pipeline, review, swarm, wachstafel, spiel …)  ──►  WebKonsole  �
 Schlüssel verlassen den Rechner nicht, Token/Host/Origin/JSON, keine Dateien außerhalb von
 `static/`, alle Texte zweisprachig, kein Inline-Code).
 
+**BeeNara im Flugbrett** (kam nach dem ersten Stand dazu, `tests/test_web_beenara.py`):
+
+- **Werkstatt:** Karte mit demselben Stand wie `beenara` in der Konsole (`beenara.bericht()` —
+  eine Quelle für Konsole, CLI und Flugbrett), Herunterladen bzw. Vervollständigen, an/aus,
+  Entfernen mit Bestätigung. Aktionen `beenara_laden` · `beenara_schalten` · `beenara_entfernen`.
+- **Assistent:** Im Schritt „Modus" ein Haken „BeeNara mit herunterladen" — wie im Erststart der
+  Konsole nur auf Zusage, Vorauswahl aus. Geladen wird erst nach „Projekt einrichten", damit die
+  Einrichtung nie am Download hängt. Wer über die App einsteigt, sieht den Konsolen-Erststart
+  sonst nie.
+- **Fortschritt in Bytes:** `WebKonsole.progress(transfer=True)`; die Seite zeigt MB. Gedrosselt
+  auf ein Ereignis je Prozent, sonst verdrängen ein paar hundert 1-MB-Stücke das Protokoll.
+- **Wer hat entschieden:** `pipeline.quellen_text()` liefert „Entschieden: … von BeeNara" für
+  Konsole und Seite; der Plan trägt je Datei die Quelle (Gedächtnis · BeeNara · KI-Kurzentscheid
+  · Vollanalyse · Heuristik).
+- **Wächter** gegen den Bruch, der beim Zusammenführen unbemerkt blieb („Entschieden: {teile}"):
+  Jeder Aufruf der Seite hat einen Endpunkt und umgekehrt, und jeder Text bekommt alle seine
+  Platzhalter.
+
 ---
 
 ## 7. Phase 4: Testplan für Nutzertests
@@ -287,6 +306,9 @@ umgedreht.
 
 ## 8. Offen & nächste Schritte
 
+- **Konsolen-Hinweise im Browser:** Ein paar Meldungen aus dem Kern nennen Konsolenbefehle oder
+  Tasten („'beenara laden' setzt fort", „Strg-C unterbricht"). Im Flugbrett wären „Werkstatt"
+  bzw. der Knopf die bessere Wortwahl — dafür bräuchte die WebKonsole eigene Varianten dieser Texte.
 - **Zugangsdaten im Browser** (OpenRouter-Schlüssel, Flugrouten): bewusst noch nicht. Falls
   gewünscht, als eigenes Formular mit eigener Prüfung, nie im Protokoll.
 - **Logo & Markenfarben:** Die Pixel-Biene ist ein Vorschlag. Sobald es ein offizielles Logo

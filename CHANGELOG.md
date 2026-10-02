@@ -9,6 +9,19 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt — BeeNara im Flugbrett
+- **Werkstatt:** BeeNara-Karte mit demselben Stand wie `beenara` in der Konsole; herunterladen
+  (mit Fortschritt in MB, Laufzeit wird mitinstalliert), an/aus, entfernen mit Bestätigung.
+- **Assistent:** Im Schritt „Modus" ein Haken „BeeNara mit herunterladen" (Vorauswahl: aus).
+  Bisher sah, wer über die App einstieg, die BeeNara-Frage nie.
+- **Flugloch:** „Entschieden: 5 von BeeNara" statt „{teile}"; im Plan steht je Datei, wer
+  entschieden hat. Die Modus-Auswahl sagt „mit BeeNara", wenn es mitsortiert.
+- Kern: `beenara.bericht()` und `pipeline.quellen_text()` — je eine Quelle für Konsole, CLI und
+  Flugbrett. `WebKonsole.progress(transfer=True)`, gedrosselt auf ein Ereignis je Prozent.
+  Beim ersten Lauf meldet PollySort „BeeNara wird geladen …".
+- Wächter-Tests: Jeder Aufruf der Seite hat einen Endpunkt (und umgekehrt), jeder Text bekommt
+  alle seine Platzhalter.
+
 ### Hinzugefügt — das Flugbrett: PollySort im Browser
 - **`pollysort-web`** (oder `oberflaeche` / `web` in der Konsole) startet eine lokale
   Browser-Oberfläche auf demselben Kern: Zuhause, Flugloch (Vorschau → Anwenden mit Live-

@@ -1077,43 +1077,12 @@ class BeehiveShell(cmd.Cmd):
         self.con.honey(i18n.t("bn.set.on" if an else "bn.set.off"), "🐝")
 
     def _beenara_status(self) -> None:
-        from pollysort import beenara, entscheidung
-        s = beenara.stand()
+        from pollysort import beenara
         self.con.rule(i18n.t("bn.title"))
         self.con.info(i18n.t("bn.what"), "🐝")
-        if s.vollstaendig:
-            self.con.honey(i18n.t("bn.status.ok", version=s.version, mb=s.mb, path=s.pfad), "✅")
-        elif s.angefangen:
-            self.con.ask(i18n.t("bn.status.partial"))
-        else:
-            self.con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB),
-                          "⬇️")
-        grund = beenara.warum_nicht(config.load_config())
-        if grund is None:
-            self.con.honey(i18n.t("bn.active.ja"), "⚡")
-            # Für das offene Projekt sagen, ob es dort wirklich greift.
-            if self.hive and config.is_setup(self.hive):
-                from pollysort.hive_mind import Taxonomy
-                seed = config.load_seed(self.hive)
-                name = seed.name or self.hive.name
-                # Wie der Sortierlauf: die lebende Taxonomie, vor dem ersten Lauf der Seed.
-                kats = Taxonomy(self.hive).categories or seed.categories
-                if seed.provider == "openrouter":
-                    self.con.info(i18n.t("bn.project.cloud", name=name), "☁️")
-                elif not entscheidung.beenara_passt(kats):
-                    self.con.info(i18n.t("bn.project.count", name=name,
-                                         n=len(entscheidung.ordner_namen(kats))), "🗂️")
-                else:
-                    self.con.info(i18n.t("bn.project.ok", name=name), "📂")
-        elif grund == "version":
-            self.con.ask(i18n.t("bn.active.version", have=s.version,
-                                need=beenara.REVISION[:7]))
-        elif grund == "laufzeit":
-            self.con.ask(i18n.t("bn.active.laufzeit", pakete=", ".join(beenara.laufzeit_fehlt())))
-        elif grund == "aus":
-            self.con.info(i18n.t("bn.active.aus"), "💤")
-        elif s.vollstaendig or s.angefangen:
-            self.con.info(i18n.t("bn.active.modell"), "⬇️")
+        # Dieselben Zeilen wie im Flugbrett und in der Skript-CLI (beenara.bericht).
+        for art, emoji, text in beenara.bericht(config.load_config(), self.hive):
+            getattr(self.con, art)(text, emoji)
         self.con.info(i18n.t("bn.usage"), "🐝")
 
     def _beenara_entfernen(self) -> None:
