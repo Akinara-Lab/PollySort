@@ -9,6 +9,25 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Dokumentation — README für die Beta
+- **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —
+  jeweils hell und dunkel; GitHub zeigt das passende Bild zum eigenen Thema (`docs/bilder/`).
+- **`tools/readme_bilder.py`** erzeugt sie neu: Demo-Projekt mit erfundenen englischen Dokumenten
+  in einem temporären `POLLYSORT_HOME`, Aufnahme mit Edge/Chrome über Playwright. Echte Pfade
+  werden vor jedem Bild durch Demo-Pfade ersetzt; steht der eigene Benutzername noch auf der
+  Seite, bricht das Skript ab, statt ein Bild zu speichern.
+- **Installationsanleitung neu:** Schnellstart in vier Schritten (Python → ZIP oder `git clone` →
+  Installer → Desktop-Symbol), Python je Betriebssystem, was der Installer genau tut, welche
+  Befehle es danach gibt, optionale Zusätze (BeeNara, Ollama, OpenRouter), Aktualisieren,
+  Extras-Tabelle, Fehlerbehebung (Befehl nicht gefunden, Store-Platzhalter, Ausführungsrichtlinie,
+  gesperrte ZIP-Dateien, App im Browser-Tab, abgebrochener Download).
+- Richtiggestellt: Verweise auf `TODO.md` und den Projektbrief entfernt (beide liegen nicht im
+  Repository); der Sprachhinweis nennt jetzt genau, was noch deutsch ist (Installer,
+  Teile von `pollysort-cli`); die Roadmap führt das inzwischen veröffentlichte BeeNara nicht
+  mehr als Forschungsvorhaben. BeeNara-Abschnitt: Tempo und der Hinweis, dass Sammelordner wie
+  „Letters" oder „Correspondence" nicht erkannt werden (gemessen: „keiner passt" bei beiden
+  Briefen der Demo, mit 0,97–0,98).
+
 ### Schneller — Sortieren mit BeeNara etwa doppelt so schnell
 - Gemessen über den Dienst des Flugbretts, 70 Testdokumente, Laptop auf Akku, abwechselnd in
   vier Runden: **vorher 734–860 ms je Datei (Median 752), jetzt 350–476 ms (Median 353)**.

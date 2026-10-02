@@ -54,7 +54,6 @@ vec = ["sqlite-vec>=0.1.1"]
 # Eigenes Programmfenster für `pollysort-app` (Edge WebView2 / WebKit / GTK). Ohne dieses
 # Extra öffnet die App ein randloses Edge-/Chrome-Fenster oder notfalls den Browser.
 app = ["pywebview>=5.0"]
-# Alles Optionale auf einmal.
 # Laufzeit für BeeNara, das lokale Entscheider-Modell (ONNX auf der CPU, kein torch). Das
 # Modell selbst holt `beenara laden` von Hugging Face und installiert dieses Extra mit, falls
 # es fehlt — gleiche Liste wie beenara.PAKETE.

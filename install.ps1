@@ -77,8 +77,6 @@ foreach ($c in @('py', 'python', 'python3')) {
     if (-not (Has-Command $c)) { continue }
     # Ohne innere Anfuehrungszeichen und ohne '%': PowerShell reicht native Argumente
     # sonst verstuemmelt an das Programm weiter.
-    # Ohne innere Anfuehrungszeichen und ohne '%': PowerShell reicht native Argumente
-    # sonst verstuemmelt an das Programm weiter.
     $probe = Invoke-Tool $c @('-c', 'import platform; print(platform.python_version())')
     $ver = $probe.Ausgabe.Trim()
     if ($probe.Code -ne 0 -or $ver -notmatch '^\d+\.\d+') { continue }   # Platzhalter
