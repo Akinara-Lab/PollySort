@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -307,44 +308,59 @@ def fotografieren(url: str, ziel: Path, thema: str, ersetzen: list[tuple[str, st
     return bilder
 
 
+def lauf(thema: str, wurzel: Path, ziel: Path, modell: Path) -> int:
+    """Ein Thema in einem eigenen Prozess — erst nach dessen Ende sind Datenbank und Modell zu."""
+    # Vor dem ersten Import: config liest den Ablage-Ort beim Laden.
+    os.environ["POLLYSORT_HOME"] = str(wurzel / "home")
+    sys.path.insert(0, str(REPO / "src"))
+    from pollysort.web.server import starten
+
+    projekt = demo_anlegen(wurzel, modell, thema)
+    httpd, url, dienst = starten(projekt, port=0, browser=False)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    ersetzen = []
+    for echt, demo in [(wurzel / "home", DEMO_ABLAGE), (wurzel, DEMO_ORDNER)]:
+        for form in {str(echt), str(echt.resolve())}:
+            ersetzen += [(form, demo), (form.replace("\\", "/"), demo)]
+    # Heißt du selbst „alex", wäre jedes Bild ein Fehlalarm — dann ohne diese Prüfung.
+    ich = Path.home().name
+    verboten = "" if len(ich) < 3 or ich.lower() in DEMO_ORDNER.lower() else ich
+    try:
+        for bild in fotografieren(url, ziel, thema, ersetzen, verboten):
+            print(f"✓  {bild.relative_to(REPO) if bild.is_relative_to(REPO) else bild}", flush=True)
+    finally:
+        httpd.shutdown()
+        dienst.wache.stoppen()
+        httpd.server_close()
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ziel", default=str(REPO / "docs" / "bilder"))
     ap.add_argument("--modell", default=str(Path.home() / ".pollysort" / "modelle" / "BeeNara"))
     ap.add_argument("--nur-hell", action="store_true")
+    ap.add_argument("--lauf", nargs=2, metavar=("THEMA", "WURZEL"), help=argparse.SUPPRESS)
     args = ap.parse_args()
     ziel = Path(args.ziel)
     ziel.mkdir(parents=True, exist_ok=True)
+    if args.lauf:
+        return lauf(args.lauf[0], Path(args.lauf[1]), ziel, Path(args.modell))
 
     for thema in ["light"] if args.nur_hell else ["light", "dark"]:
         wurzel = Path(tempfile.mkdtemp(prefix="pollysort-bilder-"))
-        # Vor dem ersten Import: config liest den Ablage-Ort beim Laden.
-        os.environ["POLLYSORT_HOME"] = str(wurzel / "home")
-        for modul in [m for m in sys.modules if m == "pollysort" or m.startswith("pollysort.")]:
-            del sys.modules[modul]
-        sys.path.insert(0, str(REPO / "src"))
-        from pollysort.web.server import starten
-
-        projekt = demo_anlegen(wurzel, Path(args.modell), thema)
-        httpd, url, dienst = starten(projekt, port=0, browser=False)
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        ersetzen = []
-        for echt, demo in [(wurzel / "home", DEMO_ABLAGE), (wurzel, DEMO_ORDNER)]:
-            for form in {str(echt), str(echt.resolve())}:
-                ersetzen += [(form, demo), (form.replace("\\", "/"), demo)]
         try:
-            # Heißt du selbst „alex", wäre jedes Bild ein Fehlalarm — dann ohne diese Prüfung.
-            ich = Path.home().name
-            verboten = "" if len(ich) < 3 or ich.lower() in DEMO_ORDNER.lower() else ich
-            for bild in fotografieren(url, ziel, thema, ersetzen, verboten):
-                print(f"✓  {bild.relative_to(REPO) if bild.is_relative_to(REPO) else bild}")
+            code = subprocess.call([sys.executable, __file__, "--lauf", thema, str(wurzel),
+                                    "--ziel", str(ziel), "--modell", args.modell])
         finally:
-            httpd.shutdown()
-            dienst.wache.stoppen()
-            httpd.server_close()
-            from pollysort import beenara
-            beenara.schliessen()
-            shutil.rmtree(wurzel, ignore_errors=True)
+            # Der Prozess ist beendet, also ist nichts mehr geöffnet. Scheitert es trotzdem,
+            # wenigstens sagen, wo die Demo (mit Modell-Kopie) noch liegt.
+            try:
+                shutil.rmtree(wurzel)
+            except OSError as exc:
+                print(f"!  Konnte {wurzel} nicht aufräumen: {exc}", file=sys.stderr)
+        if code:
+            return code
     return 0
 
 
