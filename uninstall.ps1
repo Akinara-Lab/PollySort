@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # PollySort — Deinstallation für Windows (PowerShell)
 #
-#   .\uninstall.ps1              nur die Anwendung entfernen (Befehle + PATH-Eintrag)
+#   .\uninstall.ps1              nur die Anwendung entfernen (Befehle, PATH-Eintrag, Verknüpfungen)
 #   .\uninstall.ps1 -Alles       zusätzlich die globale Ablage ~/.pollysort löschen
 #   .\uninstall.ps1 -DryRun      nur zeigen, was passieren würde
 #
@@ -105,6 +105,17 @@ foreach ($c in @('py', 'python', 'python3')) {
     break
 }
 if (-not $entfernt) { Info 'Keine installierte Version gefunden (vielleicht schon entfernt).' }
+
+# Verknuepfungen (Startmenue + Desktop) und was nur die Anwendung selbst angelegt hat:
+# das Symbol und das Fensterprofil. Beides enthaelt keine Nutzerdaten.
+Say 'Entferne Verknuepfungen ...'
+& (Join-Path $PSScriptRoot 'tools\windows_verknuepfung.ps1') -Entfernen -DryRun:$DryRun
+foreach ($rest in @((Join-Path $home_dir 'pollysort.ico'), (Join-Path $home_dir 'fenster'))) {
+    if (-not (Test-Path -LiteralPath $rest)) { continue }
+    if ($DryRun) { Info "[dry-run] wuerde entfernen: $rest"; continue }
+    Remove-Item -LiteralPath $rest -Recurse -Force -ErrorAction SilentlyContinue
+    Ok "entfernt: $rest"
+}
 
 # --------------------------------------------------------------------------- #
 # 2) PATH-Eintrag zuruecknehmen

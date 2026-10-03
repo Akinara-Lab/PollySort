@@ -9,6 +9,100 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Dokumentation — README für die Beta
+- **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —
+  jeweils hell und dunkel; GitHub zeigt das passende Bild zum eigenen Thema (`docs/bilder/`).
+- **`tools/readme_bilder.py`** erzeugt sie neu: Demo-Projekt mit erfundenen englischen Dokumenten
+  in einem temporären `POLLYSORT_HOME`, Aufnahme mit Edge/Chrome über Playwright. Echte Pfade
+  werden vor jedem Bild durch Demo-Pfade ersetzt; steht der eigene Benutzername noch auf der
+  Seite, bricht das Skript ab, statt ein Bild zu speichern.
+- **Installationsanleitung neu:** Schnellstart in vier Schritten (Python → ZIP oder `git clone` →
+  Installer → Desktop-Symbol), Python je Betriebssystem, was der Installer genau tut, welche
+  Befehle es danach gibt, optionale Zusätze (BeeNara, Ollama, OpenRouter), Aktualisieren,
+  Extras-Tabelle, Fehlerbehebung (Befehl nicht gefunden, Store-Platzhalter, Ausführungsrichtlinie,
+  gesperrte ZIP-Dateien, App im Browser-Tab, abgebrochener Download).
+- Richtiggestellt: Verweise auf `TODO.md` und den Projektbrief entfernt (beide liegen nicht im
+  Repository); der Sprachhinweis nennt jetzt genau, was noch deutsch ist (Installer,
+  Teile von `pollysort-cli`); die Roadmap führt das inzwischen veröffentlichte BeeNara nicht
+  mehr als Forschungsvorhaben. BeeNara-Abschnitt: Tempo und der Hinweis, dass Sammelordner wie
+  „Letters" oder „Correspondence" nicht erkannt werden (gemessen: „keiner passt" bei beiden
+  Briefen der Demo, mit 0,97–0,98).
+
+### Schneller — Sortieren mit BeeNara etwa doppelt so schnell
+- Gemessen über den Dienst des Flugbretts, 70 Testdokumente, Laptop auf Akku, abwechselnd in
+  vier Runden: **vorher 734–860 ms je Datei (Median 752), jetzt 350–476 ms (Median 353)**.
+  Die Entscheidungen bleiben gleich: Stufe-0 mit 6 Threads 420/420 wie die PyTorch-Referenz.
+- **BeeNara rechnet mit 6 statt 4 Threads** (Core Ultra 7 255H: 4 → 481 ms, 6 → 368 ms,
+  8 → 380 ms mit mehr Streuung, 16 → 861 ms). Höchstens 6, nie mehr als Kerne da sind;
+  `POLLYSORT_BEENARA_THREADS` überschreibt.
+- **Das Gedächtnis wird einmal je Lauf geladen** statt für jede Datei aus SQLite und JSON; was
+  der Lauf lernt, wird nachgetragen. Jede andere Änderung (Korrektur, Papierkorb, Umbenennen,
+  Neuaufbau) erhöht `HiveMind.version` und lädt neu. Mit numpy rechnet der Vergleich als
+  Matrix-Produkt. Das hilft auch dem Modus Lokal.
+- **Jede Datei wird je Analyse nur einmal gelesen** (`extractor.einmal_lesen`) — vorher lasen
+  Heuristik und BeeNara sie im Sparmodus nacheinander.
+- Flugbrett: Während einer langen Aktion sind die Knöpfe ihrer Karte gesperrt — „Herunterladen"
+  lässt sich während des Downloads nicht noch einmal anklicken.
+
+### Hinzugefügt — BeeNara im Flugbrett
+- **Werkstatt:** BeeNara-Karte mit demselben Stand wie `beenara` in der Konsole; herunterladen
+  (mit Fortschritt in MB, Laufzeit wird mitinstalliert), an/aus, entfernen mit Bestätigung.
+- **Assistent:** Im Schritt „Modus" ein Haken „BeeNara mit herunterladen" (Vorauswahl: aus).
+  Bisher sah, wer über die App einstieg, die BeeNara-Frage nie.
+- **Flugloch:** „Entschieden: 5 von BeeNara" statt „{teile}"; im Plan steht je Datei, wer
+  entschieden hat. Die Modus-Auswahl sagt „mit BeeNara", wenn es mitsortiert.
+- Kern: `beenara.bericht()` und `pipeline.quellen_text()` — je eine Quelle für Konsole, CLI und
+  Flugbrett. `WebKonsole.progress(transfer=True)`, gedrosselt auf ein Ereignis je Prozent.
+  Beim ersten Lauf meldet PollySort „BeeNara wird geladen …".
+- Wächter-Tests: Jeder Aufruf der Seite hat einen Endpunkt (und umgekehrt), jeder Text bekommt
+  alle seine Platzhalter.
+
+### Hinzugefügt — das Flugbrett: PollySort im Browser
+- **`pollysort-web`** (oder `oberflaeche` / `web` in der Konsole) startet eine lokale
+  Browser-Oberfläche auf demselben Kern: Zuhause, Flugloch (Vorschau → Anwenden mit Live-
+  Fortschritt), Rückfragen (Tasten 1–9 · ⏎ · s · v wie in der Konsole), Waben (Umsortieren per
+  Auswahl oder Ziehen), Schwarm & Kalender, Wachstafel & Gedächtnis, Quarantäne, Werkstatt und
+  ein Einrichtungs-Assistent, der auch den Erststart übernimmt.
+- **Retro-Pixel, aber ruhig:** eigene 5×7-Pixel-Schrift und Pixel-Sprites (selbst gezeichnet,
+  ohne Fremd-Schrift oder Downloads), Farb-Semantik aus der Konsole, Kontraste nach WCAG AA,
+  Hell/Dunkel/Automatik. Stil-Tafel unter `/musterbuch.html`.
+- **Gamification in Maßen:** Stufen und Abzeichen ausschließlich aus `spiel.py`; Animationen
+  nur dort, wo auch die Konsole reagiert, und abschaltbar (Voll · Dezent · Aus). Der
+  **Arbeitsmodus** stellt mit einem Klick auf dezent, blendet Fortschritt aus und setzt den
+  Klartext vor die Bienen-Begriffe.
+- **Keine neue Abhängigkeit:** Server aus der Standardbibliothek, nur `127.0.0.1`, Sitzungs-
+  Token, Host- und Origin-Prüfung, strenge Content-Security-Policy. Schlüssel und Flugrouten
+  zeigt der Browser nur maskiert — eingetragen werden sie weiter in der Konsole.
+- Dokumentation für das Team: `docs/flugbrett.md` (Begriffe, Gestaltung, Technik, Testplan).
+
+### Hinzugefügt — PollySort als eigene Anwendung
+- **`pollysort-app`** (oder `anwendung` / `app` in der Konsole): das Flugbrett im eigenen
+  Programmfenster statt im Browser-Tab. Natives Fenster über das optionale Extra **`[app]`**
+  (pywebview), sonst ein randloses Edge-/Chrome-App-Fenster, notfalls der Browser.
+  **Fenster zu = PollySort beendet** (Server und Wache fahren herunter).
+- Unter Windows ein **GUI-Programm ohne Konsolenfenster** mit eigenem Symbol und eigener
+  App-Kennung in der Taskleiste; Diagnose in `~/.pollysort/app.log`, Startfehler als
+  Meldungsfenster.
+- **Installer legen Starter an:** Startmenü + Desktop (Windows, auch aus Git-Bash), Eintrag im
+  Anwendungsmenü (Linux), `~/Applications/PollySort.app` (macOS) — abschaltbar mit
+  `--no-shortcut` / `-NoShortcut`. Die Deinstaller entfernen nur, was erkennbar von PollySort
+  stammt (Verknüpfung, Symbol, Fensterprofil).
+- **App-Symbol** aus der Pixel-Biene (`.ico`, `.png`, `.icns`), reproduzierbar mit
+  `python tools/app_icon.py`.
+- Der Ereignisstrom bemerkt geschlossene Fenster jetzt binnen Sekunden statt erst beim nächsten
+  Lebenszeichen.
+
+### Geändert
+- `CycleSummary.plan` hält je Datei fest, was ein Lauf getan hat bzw. tun würde (nur
+  Metadaten) — Grundlage der Liste „Datei → Wabe" im Browser.
+- Fortschritt buchen ist jetzt eine gemeinsame Funktion (`spiel.buchen`) für Konsole und Browser.
+- Beantwortete **Rückfragen zählen als beigebrachte Korrektur** (Abzeichen „Lehrmeister"),
+  genau wie `zuordnen` — jede Antwort trainiert das Gedächtnis.
+
+### Behoben
+- **„Weise Königin" war unerreichbar:** Die Konsole fragte `Wachstafel.rules()` ab, die
+  Methode heißt `regeln()`; der Fehler wurde still geschluckt und die Zahl der gelernten Regeln
+  kam nie im Fortschritt an.
 ### Neu — BeeNara von Hugging Face laden
 - **`beenara laden` / `beenara pull`** holt das lokale Entscheider-Modell
   [Kwokou/BeeNara](https://huggingface.co/Kwokou/BeeNara) (ONNX + Tokenizer, ca. 370 MB) nach

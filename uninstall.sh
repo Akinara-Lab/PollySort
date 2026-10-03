@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # PollySort — Deinstallation für Linux, macOS und Git-Bash (Windows)
 #
-#   bash uninstall.sh              nur die Anwendung (Befehle + PATH-Eintrag)
+#   bash uninstall.sh              nur die Anwendung (Befehle, PATH-Eintrag, Programm-Starter)
 #   bash uninstall.sh --alles      zusätzlich die globale Ablage ~/.pollysort
 #   bash uninstall.sh --dry-run    nur zeigen, was passieren würde
 #
@@ -71,6 +71,30 @@ for c in python3 python py; do
   break
 done
 [ "$ENTFERNT" = 0 ] && info "Keine installierte Version gefunden (vielleicht schon entfernt)."
+
+# Programm-Starter und was nur die Anwendung selbst angelegt hat (Symbol, Fensterprofil).
+# Entfernt wird nur, was erkennbar von install.sh stammt.
+say "Entferne den Programm-Starter …"
+weg() {
+  if [ "$DRY_RUN" = 1 ]; then info "[dry-run] würde entfernen: $1"; else rm -rf "$1" && ok "entfernt: $1"; fi
+}
+case "$(uname -s)" in
+  Linux*)
+    DESKTOP_DATEI="${XDG_DATA_HOME:-$HOME/.local/share}/applications/pollysort.desktop"
+    if [ -f "$DESKTOP_DATEI" ] && grep -q "^X-PollySort=1" "$DESKTOP_DATEI"; then weg "$DESKTOP_DATEI"; fi ;;
+  Darwin*)
+    APP="$HOME/Applications/PollySort.app"
+    if [ -f "$APP/Contents/MacOS/PollySort" ] && grep -q "angelegt von install.sh" "$APP/Contents/MacOS/PollySort"; then
+      weg "$APP"
+    fi ;;
+  MINGW*|MSYS*|CYGWIN*)
+    ARGS=(-NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$(dirname "$0")/tools/windows_verknuepfung.ps1")" -Entfernen)
+    [ "$DRY_RUN" = 1 ] && ARGS+=(-DryRun)
+    powershell.exe "${ARGS[@]}" || warn "Verknüpfungen bitte von Hand entfernen (Startmenü/Desktop: PollySort)." ;;
+esac
+for rest in "$HOME_DIR/pollysort.png" "$HOME_DIR/pollysort.ico" "$HOME_DIR/fenster"; do
+  [ -e "$rest" ] && weg "$rest"
+done
 
 # --------------------------------------------------------------------------- #
 # 2) PATH-Eintrag zurücknehmen

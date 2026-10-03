@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de" data-anim="voll" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Musterbuch · PollySort</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="musterbuch.css">
+</head>
+<body>
+  <!-- Das Musterbuch ist die Stil-Tafel des Flugbretts: Farben, Schrift, Sprites, Bausteine
+       und Animationen an einem Ort. Es ist Gestaltungs-Dokumentation für das Team, keine
+       Seite für Nutzerinnen und Nutzer — deshalb nur auf Deutsch und ohne API-Zugriff. -->
+  <header class="kopf">
+    <span class="logo" id="mb-logo"></span>
+    <div class="kopf-mitte"><span class="chip bluete">Stil-Tafel · Phase 2</span></div>
+    <div class="kopf-rechts mb-schalter">
+      <div class="schalter" role="group" aria-label="Thema">
+        <button type="button" data-mb-thema="light" aria-pressed="true">Hell</button>
+        <button type="button" data-mb-thema="dark" aria-pressed="false">Dunkel</button>
+      </div>
+      <div class="schalter" role="group" aria-label="Animationen">
+        <button type="button" data-mb-anim="voll" aria-pressed="true">Voll</button>
+        <button type="button" data-mb-anim="dezent" aria-pressed="false">Dezent</button>
+        <button type="button" data-mb-anim="aus" aria-pressed="false">Aus</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mb">
+    <div class="seite stapel">
+      <div class="seiten-kopf"><div><h1 data-px="Musterbuch">Musterbuch</h1>
+        <p class="unterzeile">Das Gestaltungssystem des Flugbretts — Retro-Pixel, aber ruhig genug für den Arbeitsalltag.</p></div></div>
+
+      <section class="karte">
+        <h2>Leitsätze</h2>
+        <ol class="mb-saetze">
+          <li><b>Klartext gewinnt.</b> Bienen-Begriffe geben Charakter, der Klartext steht immer dabei — im Arbeitsmodus sogar vorne.</li>
+          <li><b>Pixel nur zum Ansehen.</b> Pixel-Schrift für Logo, Überschriften, Zahlen und Abzeichen. Alles, was man lesen muss, steht in der Systemschrift.</li>
+          <li><b>Farbe hat eine Bedeutung</b> (aus der Konsole, §12): Honiggelb = Erfolg · Blütenrosa = in Arbeit · Orange = Rückfrage · Rot = Fehler. Nie nur Farbe — immer Icon und Wort.</li>
+          <li><b>Feiern nur echte Arbeit.</b> Stufen und Abzeichen kommen aus <code>spiel.py</code>: keine Punkte fürs Öffnen, keine Serien-Erpressung, keine Ranglisten.</li>
+          <li><b>Ernstes bleibt ernst.</b> Löschen, Fehler und Zugangsdaten bekommen keine Animation.</li>
+          <li><b>Bewegung ist abschaltbar.</b> Voll · Dezent · Aus — und „Bewegung reduzieren" des Systems gilt immer.</li>
+        </ol>
+      </section>
+
+      <section class="karte">
+        <h2>Farben</h2>
+        <p class="hinweis">Jede Textfarbe erreicht auf Fläche und Hintergrund mindestens WCAG AA (4,5 : 1) — in beiden Themen geprüft. Honiggelb ist auf Weiß nur 1,4 : 1 und deshalb nur Fläche, nie Text.</p>
+        <div class="mb-farben" id="mb-farben"></div>
+      </section>
+
+      <section class="karte">
+        <h2>Schrift</h2>
+        <div class="raster-2">
+          <div>
+            <h3>Wabenschrift (5 × 7, selbst gezeichnet)</h3>
+            <p class="mb-alphabet" data-px="ABCDEFGHIJKLM NOPQRSTUVWXYZ ÄÖÜ 0123456789 .,:;!?-+=/()%&amp;·→…"></p>
+            <p class="hinweis">Nur Großbuchstaben, wie auf alten Konsolen. Kleinbuchstaben werden groß gesetzt, ß wird zu SS. Für Screenreader steht der echte Text unsichtbar daneben.</p>
+          </div>
+          <div>
+            <h3>Systemschrift für alles Lesbare</h3>
+            <p class="mb-fliess">Segoe UI · system-ui — „Die Spähbienen sehen sich die losen Dateien an und schlagen Waben vor."</p>
+            <p class="mono">Rechnung_Telekom_August.txt · .honig/wachstafel.md</p>
+            <p class="hinweis">Dateinamen, Pfade und Befehle stehen in Festbreitenschrift.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="karte">
+        <h2>Sprites</h2>
+        <p class="hinweis">Textraster in <code>pixel.js</code>, gerendert als SVG mit <code>crispEdges</code>; die Farben kommen aus CSS-Variablen und folgen dem Thema.</p>
+        <div class="mb-sprites" id="mb-sprites"></div>
+      </section>
+
+      <section class="karte">
+        <h2>Bausteine</h2>
+        <h3>Knöpfe</h3>
+        <div class="zeile">
+          <button class="knopf" type="button">Jetzt sortieren</button>
+          <button class="knopf zweit" type="button">Vorschau zeigen</button>
+          <button class="knopf leise-knopf" type="button">Datei ansehen</button>
+          <button class="knopf gefahr" type="button">Quarantäne leeren …</button>
+          <button class="knopf" type="button" disabled>Gesperrt</button>
+        </div>
+        <h3 class="abstand">Chips (Status)</h3>
+        <div class="zeile">
+          <span class="chip honig"><span class="punkt"></span>einsortiert</span>
+          <span class="chip bluete"><span class="punkt"></span>in Arbeit</span>
+          <span class="chip frage"><span class="punkt"></span>Rückfrage</span>
+          <span class="chip fehler"><span class="punkt"></span>Fehler</span>
+          <span class="chip wache"><span class="punkt"></span>Wache meldet</span>
+          <span class="chip aus"><span class="punkt"></span>Wache aus</span>
+        </div>
+        <h3 class="abstand">Wabenzellen &amp; Wabenbalken</h3>
+        <div class="zeile" id="mb-zellen"></div>
+        <div class="abstand" id="mb-balken"></div>
+        <h3 class="abstand">Beschriftung: Bienen-Begriff + Klartext</h3>
+        <div class="zeile mb-nav">
+          <span class="nav-punkt" aria-current="page" id="mb-nav-1"></span>
+          <span class="nav-punkt" id="mb-nav-2"></span>
+        </div>
+        <p class="hinweis">Im Arbeitsmodus dreht sich die Reihenfolge: „Kategorien" groß, „Waben" klein.</p>
+        <h3 class="abstand">Abzeichen</h3>
+        <div class="abzeichen-raster" id="mb-abzeichen"></div>
+      </section>
+
+      <section class="karte">
+        <h2>Animationen</h2>
+        <p class="hinweis">Nur dort, wo auch die Konsole reagiert. Alle kurz, nie blockierend, in „Dezent" ohne fliegende Bienen, in „Aus" ganz still.</p>
+        <div class="flugbahn abstand">
+          <div class="station" id="mb-von"><span id="mb-flugloch"></span><span>Flugloch</span></div>
+          <div class="bahn"></div>
+          <div class="station" id="mb-nach"><span id="mb-wabe"></span><span>Waben</span></div>
+        </div>
+        <div class="zeile abstand">
+          <button class="knopf zweit" type="button" data-mb="flug">Sortierlauf: Bienen fliegen</button>
+          <button class="knopf zweit" type="button" data-mb="geist">Vorschau: Geisterbienen</button>
+          <button class="knopf zweit" type="button" data-mb="funkeln">„Sauber sortiert": Funkeln</button>
+          <button class="knopf zweit" type="button" data-mb="ritzen">Wachstafel: Regel ritzen</button>
+          <button class="knopf zweit" type="button" data-mb="glocke">Deadline: Glocke</button>
+          <button class="knopf zweit" type="button" data-mb="toast">Neues Abzeichen</button>
+        </div>
+        <div class="raster-2 abstand">
+          <div class="wachs"><div id="mb-regeln"></div></div>
+          <div class="leer-zustand" id="mb-schlaf"></div>
+        </div>
+      </section>
+
+      <section class="karte">
+        <h2>Bewusst ohne Animation</h2>
+        <ul>
+          <li>Quarantäne endgültig leeren (Bestätigung durch Eintippen der Anzahl)</li>
+          <li>Fehlermeldungen und das Abbrechen eines Laufs</li>
+          <li>Schlüssel, Passwörter und Flugrouten — die werden ohnehin nur in der Konsole eingetragen</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <div class="hinweise" id="hinweise" aria-live="polite"></div>
+  <div id="flugraum" aria-hidden="true"></div>
+  <script src="pixel.js"></script>
+  <script src="musterbuch.js"></script>
+</body>
+</html>

@@ -225,6 +225,23 @@ _SITZUNGEN: dict[str, object] = {}
 _SPERRE = threading.Lock()
 
 
+def threads() -> int:
+    """Wie viele CPU-Threads eine Entscheidung nutzt.
+
+    Gemessen am 2026-10-02 auf einem Core Ultra 7 255H (6 P-, 8 E-, 2 LP-Kerne, Akku), Median
+    über 40 Dokumente mit 8 Ordnern: 2 → 810 ms · 4 → 481 ms · **6 → 368 ms** · 8 → 380 ms
+    (streut stärker) · 16 → 861 ms · ONNX-Standard (alle Kerne) → 493 ms. Mehr Threads ziehen
+    die Effizienzkerne mit hinein und bremsen. ``POLLYSORT_BEENARA_THREADS`` überschreibt das.
+    """
+    try:
+        gewuenscht = int(os.environ.get("POLLYSORT_BEENARA_THREADS", "0"))
+    except ValueError:
+        gewuenscht = 0
+    if gewuenscht > 0:
+        return gewuenscht
+    return max(1, min(6, os.cpu_count() or 1))
+
+
 def oeffnen():
     """Das Modell zum Rechnen öffnen — einmal je Prozess, denn Laden dauert ~3 s.
 
@@ -236,7 +253,7 @@ def oeffnen():
         schluessel = str(ordner())
         if schluessel not in _SITZUNGEN:
             from .beenara_laufzeit import BeeNara
-            _SITZUNGEN[schluessel] = BeeNara(ordner(), threads=max(1, min(4, os.cpu_count() or 1)))
+            _SITZUNGEN[schluessel] = BeeNara(ordner(), threads=threads())
         return _SITZUNGEN[schluessel]
 
 
@@ -244,6 +261,57 @@ def schliessen() -> None:
     """Offene Sitzungen verwerfen (vor dem Entfernen oder nach einem Update)."""
     with _SPERRE:
         _SITZUNGEN.clear()
+
+
+def ist_offen() -> bool:
+    """Ist das Modell in diesem Prozess schon geladen? (Dann kostet der nächste Lauf nichts.)"""
+    with _SPERRE:
+        return str(ordner()) in _SITZUNGEN
+
+
+def bericht(cfg, hive: Path | None = None) -> list[tuple[str, str, str]]:
+    """Der Stand als Zeilen ``(art, emoji, text)`` — dieselben in Konsole, CLI und Flugbrett.
+
+    ``art`` ist eine Methode der Konsole (``honey`` · ``ask`` · ``info``). Mit ``hive`` sagt die
+    letzte Zeile, ob BeeNara in genau diesem Projekt mitentscheidet (Modus, Ordnerzahl).
+    """
+    from . import entscheidung
+    s = stand()
+    zeilen: list[tuple[str, str, str]] = []
+    if s.vollstaendig:
+        zeilen.append(("honey", "✅", i18n.t("bn.status.ok", version=s.version, mb=s.mb,
+                                             path=s.pfad)))
+    elif s.angefangen:
+        zeilen.append(("ask", "❓", i18n.t("bn.status.partial")))
+    else:
+        zeilen.append(("info", "⬇️", i18n.t("bn.status.none", repo=REPO, mb=UNGEFAEHR_MB)))
+    grund = warum_nicht(cfg)
+    if grund is None:
+        zeilen.append(("honey", "⚡", i18n.t("bn.active.ja")))
+        if hive is not None and config.is_setup(hive):
+            from .hive_mind import Taxonomy
+            seed = config.load_seed(hive)
+            name = seed.name or hive.name
+            # Wie der Sortierlauf: die lebende Taxonomie, vor dem ersten Lauf der Seed.
+            kats = Taxonomy(hive).categories or seed.categories
+            if seed.provider == "openrouter":
+                zeilen.append(("info", "☁️", i18n.t("bn.project.cloud", name=name)))
+            elif not entscheidung.beenara_passt(kats):
+                zeilen.append(("info", "🗂️", i18n.t("bn.project.count", name=name,
+                                                    n=len(entscheidung.ordner_namen(kats)))))
+            else:
+                zeilen.append(("info", "📂", i18n.t("bn.project.ok", name=name)))
+    elif grund == "version":
+        zeilen.append(("ask", "❓", i18n.t("bn.active.version", have=s.version,
+                                           need=REVISION[:7])))
+    elif grund == "laufzeit":
+        zeilen.append(("ask", "❓", i18n.t("bn.active.laufzeit",
+                                           pakete=", ".join(laufzeit_fehlt()))))
+    elif grund == "aus":
+        zeilen.append(("info", "💤", i18n.t("bn.active.aus")))
+    elif s.vollstaendig or s.angefangen:
+        zeilen.append(("info", "⬇️", i18n.t("bn.active.modell")))
+    return zeilen
 
 
 # --------------------------------------------------------------------------- #

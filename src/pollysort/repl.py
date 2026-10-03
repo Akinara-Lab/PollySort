@@ -269,6 +269,8 @@ class BeehiveShell(cmd.Cmd):
                       "schluessel", "key", "apikey",
                       "thema", "theme", "farbe", "ansicht", "view",
                       "sprache", "language", "lang",
+                      "oberflaeche", "web",           # der Assistent im Browser braucht kein Projekt
+                      "anwendung", "app",
                       # englische Aliase
                       "new", "switch", "projects", "mode", "model", "routes",
                       "hilfe", "help", "exit", "quit", "eof", ""}
@@ -359,6 +361,8 @@ class BeehiveShell(cmd.Cmd):
             ("status", "status", "help.d.status"),
             ("liste [kategorie]", "list [category]", "help.d.list"),
             ("suche <wort>", "search <word>", "help.d.search"),
+            ("anwendung  (app)", "app", "help.d.app"),
+            ("oberflaeche  (web)", "web", "help.d.web"),
         ],
         "help.group.situational": [
             ("wache", "watch", "help.d.watch"),
@@ -629,17 +633,9 @@ class BeehiveShell(cmd.Cmd):
         Sortierlauf nicht nachträglich beschädigen — der ist längst fertig.
         """
         from pollysort import spiel
-        from pollysort.wachstafel import Wachstafel
         try:
-            sortiert = int(getattr(summary, "stored", 0) or 0) if summary else 0
-            waben = len(getattr(summary, "by_category", {}) or {}) if summary else 0
-            try:
-                regeln = len(Wachstafel(self.hive).rules())
-            except Exception:
-                regeln = None
-            stand, neue, aufgestiegen = spiel.nach_lauf(
-                self.hive, sortiert=sortiert, korrekturen=korrekturen,
-                regeln=regeln, waben=waben or None,
+            stand, neue, aufgestiegen = spiel.buchen(
+                self.hive, summary, korrekturen=korrekturen,
                 eingang_leer=self._inbox_count() == 0)
             for schluessel in neue:
                 self.con.honey(i18n.t("spiel.neu",
@@ -784,6 +780,56 @@ class BeehiveShell(cmd.Cmd):
     do_start = do_home
     do_zuhause = do_home
 
+    def do_oberflaeche(self, arg: str) -> None:
+        """oberflaeche — das Flugbrett öffnen: PollySort im Browser (auch: web).
+
+        Startet den lokalen Server (nur 127.0.0.1) und öffnet den Browser. Wie 'wache' läuft
+        er im Vordergrund — Strg-C schließt ihn und bringt dich zurück in die Konsole.
+        'oberflaeche ohne-browser' druckt nur die Adresse.
+        """
+        from pollysort.web.server import starten
+        browser = arg.strip().lower() not in ("ohne-browser", "no-browser", "--kein-browser")
+        try:
+            httpd, url, dienst = starten(self.hive, browser=browser)
+        except OSError as exc:
+            self.con.error(i18n.t("web.cli.failed", err=exc))
+            return
+        self.con.honey(i18n.t("web.cli.open", url=url), "🐝")
+        self.con.info(i18n.t("web.cli.stop"), "🐝")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            self.con.raw("")
+        finally:
+            dienst.wache.stoppen()
+            httpd.server_close()
+            self.con.info(i18n.t("web.cli.closed"), "🐝")
+
+    do_web = do_oberflaeche
+
+    def do_anwendung(self, arg: str) -> None:
+        """anwendung — PollySort im eigenen Programmfenster öffnen (auch: app).
+
+        Dasselbe Flugbrett wie 'oberflaeche', aber in einem eigenen Fenster statt im Browser.
+        Die Konsole wartet, bis du das Fenster schließt.
+        """
+        from pollysort.web.app import FENSTER, oeffnen
+        art = arg.strip().lower() or "auto"
+        if art not in FENSTER:
+            art = "auto"
+        self.con.honey(i18n.t("web.app.open"), "🐝")
+        try:
+            gezeigt = oeffnen(self.hive, fenster=art)
+        except Exception as exc:
+            self.con.error(i18n.t("web.app.failed", err=exc))
+            return
+        if gezeigt == "keins":
+            self.con.error(i18n.t("web.app.nowindow"))
+        else:
+            self.con.info(i18n.t("web.app.closed"), "🐝")
+
+    do_app = do_anwendung
+
     def do_status(self, _arg: str) -> None:
         """status — Überblick: lose Dateien, sortierte Einträge, offene Fälle."""
         from pollysort.store import Store
@@ -834,9 +880,13 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.review import review
         try:
             with QueenLock(ctx.hive):
-                review(ctx, mode="move")
+                beantwortet = review(ctx, mode="move")
         except QueenLockError as exc:
             self.con.error(str(exc))
+            return
+        # Jede Antwort hat dem Gedächtnis etwas beigebracht — das zählt wie 'zuordnen'.
+        if beantwortet:
+            self._fortschritt_buchen(None, korrekturen=beantwortet)
 
     do_r = do_rueckfragen
 
@@ -1027,43 +1077,12 @@ class BeehiveShell(cmd.Cmd):
         self.con.honey(i18n.t("bn.set.on" if an else "bn.set.off"), "🐝")
 
     def _beenara_status(self) -> None:
-        from pollysort import beenara, entscheidung
-        s = beenara.stand()
+        from pollysort import beenara
         self.con.rule(i18n.t("bn.title"))
         self.con.info(i18n.t("bn.what"), "🐝")
-        if s.vollstaendig:
-            self.con.honey(i18n.t("bn.status.ok", version=s.version, mb=s.mb, path=s.pfad), "✅")
-        elif s.angefangen:
-            self.con.ask(i18n.t("bn.status.partial"))
-        else:
-            self.con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB),
-                          "⬇️")
-        grund = beenara.warum_nicht(config.load_config())
-        if grund is None:
-            self.con.honey(i18n.t("bn.active.ja"), "⚡")
-            # Für das offene Projekt sagen, ob es dort wirklich greift.
-            if self.hive and config.is_setup(self.hive):
-                from pollysort.hive_mind import Taxonomy
-                seed = config.load_seed(self.hive)
-                name = seed.name or self.hive.name
-                # Wie der Sortierlauf: die lebende Taxonomie, vor dem ersten Lauf der Seed.
-                kats = Taxonomy(self.hive).categories or seed.categories
-                if seed.provider == "openrouter":
-                    self.con.info(i18n.t("bn.project.cloud", name=name), "☁️")
-                elif not entscheidung.beenara_passt(kats):
-                    self.con.info(i18n.t("bn.project.count", name=name,
-                                         n=len(entscheidung.ordner_namen(kats))), "🗂️")
-                else:
-                    self.con.info(i18n.t("bn.project.ok", name=name), "📂")
-        elif grund == "version":
-            self.con.ask(i18n.t("bn.active.version", have=s.version,
-                                need=beenara.REVISION[:7]))
-        elif grund == "laufzeit":
-            self.con.ask(i18n.t("bn.active.laufzeit", pakete=", ".join(beenara.laufzeit_fehlt())))
-        elif grund == "aus":
-            self.con.info(i18n.t("bn.active.aus"), "💤")
-        elif s.vollstaendig or s.angefangen:
-            self.con.info(i18n.t("bn.active.modell"), "⬇️")
+        # Dieselben Zeilen wie im Flugbrett und in der Skript-CLI (beenara.bericht).
+        for art, emoji, text in beenara.bericht(config.load_config(), self.hive):
+            getattr(self.con, art)(text, emoji)
         self.con.info(i18n.t("bn.usage"), "🐝")
 
     def _beenara_entfernen(self) -> None:

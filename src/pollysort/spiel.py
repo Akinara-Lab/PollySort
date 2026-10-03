@@ -174,6 +174,26 @@ def nach_lauf(hive: Path, *, sortiert: int = 0, korrekturen: int = 0, regeln: in
     return stand, neu, stufe_fuer(stand.dokumente)[0] > vorher_stufe
 
 
+def buchen(hive: Path, summary=None, *, korrekturen: int = 0,
+           eingang_leer: bool = False) -> tuple[Stand, list[str], bool]:
+    """Einen Sortierlauf (oder eine Korrektur) auf den Stand buchen — für Konsole UND Browser.
+
+    Liest die Zahlen selbst aus der ``CycleSummary`` und der Wachstafel, damit beide
+    Oberflächen genau dasselbe zählen. Die Zahl der Regeln kam bis 2026-10-02 nie an:
+    Die Konsole fragte ``Wachstafel.rules()`` ab, die Methode heißt aber ``regeln()`` — der
+    Fehler wurde still geschluckt, und „Weise Königin" war unerreichbar.
+    """
+    from .wachstafel import Wachstafel
+    sortiert = int(getattr(summary, "stored", 0) or 0) if summary else 0
+    waben = len(getattr(summary, "by_category", {}) or {}) if summary else 0
+    try:
+        regeln: int | None = len(Wachstafel(hive).regeln())
+    except Exception:
+        regeln = None
+    return nach_lauf(hive, sortiert=sortiert, korrekturen=korrekturen, regeln=regeln,
+                     waben=waben or None, eingang_leer=eingang_leer)
+
+
 # --------------------------------------------------------------------------- #
 #  Anzeige
 # --------------------------------------------------------------------------- #

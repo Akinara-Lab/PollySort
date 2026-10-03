@@ -554,23 +554,10 @@ def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull")):
     if a not in ("status", ""):
         con.error("pollysort-cli beenara <status|pull>")
         raise typer.Exit(2)
-    s = beenara.stand()
-    if s.vollstaendig:
-        con.honey(i18n.t("bn.status.ok", version=s.version, mb=s.mb, path=s.pfad), "✅")
-    elif s.angefangen:
-        con.ask(i18n.t("bn.status.partial"))
-    else:
-        con.info(i18n.t("bn.status.none", repo=beenara.REPO, mb=beenara.UNGEFAEHR_MB), "⬇️")
-    grund = beenara.warum_nicht(config.load_config())
-    if grund is None:
-        con.honey(i18n.t("bn.active.ja"), "⚡")
-    elif grund == "version":
-        con.ask(i18n.t("bn.active.version", have=s.version, need=beenara.REVISION[:7]))
-    elif grund == "laufzeit":
-        con.ask(i18n.t("bn.active.laufzeit", pakete=", ".join(beenara.laufzeit_fehlt())))
-    elif grund == "aus":
-        con.info(i18n.t("bn.active.aus"), "💤")
-    raise typer.Exit(0 if grund is None else 1)
+    cfg = config.load_config()
+    for art, emoji, text in beenara.bericht(cfg):
+        getattr(con, art)(text, emoji)
+    raise typer.Exit(0 if beenara.warum_nicht(cfg) is None else 1)
 
 
 @app.command()

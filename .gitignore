@@ -39,3 +39,6 @@ credentials
 # OS
 .DS_Store
 Thumbs.db
+
+# Eigene Hugging-Face-Repos (Modell + Datensatz) — werden getrennt gepusht
+/hf/

@@ -143,6 +143,11 @@ class AppConfig(BaseModel):
     tutorial_seen: bool = False                              # 3-Schritt-Erststart-Tutorial gezeigt?
     language: str = "de"                                     # de | en (UI-Sprache)
 
+    # Browser-Oberfläche (web/, „Flugbrett") — Thema & Sprache teilt sie mit der Konsole.
+    web_animationen: str = "voll"                            # voll | dezent | aus
+    web_fortschritt: bool = True                             # Stufe & Abzeichen zeigen
+    web_klartext: bool = False                               # Klartext vor dem Bienen-Begriff
+    web_port: int = 8737                                     # nur 127.0.0.1
     # BeeNara (lokales Entscheider-Modell): sortiert mit, sobald Modell und Laufzeit da sind
     beenara: bool = True                                      # 'beenara aus' schaltet es ab
 

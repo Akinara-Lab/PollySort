@@ -285,7 +285,9 @@ def test_zusammenfassung_nennt_beenara_und_heuristik(tmp_path, capsys):
     ctx.console = BeeConsole(plain=True)
     ctx.console._c.width = 200
     _datei(hive, "r.txt", RECHNUNG.format(i=1))
-    _datei(hive, "bild.png", "kein text")             # ohne lokalen Text → Heuristik
+    # Ohne lokalen Text → Heuristik. Echte PNG-Bytes: Mit dem Extra [extract] erkennt libmagic den
+    # Typ am Inhalt — eine Textdatei namens bild.png wäre dort Text, kein Bild.
+    (hive / "bild.png").write_bytes(b"\x89PNG\r\n\x1a\n" + bytes(64))
     run_cycle(ctx, mode="move")
     out = capsys.readouterr().out
     assert "1 von BeeNara" in out and "per Heuristik" in out and "Vollanalyse" not in out

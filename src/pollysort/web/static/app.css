@@ -1,0 +1,563 @@
+/* PollySort · Flugbrett — Gestaltungssystem
+ *
+ * Farb-Semantik aus der Konsole (§12): Honiggelb = Erfolg · Blütenrosa = in Arbeit ·
+ * Orange = Rückfrage · Rot = Fehler. Jede Textfarbe erreicht auf ihren Flächen mindestens
+ * WCAG AA (4,5:1). Status nie nur über Farbe: immer mit Icon und Wort.
+ *
+ * Retro, aber ruhig: Pixel-Schrift nur für Logo, Überschriften, Zahlen und Abzeichen —
+ * alles, was gelesen werden muss, steht in der Systemschrift.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Tokens                                                            */
+/* ------------------------------------------------------------------ */
+:root {
+  color-scheme: light;
+  --schrift: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  --r: 8px;              /* Grundraster */
+  --rand: 2px;
+  --schattenweite: 4px;
+
+  /* Tag im Stock (hell) */
+  --bg: #FBF4E2;
+  --flaeche: #FFFDF6;
+  --flaeche-2: #F3E7C9;
+  --flaeche-3: #EAD9AE;
+  --text: #2B1D0E;
+  --leise: #6B5638;
+  --linie: #2B1D0E;
+  --linie-leise: #CDB98C;
+  --schatten: #2B1D0E;
+  --muster: #E9DDBE;
+
+  --honig: #8A5A00;
+  --honig-flaeche: #FFC83D;
+  --honig-flaeche-2: #FFE08A;
+  --bluete: #B0306E;
+  --bluete-flaeche: #FFE0EF;
+  --frage: #A84B00;
+  --frage-flaeche: #FFE6CC;
+  --fehler: #B3261E;
+  --fehler-flaeche: #FFDDD8;
+  --wache: #2F6B3A;
+  --wache-flaeche: #DDF1DF;
+  --fokus: #1F5FBF;
+
+  /* Sprite-Farben (Farbbuchstaben in pixel.js) */
+  --sp-k: #2B1D0E;  --sp-d: #3A2610;  --sp-y: #FFC83D;  --sp-o: #E39B1B;
+  --sp-b: #9A6A3A;  --sp-w: #EEF8FF;  --sp-l: #7FA9C9;  --sp-h: #FFFFFF;
+  --sp-r: #D9412B;  --sp-c: #F6E7B8;  --sp-f: #FFB066;  --sp-p: #FF7AB8;
+  --sp-g: #5FAF4E;  --sp-m: #B8C3CC;
+}
+
+/* Nacht im Stock (dunkel) — vor dem ersten Skript folgt die Seite dem System. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #17110A; --flaeche: #221A10; --flaeche-2: #2E2416; --flaeche-3: #3A2E1C;
+    --text: #F7EBD0; --leise: #BCA987; --linie: #8C7550; --linie-leise: #4A3B25;
+    --schatten: #050302; --muster: #1F170D;
+    --honig: #FFD24A; --honig-flaeche: #FFC83D; --honig-flaeche-2: #6B5214;
+    --bluete: #FF85C2; --bluete-flaeche: #3D1A2C; --frage: #FFA24D; --frage-flaeche: #3D2610;
+    --fehler: #FF7A6E; --fehler-flaeche: #3D1714; --wache: #7FD08B; --wache-flaeche: #16301B;
+    --fokus: #7DB3FF; --sp-k: #5C4528; --sp-w: #DDEFFF;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #17110A; --flaeche: #221A10; --flaeche-2: #2E2416; --flaeche-3: #3A2E1C;
+  --text: #F7EBD0; --leise: #BCA987; --linie: #8C7550; --linie-leise: #4A3B25;
+  --schatten: #050302; --muster: #1F170D;
+  --honig: #FFD24A; --honig-flaeche: #FFC83D; --honig-flaeche-2: #6B5214;
+  --bluete: #FF85C2; --bluete-flaeche: #3D1A2C; --frage: #FFA24D; --frage-flaeche: #3D2610;
+  --fehler: #FF7A6E; --fehler-flaeche: #3D1714; --wache: #7FD08B; --wache-flaeche: #16301B;
+  --fokus: #7DB3FF; --sp-k: #5C4528; --sp-w: #DDEFFF;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Grundlagen                                                         */
+/* ------------------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48' viewBox='0 0 56 48' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23000' stroke-opacity='.06' stroke-width='2' d='M14 2h14l7 12-7 12H14L7 14zM42 26h14M0 26h7M35 14l7 12-7 12M14 26l-7 12 7 12'/%3E%3C/svg%3E");
+  color: var(--text);
+  font-family: var(--schrift);
+  line-height: 1.5;
+}
+:root[data-theme="dark"] body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48' viewBox='0 0 56 48' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23FFC83D' stroke-opacity='.05' stroke-width='2' d='M14 2h14l7 12-7 12H14L7 14zM42 26h14M0 26h7M35 14l7 12-7 12M14 26l-7 12 7 12'/%3E%3C/svg%3E");
+}
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+code, .mono { font-family: var(--mono); font-size: .92em; }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* Pixel-Schrift: ein SVG je Wort, Höhe = 1em der Umgebung */
+.px-text { display: inline; }
+.px-wort { height: 1em; width: auto; vertical-align: -0.08em; overflow: visible; }
+.px-luecke { display: inline-block; width: .42em; }
+[data-px] { line-height: 1.35; }
+
+/* Sprites */
+.sprite { display: inline-block; width: auto; height: 24px; vertical-align: middle; }
+.sp-k { fill: var(--sp-k); } .sp-d { fill: var(--sp-d); } .sp-y { fill: var(--sp-y); }
+.sp-o { fill: var(--sp-o); } .sp-b { fill: var(--sp-b); } .sp-w { fill: var(--sp-w); }
+.sp-l { fill: var(--sp-l); } .sp-h { fill: var(--sp-h); } .sp-r { fill: var(--sp-r); }
+.sp-c { fill: var(--sp-c); } .sp-f { fill: var(--sp-f); } .sp-p { fill: var(--sp-p); }
+.sp-g { fill: var(--sp-g); } .sp-m { fill: var(--sp-m); }
+
+.biene { display: inline-block; position: relative; line-height: 0; }
+.biene .sprite { height: 100%; }
+.biene .phase-b { position: absolute; inset: 0; opacity: 0; }
+.biene.flattert .phase-a, .biene.flattert .phase-b { animation: fluegel .24s steps(1, end) infinite; }
+.biene.flattert .phase-b { animation-name: fluegel-b; }
+@keyframes fluegel { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes fluegel-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+
+.zelle { display: inline-block; width: auto; height: 28px; vertical-align: middle; }
+.z-leer { fill: var(--flaeche-2); } .z-honig { fill: var(--honig-flaeche); }
+.z-glanz { fill: #FFF1B8; } .z-rand { fill: var(--linie); }
+
+/* ------------------------------------------------------------------ */
+/*  Rahmen der Seite                                                   */
+/* ------------------------------------------------------------------ */
+.kopf {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 20px;
+  background: var(--flaeche);
+  border-bottom: var(--rand) solid var(--linie);
+}
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; margin-right: 8px; }
+.logo .biene { height: 30px; }
+.logo-wort { font-size: 1.15rem; color: var(--text); }
+.kopf-mitte { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; flex-wrap: wrap; min-width: 0; }
+.kopf-rechts { display: flex; align-items: center; gap: 8px; }
+.projekt-wahl { max-width: 260px; }
+
+.rumpf { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - 110px); }
+.leiste {
+  border-right: var(--rand) solid var(--linie);
+  background: var(--flaeche);
+  padding: 16px 12px 24px;
+  position: sticky; top: var(--kopf-hoehe, 60px); align-self: start;
+  height: calc(100vh - var(--kopf-hoehe, 60px) - 48px); overflow-y: auto;
+}
+.leiste-gruppe { display: flex; flex-direction: column; gap: 4px; }
+.leiste-gruppe + .leiste-gruppe { margin-top: 14px; padding-top: 14px; border-top: var(--rand) dashed var(--linie-leise); }
+.nav-punkt {
+  display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; text-decoration: none;
+  border: var(--rand) solid transparent;
+}
+.nav-punkt:hover { background: var(--flaeche-2); }
+.nav-punkt[aria-current="page"] {
+  background: var(--honig-flaeche-2); border-color: var(--linie);
+  box-shadow: 3px 3px 0 var(--schatten);
+}
+.nav-punkt .sprite { height: 24px; }
+.begriffe { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.begriffe .biene-wort { font-weight: 700; }
+.begriffe .klar { font-size: .8rem; color: var(--leise); }
+:root[data-klartext="1"] .begriffe { flex-direction: column-reverse; }
+:root[data-klartext="1"] .begriffe .biene-wort { font-weight: 400; font-size: .8rem; color: var(--leise); }
+:root[data-klartext="1"] .begriffe .klar { font-weight: 700; font-size: 1rem; color: var(--text); }
+.zaehler {
+  min-width: 26px; padding: 0 6px; text-align: center; font-weight: 700; font-size: .85rem;
+  border: var(--rand) solid var(--linie); background: var(--flaeche);
+}
+.zaehler.frage { background: var(--frage-flaeche); color: var(--frage); border-color: var(--frage); }
+
+main { padding: 28px clamp(16px, 3vw, 40px) 120px; min-width: 0; }
+main:focus { outline: none; }
+.seite { max-width: 1120px; margin: 0 auto; }
+.seiten-kopf { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.seiten-kopf h1 { margin: 0; font-size: 1.9rem; color: var(--text); }
+.seiten-kopf form.zeile { flex-wrap: nowrap; }
+.unterzeile { margin: 4px 0 0; color: var(--leise); }
+h2 { font-size: 1.05rem; margin: 0 0 12px; letter-spacing: .01em; }
+h2[data-px] { font-size: 1rem; }
+h3 { font-size: 1rem; margin: 0 0 8px; }
+
+/* ------------------------------------------------------------------ */
+/*  Bausteine                                                          */
+/* ------------------------------------------------------------------ */
+.karte {
+  background: var(--flaeche);
+  border: var(--rand) solid var(--linie);
+  box-shadow: var(--schattenweite) var(--schattenweite) 0 var(--schatten);
+  padding: 20px;
+}
+.karte + .karte, .stapel > * + * { margin-top: 20px; }
+.raster { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.raster-2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.zeile { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.zeile.weit { justify-content: space-between; }
+.leise { color: var(--leise); }
+.klein { font-size: .875rem; }
+.abstand { margin-top: 16px; }
+.breite-s { max-width: 280px; }
+.breite-m { width: 240px; max-width: 100%; }
+.wachsen { flex: 1 1 220px; min-width: 0; }
+.hinweis { color: var(--leise); font-size: .9rem; margin: 8px 0 0; }
+
+.knopf {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; padding: 8px 16px;
+  border: var(--rand) solid var(--linie);
+  background: var(--honig-flaeche); color: #2B1D0E;
+  font-weight: 700; text-decoration: none; cursor: pointer;
+  box-shadow: 3px 3px 0 var(--schatten);
+  transition: transform .06s steps(2, end), box-shadow .06s steps(2, end);
+}
+.knopf:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--schatten); }
+.knopf:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--schatten); }
+.knopf .sprite { height: 20px; }
+.knopf.zweit { background: var(--flaeche); color: var(--text); }
+.knopf.leise-knopf { background: transparent; box-shadow: none; border-color: var(--linie-leise); color: var(--text); }
+.knopf.leise-knopf:hover { border-color: var(--linie); }
+.knopf.gefahr { background: var(--fehler-flaeche); color: var(--fehler); border-color: var(--fehler); }
+.knopf.klein-knopf { min-height: 32px; padding: 4px 10px; font-size: .875rem; box-shadow: 2px 2px 0 var(--schatten); }
+.knopf.gross { min-height: 52px; padding: 10px 22px; font-size: 1.05rem; }
+.knopf[disabled], .knopf[aria-disabled="true"] { opacity: .5; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 var(--schatten); }
+.tastenkuerzel { font-family: var(--mono); font-size: .75rem; font-weight: 400; padding: 0 5px; border: 1px solid currentColor; opacity: .75; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; min-height: 30px;
+  border: var(--rand) solid var(--linie);
+  background: var(--flaeche); font-size: .875rem; font-weight: 600;
+  white-space: nowrap;
+}
+.chip .sprite { height: 16px; }
+button.chip { cursor: pointer; }
+button.chip:hover { background: var(--flaeche-2); }
+.chip.honig { background: var(--honig-flaeche-2); }
+.chip.bluete { color: var(--bluete); border-color: var(--bluete); background: var(--bluete-flaeche); }
+.chip.frage { color: var(--frage); border-color: var(--frage); background: var(--frage-flaeche); }
+.chip.fehler { color: var(--fehler); border-color: var(--fehler); background: var(--fehler-flaeche); }
+.chip.wache { color: var(--wache); border-color: var(--wache); background: var(--wache-flaeche); }
+.chip.aus { color: var(--leise); border-style: dashed; }
+.chip .punkt { width: 8px; height: 8px; background: currentColor; }
+
+.feld { display: flex; flex-direction: column; gap: 6px; }
+.feld > span { font-weight: 600; font-size: .9rem; }
+.feld > .schalter, .feld > .knopf, .feld > small { align-self: flex-start; }
+input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, textarea {
+  min-height: 42px; padding: 8px 12px; width: 100%;
+  background: var(--flaeche); border: var(--rand) solid var(--linie);
+  border-radius: 0;
+}
+input::placeholder { color: var(--leise); opacity: .9; }
+.wahl-gruppe { display: grid; gap: 10px; }
+.wahl {
+  display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start;
+  padding: 12px 14px; border: var(--rand) solid var(--linie-leise); background: var(--flaeche); cursor: pointer;
+}
+.wahl:hover { border-color: var(--linie); }
+.wahl:has(input:checked) { border-color: var(--linie); background: var(--honig-flaeche-2); box-shadow: 3px 3px 0 var(--schatten); }
+.wahl input { margin-top: 4px; accent-color: var(--honig-flaeche); width: 18px; height: 18px; }
+.wahl small { display: block; color: var(--leise); }
+.wahl.gesperrt { opacity: .55; cursor: not-allowed; }
+.schalter { display: inline-flex; border: var(--rand) solid var(--linie); }
+.schalter button { padding: 6px 14px; border: 0; background: var(--flaeche); cursor: pointer; min-height: 38px; }
+.schalter button + button { border-left: var(--rand) solid var(--linie); }
+.schalter button[aria-pressed="true"] { background: var(--honig-flaeche); color: #2B1D0E; font-weight: 700; }
+
+table.liste { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.liste th { text-align: left; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--leise); padding: 8px 10px; border-bottom: var(--rand) solid var(--linie); }
+.liste td { padding: 10px; border-bottom: 1px solid var(--linie-leise); vertical-align: middle; }
+.liste tr:hover td { background: var(--flaeche-2); }
+.liste .datei { font-family: var(--mono); font-size: .88rem; word-break: break-all; }
+.tabelle-huelle { overflow-x: auto; }
+
+.leer-zustand { text-align: center; padding: 36px 16px; }
+.leer-zustand .biene, .leer-zustand .sprite { height: 56px; }
+.leer-zustand p { margin: 12px 0 0; color: var(--leise); }
+
+/* ------------------------------------------------------------------ */
+/*  Zuhause                                                            */
+/* ------------------------------------------------------------------ */
+.kachel { display: flex; flex-direction: column; gap: 10px; }
+.kachel-kopf { display: flex; align-items: center; gap: 10px; }
+.kachel-kopf .sprite { height: 28px; }
+.kachel .zahl { font-size: 2.6rem; line-height: 1; color: var(--text); }
+.kachel .zahl-text { color: var(--leise); }
+.kachel.frage { border-color: var(--frage); }
+.kachel.fehler { border-color: var(--fehler); }
+.kachel .aktionen { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.projekt-karte { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.projekt-karte .biene, .projekt-karte > .sprite { height: 64px; }
+.projekt-karte > div { flex: 1 1 260px; min-width: 0; }
+.projekt-karte h2 { font-size: 1.5rem; margin: 0; }
+.pfad { font-family: var(--mono); font-size: .85rem; color: var(--leise); word-break: break-all; }
+
+.stock { display: grid; gap: 14px; }
+.stock-kopf { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.stock-kopf strong[data-px] { font-size: 1.15rem; }
+.wabenbalken { display: flex; gap: 2px; flex-wrap: wrap; align-items: center; }
+.wabenbalken .zelle { height: 22px; }
+.wabenbalken .zelle.neu { animation: zelle-pop .32s steps(3, end); }
+@keyframes zelle-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.stock-zahlen { display: flex; gap: 18px; flex-wrap: wrap; color: var(--leise); font-size: .9rem; }
+.stock-zahlen b { color: var(--text); }
+.abzeichen-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+.abzeichen { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 10px 6px; border: var(--rand) dashed var(--linie-leise); }
+.plakette {
+  width: 58px; height: 64px; display: grid; place-items: center; flex: none;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: var(--linie);
+}
+.plakette > span {
+  width: 52px; height: 58px; display: grid; place-items: center;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: #FFE08A;
+}
+.plakette .sprite { height: 28px; }
+.plakette [data-px] { font-size: 1rem; color: #2B1D0E; }
+.toast .plakette { width: 40px; height: 44px; }
+.toast .plakette > span { width: 36px; height: 40px; }
+.toast .plakette .sprite { height: 20px; }
+.abzeichen b { font-size: .85rem; }
+.abzeichen small { color: var(--leise); font-size: .75rem; line-height: 1.3; }
+.abzeichen.verdient { border-style: solid; border-color: var(--linie); background: var(--flaeche); }
+.abzeichen:not(.verdient) .plakette { filter: grayscale(1); opacity: .45; }
+
+/* ------------------------------------------------------------------ */
+/*  Flugloch (Sortieren)                                               */
+/* ------------------------------------------------------------------ */
+.flugbahn {
+  position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding: 18px; border: var(--rand) dashed var(--linie-leise); background: var(--flaeche-2); min-height: 120px;
+}
+.flugbahn .station { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: .85rem; }
+.flugbahn .station .sprite { height: 48px; }
+.flugbahn .bahn { position: relative; height: 72px; overflow: hidden; }
+.flugbahn .bahn::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: var(--rand) dotted var(--linie-leise); }
+.fortschritt-text { font-family: var(--mono); font-size: .85rem; color: var(--bluete); min-height: 1.4em; word-break: break-all; }
+.flieger { position: absolute; left: 0; top: 0; height: 26px; pointer-events: none; z-index: 60; }
+.flieger.geist { opacity: .45; }
+.flieger.geist .sprite { filter: grayscale(.4); }
+
+.konfidenz { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.konfidenz .zelle { height: 20px; }
+.plan-summe { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 16px; }
+.balken-liste { display: grid; gap: 8px; }
+.balken-zeile { display: grid; grid-template-columns: minmax(110px, 200px) 1fr auto; gap: 10px; align-items: center; }
+.balken { height: 16px; background: var(--flaeche-2); border: var(--rand) solid var(--linie); position: relative; }
+.balken > span { position: absolute; inset: 0 auto 0 0; width: var(--anteil, 0%); background: var(--honig-flaeche); }
+
+/* ------------------------------------------------------------------ */
+/*  Rückfragen                                                         */
+/* ------------------------------------------------------------------ */
+.rueck { max-width: 760px; }
+.rueck-zaehler { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+.rueck-zaehler .zelle { height: 18px; }
+.rueck-karte h2 { font-family: var(--mono); font-size: 1rem; word-break: break-all; }
+.rueck-karte dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0 18px; }
+.rueck-karte dt { color: var(--leise); font-size: .9rem; }
+.rueck-karte dd { margin: 0; }
+.waben-wahl { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.waben-wahl .chip { min-height: 38px; padding: 4px 12px; }
+.waben-wahl .chip kbd { font-family: var(--mono); font-size: .75rem; padding: 0 4px; border: 1px solid currentColor; }
+.lernt { color: var(--wache); font-weight: 600; }
+.lernt.zeigen { animation: lernt 1.4s steps(6, end); }
+@keyframes lernt { 0% { opacity: 0; transform: translateY(6px); } 20% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ------------------------------------------------------------------ */
+/*  Waben                                                              */
+/* ------------------------------------------------------------------ */
+.waben-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.wabe-kachel {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px 12px; text-align: center;
+  background: var(--flaeche); border: var(--rand) solid var(--linie); cursor: pointer; text-decoration: none;
+  box-shadow: 3px 3px 0 var(--schatten);
+}
+.wabe-kachel:hover { background: var(--flaeche-2); }
+.wabe-kachel[aria-current="true"] { background: var(--honig-flaeche-2); }
+.wabe-kachel .zelle { height: 64px; }
+.wabe-kachel .name { font-weight: 700; word-break: break-word; }
+.wabe-kachel .anzahl { font-size: 1.1rem; }
+.wabe-kachel.ziel { outline: 3px dashed var(--honig); outline-offset: 3px; }
+.wabe-kachel .marken { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.wabe-kachel .marken .chip { min-height: 22px; font-size: .72rem; padding: 0 6px; }
+tr[draggable="true"] { cursor: grab; }
+
+/* ------------------------------------------------------------------ */
+/*  Schwarm, Wachstafel, Quarantäne                                    */
+/* ------------------------------------------------------------------ */
+.rolle { display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start; }
+.rolle .sprite { height: 44px; }
+.rolle .zahl-gross { font-size: 1.6rem; }
+.termin { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--linie-leise); }
+.termin .marke { width: 12px; height: 12px; }
+.termin .marke.rot { background: var(--fehler); } .termin .marke.orange { background: var(--frage); } .termin .marke.gruen { background: var(--wache); }
+
+.wachs {
+  background: linear-gradient(var(--flaeche-3), var(--flaeche-3));
+  border: 6px solid var(--sp-b);
+  box-shadow: inset 0 0 0 var(--rand) var(--linie), var(--schattenweite) var(--schattenweite) 0 var(--schatten);
+  padding: 18px 20px;
+}
+:root[data-theme="dark"] .wachs { background: #3A2A12; }
+.regel { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px dashed var(--linie-leise); font-size: 1.02rem; }
+.regel:last-child { border-bottom: 0; }
+.regel .stichwort { font-family: var(--mono); font-weight: 700; }
+.regel.geritzt { animation: ritzen .9s steps(9, end) both; }
+@keyframes ritzen { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+.gefahrenzone { border-color: var(--fehler); }
+.gefahrenzone h2 { color: var(--fehler); }
+
+/* ------------------------------------------------------------------ */
+/*  Einrichtung                                                        */
+/* ------------------------------------------------------------------ */
+.schritte { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; color: var(--leise); font-size: .85rem; }
+.schritte .zelle { height: 22px; }
+.assistent { max-width: 760px; }
+.assistent .aktionen { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.vorschlag-liste { display: grid; gap: 8px; }
+.vorschlag { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: var(--rand) solid var(--linie-leise); background: var(--flaeche); }
+.vorschlag.ab { opacity: .5; text-decoration: line-through; }
+.spaeher { display: flex; gap: 8px; justify-content: center; padding: 18px 0; }
+.spaeher .biene { height: 30px; }
+.spaeher .biene:nth-child(2) { animation-delay: .15s; }
+.spaeher .biene:nth-child(3) { animation-delay: .3s; }
+.spaeher .biene { animation: schnuppern 1.1s steps(4, end) infinite; }
+@keyframes schnuppern { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(6px, -6px); } 50% { transform: translate(12px, 0); } 75% { transform: translate(6px, 6px); } }
+
+/* ------------------------------------------------------------------ */
+/*  Statusleiste, Protokoll, Hinweise, Dialog                          */
+/* ------------------------------------------------------------------ */
+.fuss {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; align-items: center; gap: 12px; padding: 8px 20px;
+  background: var(--flaeche); border-top: var(--rand) solid var(--linie);
+}
+.fuss .biene { height: 22px; }
+.polly { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .9rem; }
+.polly .art-honey { color: var(--honig); } .polly .art-ask { color: var(--frage); }
+.polly .art-error { color: var(--fehler); } .polly .art-bloom { color: var(--bluete); }
+
+.protokoll {
+  position: fixed; right: 0; top: 0; bottom: 0; z-index: 40; width: min(440px, 100vw);
+  background: var(--flaeche); border-left: var(--rand) solid var(--linie);
+  box-shadow: -4px 0 0 var(--schatten);
+  display: flex; flex-direction: column;
+}
+.protokoll header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: var(--rand) solid var(--linie); }
+.protokoll ol { list-style: none; margin: 0; padding: 8px 16px 24px; overflow-y: auto; font-size: .88rem; }
+.protokoll li { padding: 6px 0; border-bottom: 1px dashed var(--linie-leise); display: grid; grid-template-columns: 64px 22px 1fr; gap: 6px; }
+.protokoll time { font-family: var(--mono); color: var(--leise); font-size: .78rem; }
+.protokoll .art-honey { color: var(--honig); } .protokoll .art-ask { color: var(--frage); }
+.protokoll .art-error { color: var(--fehler); } .protokoll .art-bloom { color: var(--bluete); }
+.protokoll .art-rule { font-weight: 700; } .protokoll .art-feier { color: var(--honig); font-weight: 700; }
+
+.hinweise { position: fixed; right: 20px; bottom: 64px; z-index: 50; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 32px)); }
+.toast {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  padding: 12px 14px; background: var(--flaeche); border: var(--rand) solid var(--linie);
+  box-shadow: 4px 4px 0 var(--schatten);
+  animation: toast-rein .28s steps(4, end);
+}
+.toast .sprite, .toast .plakette { height: 32px; }
+.toast b { display: block; }
+.toast.fehler { border-color: var(--fehler); }
+.toast.fehler b { color: var(--fehler); }
+.toast.erfolg { border-color: var(--honig); }
+.toast .zu { border: 0; background: none; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px; color: var(--leise); }
+@keyframes toast-rein { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+dialog {
+  border: var(--rand) solid var(--linie); background: var(--flaeche); color: var(--text);
+  box-shadow: 6px 6px 0 var(--schatten); padding: 24px; width: min(520px, calc(100vw - 32px));
+}
+dialog::backdrop { background: rgba(23, 17, 10, .55); }
+dialog h2 { margin-bottom: 10px; }
+dialog .aktionen { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+dialog.gefahr { border-color: var(--fehler); }
+
+#flugraum { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+.funke { position: absolute; height: 14px; pointer-events: none; }
+
+/* Wache-Chip: die Biene schwebt am Flugloch */
+.wache-biene { height: 18px; }
+.chip.wache .biene { animation: schweben 1.6s steps(4, end) infinite; }
+@keyframes schweben { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.schlaf-z { display: inline-block; margin-left: 4px; color: var(--leise); font-size: .9rem; animation: zzz 2.4s steps(6, end) infinite; }
+@keyframes zzz { 0% { opacity: 0; transform: translate(0, 4px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -10px); } }
+.wackeln { animation: wackeln .6s steps(6, end) 1; transform-origin: 50% 10%; }
+@keyframes wackeln { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-14deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(5deg); } }
+
+/* ------------------------------------------------------------------ */
+/*  Animationsstufen: voll · dezent · aus (+ Systemeinstellung)        */
+/* ------------------------------------------------------------------ */
+:root[data-anim="dezent"] .biene.flattert .phase-a,
+:root[data-anim="dezent"] .biene.flattert .phase-b,
+:root[data-anim="dezent"] .chip.wache .biene,
+:root[data-anim="dezent"] .schlaf-z,
+:root[data-anim="dezent"] .spaeher .biene,
+:root[data-anim="dezent"] .wackeln,
+:root[data-anim="dezent"] .wabenbalken .zelle.neu { animation: none; }
+:root[data-anim="dezent"] .biene.flattert .phase-b { opacity: 0; }
+:root[data-anim="dezent"] .regel.geritzt { animation: blenden .3s ease-out both; }
+@keyframes blenden { from { opacity: 0; } to { opacity: 1; } }
+:root[data-anim="aus"] *, :root[data-anim="aus"] *::before, :root[data-anim="aus"] *::after {
+  animation: none !important; transition: none !important;
+}
+:root[data-anim="aus"] .biene .phase-b { opacity: 0 !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  .biene .phase-b { opacity: 0 !important; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Schmale Bildschirme                                                */
+/* ------------------------------------------------------------------ */
+@media (max-width: 860px) {
+  .rumpf { grid-template-columns: 1fr; }
+  .leiste {
+    position: sticky; top: 0; z-index: 15; padding: 6px 8px; border-right: 0;
+    border-bottom: var(--rand) solid var(--linie);
+    display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; height: auto;
+  }
+  .leiste-gruppe { flex-direction: row; gap: 4px; flex: none; }
+  .leiste-gruppe + .leiste-gruppe { margin: 0; padding: 0 0 0 4px; border-top: 0; border-left: var(--rand) dashed var(--linie-leise); }
+  .nav-punkt { grid-template-columns: 24px auto auto; padding: 6px 8px; white-space: nowrap; }
+  .nav-punkt .begriffe .klar { display: none; }
+  :root[data-klartext="1"] .nav-punkt .begriffe .klar { display: block; }
+  :root[data-klartext="1"] .nav-punkt .begriffe .biene-wort { display: none; }
+  .kopf { position: static; padding: 8px 16px; row-gap: 8px; }
+  .kopf .logo { order: 1; }
+  .kopf-rechts { order: 2; margin-left: auto; }
+  .kopf-mitte { order: 3; flex: 1 1 100%; flex-wrap: nowrap; }
+  .projekt-wahl { flex: 1 1 120px; min-width: 0; max-width: none; }
+  .kopf-mitte .chip { min-height: 34px; }
+  #rueckflug span { display: none; }
+  .logo-wort { display: none; }
+  .nav-punkt { flex: none; }
+  main { padding: 20px 16px 120px; }
+  .seiten-kopf h1 { font-size: 1.5rem; }
+  .flugbahn { grid-template-columns: 1fr; }
+  .flugbahn .bahn { display: none; }
+  .hinweise { right: 16px; bottom: 60px; }
+  .balken-zeile { grid-template-columns: 1fr auto; }
+  .balken-zeile .balken { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 480px) {
+  .projekt-wahl { max-width: 160px; }
+  .kachel .zahl { font-size: 2.1rem; }
+  .rueck-karte dl { grid-template-columns: 1fr; }
+  .waben-raster { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .wabe-kachel .zelle { height: 48px; }
+}
