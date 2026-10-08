@@ -150,6 +150,8 @@ class AppConfig(BaseModel):
     web_port: int = 8737                                     # nur 127.0.0.1
     # BeeNara (lokales Entscheider-Modell): sortiert mit, sobald Modell und Laufzeit da sind
     beenara: bool = True                                      # 'beenara aus' schaltet es ab
+    # Welches BeeNara sortiert, wenn beide da sind: auto (klein für 3–9 Ordner, sonst Big) | klein | big
+    beenara_modell: str = "auto"
 
 
 @dataclass

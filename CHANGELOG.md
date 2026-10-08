@@ -9,6 +9,29 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### BeeNara v0.3
+- **Neues Modell:** PollySort lädt jetzt BeeNara v0.3 (Hub-Commit `8597874`, Tag `v0.3`). Auf
+  einem neuen Testsatz mit unbekannten Ordnerbäumen und Namen trifft es 84–85 % statt 69 %, auf
+  dem alten v0.2-Benchmark 95,9 % statt 94,1 %. Wer v0.2 schon geladen hat, bekommt mit
+  `beenara laden` nur die geänderten Dateien.
+- **Selbst einsortiert wird nur noch über der Risiko-Schwelle:** höchstens 1 % der automatischen
+  Entscheidungen falsch (Learn-then-Test, δ = 0,1, kalibriert für 3–9 Ordner). Im unabhängigen
+  Test mit 70 Dokumenten: Fehlt der richtige Ordner, wurden 0 statt 4 Dokumente falsch
+  einsortiert; dafür fragt PollySort 7–15 Punkte öfter nach.
+- **Anfang und Ende des Dokuments:** BeeNara bekommt bei langen Dokumenten jetzt Anfang und
+  Ende statt nur den Anfang, wie im Training von v0.3 (Summe, Unterschrift, Grußformel).
+- **BeeNara Big (Vorschau):** das große Modell für ganze Ordnerbäume (3 bis etwa 300 Ordner,
+  [Kwokou/BeeNara-Big](https://huggingface.co/Kwokou/BeeNara-Big)). `beenara big laden` bzw. der
+  Knopf in der Werkstatt prüft zuerst die Grafikkarte (NVIDIA ab 8 GB; `POLLYSORT_BEENARA_BIG_CPU=1`
+  erzwingt die CPU), lädt dann LoRA und Kopf (~164 MB) und das Basismodell Qwen3.5-2B-Base
+  (~4,6 GB), je aus einem festen Commit mit Prüfsumme, und installiert torch passend zum
+  Grafiktreiber — eine schon installierte CPU-Fassung von torch wird dabei gegen die CUDA-Fassung
+  getauscht. Big macht in v0.3 nur Vorschläge: Sein Favorit wird immer eine Rückfrage.
+- **Modellwahl, wenn beide da sind** (`beenara modell auto|klein|big`, Schalter in der Werkstatt):
+  Automatisch nimmt BeeNara bei 3–9 Ordnern und Big bei mehr. Ohne Big ändert sich nichts.
+  Der Schalter steht schon vor dem Download in der Werkstatt; Konsole und `pollysort-cli`
+  zeigen, ob Big auf der Grafikkarte oder der CPU rechnet.
+
 ### Dokumentation — README für die Beta
 - **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —
   jeweils hell und dunkel; GitHub zeigt das passende Bild zum eigenen Thema (`docs/bilder/`).

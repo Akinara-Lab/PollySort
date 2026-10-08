@@ -254,6 +254,20 @@ class Dienst:
                               for art, emoji, text in beenara.bericht(cfg, hive)]
         return info
 
+    def _beenara_big(self) -> dict:
+        """Der Stand von BeeNara Big und die Modellwahl — für die Werkstatt. Rein lokal, kein Netz
+        (``nvidia-smi`` fragt nur die eigene Grafikkarte)."""
+        from .. import beenara_big
+        cfg = config.load_config()
+        s = beenara_big.stand()
+        grund = beenara_big.warum_nicht(cfg)
+        return {"bereit": grund is None, "grund": grund, "vorhanden": s.vollstaendig,
+                "angefangen": s.angefangen, "passend": s.passend, "version": s.version, "mb": s.mb,
+                "ungefaehr_mb": beenara_big.UNGEFAEHR_MB, "repo": beenara_big.REPO,
+                "gpu_grund": beenara_big.gpu_grund(), "modus": cfg.beenara_modell,
+                "zeilen": [{"art": art, "emoji": emoji, "text": text}
+                           for art, emoji, text in beenara_big.bericht(cfg)]}
+
     @staticmethod
     def _provider(name: str) -> str:
         provider = config.provider_aus_wort(name)
@@ -441,7 +455,7 @@ class Dienst:
                                "kalender": fr.calendar.enabled},
                 "modell": cfg.llm_model,
                 "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()],
-                "beenara": self._beenara()}
+                "beenara": self._beenara(), "beenara_big": self._beenara_big()}
 
     # ------------------------------------------------------------------ #
     #  Sortieren
@@ -993,6 +1007,44 @@ class Dienst:
             raise Ungueltig(i18n.t("bn.remove.failed", err=exc))
         self.con.honey(i18n.t("bn.remove.done"), "🗑️")
         return self._beenara()
+
+    # -- BeeNara Big — wie 'beenara big laden|entfernen' und 'beenara modell …' -------------
+    @auftrag("beenara_big_laden")
+    def beenara_big_laden(self) -> dict:
+        """Big-Teil, Basismodell (~4,6 GB) und Laufzeit holen — erst nach der GPU-Prüfung."""
+        from .. import beenara_big
+        try:
+            ok = beenara_big.einrichten(self.con)
+        except Exception as exc:
+            self.con.error(i18n.t("bn.err.download", err=exc))
+            ok = False
+        return {"ok": ok, "beenara_big": self._beenara_big()}
+
+    @auftrag("beenara_big_entfernen")
+    def beenara_big_entfernen(self) -> dict:
+        """Nur die eigenen Downloads unter ~/.pollysort/modelle/BeeNara-Big — die Seite fragt vorher."""
+        from .. import beenara_big
+        s = beenara_big.stand()
+        if not s.vollstaendig and not s.angefangen:
+            self.con.info(i18n.t("bb.remove.none"), "🐝")
+            return self._beenara_big()
+        try:
+            beenara_big.entfernen()
+        except OSError as exc:
+            raise Ungueltig(i18n.t("bn.remove.failed", err=exc))
+        self.con.honey(i18n.t("bb.remove.done"), "🗑️")
+        return self._beenara_big()
+
+    @auftrag("beenara_modell", sperre=False)
+    def beenara_modell(self, modell: str = "auto") -> dict:
+        from ..entscheidung import MODELLE
+        if modell not in MODELLE:
+            raise Ungueltig(i18n.t("bb.usage"))
+        cfg = config.load_config()
+        cfg.beenara_modell = modell
+        config.save_config(cfg)
+        self.con.honey(i18n.t(f"bb.modus.{modell}"), "🔀")
+        return self._beenara_big()
 
     # ------------------------------------------------------------------ #
     #  Projekte & Einrichtung

@@ -39,6 +39,7 @@ class FakeBee:
         self.fest = fest
         self.kaputt = kaputt
         self.calls: list[tuple[str, list[str], str]] = []
+        self.regeln: list[str | None] = []
 
     @staticmethod
     def _sicher(kat: str, kategorien: list[str], p: float = 0.99) -> Decision:
@@ -47,8 +48,9 @@ class FakeBee:
         dist[kat] = p
         return Decision(kat, p, False, dist, [kat])
 
-    def decide(self, text: str, kategorien: list[str], *, language: str = "de", **_kw):
+    def decide(self, text: str, kategorien: list[str], *, language: str = "de", **kw):
         self.calls.append((text, list(kategorien), language))
+        self.regeln.append(kw.get("rule"))
         if self.kaputt:
             raise RuntimeError("ONNX kaputt")
         if self.fest:
@@ -159,6 +161,22 @@ def test_text_wird_gekappt_und_sprache_weitergereicht():
     entscheidung.beenara_waehlen(bee, "Rechnung " * 2000, CATS, {}, sprache="en")
     text, kats, sprache = bee.calls[0]
     assert len(text) == entscheidung.BEENARA_ZEICHEN and kats == CATS and sprache == "en"
+
+
+def test_beenara_entscheidet_mit_risiko_regel():
+    """v0.3: selbst einsortiert wird nur über der Risiko-Schwelle (≤ 1 % falsch)."""
+    bee = FakeBee()
+    entscheidung.beenara_waehlen(bee, RECHNUNG, CATS, {})
+    assert bee.regeln == ["risk"] == [entscheidung.BEENARA_REGEL]
+
+
+def test_langer_text_behaelt_anfang_und_ende():
+    """v0.3 ist auf Anfang + Ende trainiert: das Dokumentende (Summe, Unterschrift) muss mit."""
+    text = "Kopf " + "x" * 10_000 + " Gesamtbetrag 119,00 EUR"
+    kurz = entscheidung.beenara_text(text)
+    assert len(kurz) == entscheidung.BEENARA_ZEICHEN
+    assert kurz.startswith("Kopf ") and kurz.endswith("Gesamtbetrag 119,00 EUR")
+    assert entscheidung.beenara_text("kurz") == "kurz"
 
 
 def test_ausgefallenes_beenara_traegt_nicht():
