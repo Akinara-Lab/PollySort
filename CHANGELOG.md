@@ -9,6 +9,18 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### BeeNara v0.3
+- **Neues Modell:** PollySort lädt jetzt BeeNara v0.3 (Hub-Commit `8597874`, Tag `v0.3`). Auf
+  einem neuen Testsatz mit unbekannten Ordnerbäumen und Namen trifft es 84–85 % statt 69 %, auf
+  dem alten v0.2-Benchmark 95,9 % statt 94,1 %. Wer v0.2 schon geladen hat, bekommt mit
+  `beenara laden` nur die geänderten Dateien.
+- **Selbst einsortiert wird nur noch über der Risiko-Schwelle:** höchstens 1 % der automatischen
+  Entscheidungen falsch (Learn-then-Test, δ = 0,1, kalibriert für 3–9 Ordner). Im unabhängigen
+  Test mit 70 Dokumenten: Fehlt der richtige Ordner, wurden 0 statt 4 Dokumente falsch
+  einsortiert; dafür fragt PollySort 7–15 Punkte öfter nach.
+- **Anfang und Ende des Dokuments:** BeeNara bekommt bei langen Dokumenten jetzt Anfang und
+  Ende statt nur den Anfang, wie im Training von v0.3 (Summe, Unterschrift, Grußformel).
+
 ### Dokumentation — README für die Beta
 - **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —
   jeweils hell und dunkel; GitHub zeigt das passende Bild zum eigenen Thema (`docs/bilder/`).

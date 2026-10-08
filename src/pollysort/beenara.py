@@ -41,10 +41,10 @@ import httpx
 from . import __version__, config, i18n
 
 REPO = "Kwokou/BeeNara"
-#: BeeNara v0.2 (Hub-Stand vom 2026-09-24). Wer diesen Wert anhebt, prüft vorher die Laufzeit
-#: gegen das neue Modell (Stufe-0, Paritätstest) — sonst entscheidet PollySort mit einer
-#: Kalibrierung, für die seine Laufzeit nicht gebaut ist.
-REVISION = "e7497f16b12e0682b0aaaddbb7ebb56f6af797f0"
+#: BeeNara v0.3 (Hub-Stand vom 2026-10-08, Tag ``v0.3``; v0.2 war e7497f1). Wer diesen Wert
+#: anhebt, prüft vorher die Laufzeit gegen das neue Modell (Stufe-0, Paritätstest) — sonst
+#: entscheidet PollySort mit einer Kalibrierung, für die seine Laufzeit nicht gebaut ist.
+REVISION = "8597874e56a0522e09d9f2f65174aacffc05e319"
 
 #: Die Laufzeit-Pakete — genau das Extra ``[beenara]`` aus pyproject.toml.
 PAKETE = ("onnxruntime>=1.30", "tokenizers>=0.20", "numpy>=1.26")

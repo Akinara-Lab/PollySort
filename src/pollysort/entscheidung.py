@@ -48,11 +48,28 @@ ABSTAND = 0.05
 #: So viele Dokumente der Kategorie müssen schon im Gedächtnis liegen.
 MINDEST = 2
 
-#: BeeNara v0.2 ist auf 3 bis 9 Ordner trainiert und kalibriert. Darüber braucht es die
-#: Shortlist aus v0.3, darunter trägt die Kalibrierung nicht — dann der bisherige Weg.
+#: BeeNara ist auf 3 bis 9 Ordner trainiert und kalibriert (v0.3: Risiko-Schwelle nur dort).
+#: Darüber trug die Shortlist in v0.3 nicht (~53 % auf großen Bäumen) — das wird BeeNara Big;
+#: darunter trägt die Kalibrierung nicht — dann der bisherige Weg.
 BEENARA_MIN, BEENARA_MAX = 3, 9
-#: So viel Text bekommt BeeNara; es kürzt selbst auf seine ~300 Dokument-Tokens.
+#: So viel Text bekommt BeeNara höchstens; es kürzt selbst auf seine ~300 Dokument-Tokens.
 BEENARA_ZEICHEN = 3000
+#: Anteil des Dokumentendes, wenn gekürzt wird — wie im Training von v0.3 (Anfang 70 %, Ende 30 %).
+BEENARA_ENDE = 0.3
+#: Wann BeeNara selbst einsortiert. ``risk`` (v0.3): nur wenn die kalibrierte Konfidenz die
+#: Risiko-Schwelle der Ordnerzahl erreicht — höchstens 1 % der automatischen Entscheidungen falsch
+#: (δ = 0,1). Stufe-0 am 2026-10-08: fehlt der richtige Ordner, 0 statt 4 von 70 falsch
+#: einsortiert (``conformal``, wie v0.2), dafür 7–15 Punkte öfter eine Rückfrage.
+BEENARA_REGEL = "risk"
+
+
+def beenara_text(text: str) -> str:
+    """Anfang und Ende eines langen Dokuments. v0.3 liest das Ende mit — dort stehen Summe,
+    Unterschrift und Grußformel; ein reiner Anfangsausschnitt würde es abschneiden."""
+    if len(text) <= BEENARA_ZEICHEN:
+        return text
+    ende = int(BEENARA_ZEICHEN * BEENARA_ENDE)
+    return text[:BEENARA_ZEICHEN - ende - 1] + "\n" + text[-ende:]
 
 
 @dataclass
@@ -116,8 +133,9 @@ def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, floa
                     sprache: str = "de") -> tuple[str, float] | None:
     """Stufe B mit BeeNara: ``(kategorie, konfidenz)`` oder ``None`` (trägt hier nicht).
 
-    * sicher (Vorhersagemenge = genau ein Ordner) → dieser Ordner mit seiner kalibrierten
-      Wahrscheinlichkeit; widerspricht das Gedächtnis deutlich, gedeckelt wie im Assigner.
+    * sicher (Regel :data:`BEENARA_REGEL`: Konfidenz über der Risiko-Schwelle) → dieser Ordner
+      mit seiner kalibrierten Wahrscheinlichkeit; widerspricht das Gedächtnis deutlich,
+      gedeckelt wie im Assigner.
     * „keiner passt" vorn → ``_unassigned`` mit 0 → Rückfrage.
     * unsicher zwischen Ordnern → Favorit als Vorschlag, gedeckelt → Rückfrage.
 
@@ -129,7 +147,7 @@ def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, floa
     namen = ordner_namen(kategorien)
     if not beenara_passt(namen) or not (text or "").strip():
         return None
-    d = bee.decide(text[:BEENARA_ZEICHEN], namen, language=sprache)
+    d = bee.decide(beenara_text(text), namen, language=sprache, rule=BEENARA_REGEL)
     if d is None:
         return None
     if d.category is not None:

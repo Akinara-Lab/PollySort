@@ -2,9 +2,10 @@
 
 Kopie von ``beenara.py`` aus https://huggingface.co/Kwokou/BeeNara (Stand der v0.3-Laufzeit;
 auf dem v0.2-Modell entscheidet sie Zeile für Zeile wie die ausgelieferte Fassung, geprüft am
-2026-10-02 mit Stufe-0: 420/420). Änderungen gehören zuerst dorthin, mit Paritätstest, und
-werden dann hierher übernommen. PollySort lädt bewusst keinen Code vom Hub; deshalb liegt
-die Laufzeit hier im Paket. Zwei Abweichungen vom Original:
+2026-10-02 mit Stufe-0: 420/420; auf dem v0.3-Modell am 2026-10-08 dieselben Treffer wie die
+Bewertung im Trainingspaket, Stufe-0 C1/C2/C3 100 / 92,9–94,3 / 100 %). Änderungen gehören
+zuerst dorthin, mit Paritätstest, und werden dann hierher übernommen. PollySort lädt bewusst
+keinen Code vom Hub; deshalb liegt die Laufzeit hier im Paket. Zwei Abweichungen vom Original:
 
 * ``numpy`` wird erst beim Laden importiert — PollySort muss ohne das Extra ``[beenara]``
   starten.
