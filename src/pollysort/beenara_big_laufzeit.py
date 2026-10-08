@@ -77,7 +77,7 @@ class _Head:
         torch = self.torch
         logits = self.bewerter(h_opt).squeeze(-1).float()
         p = torch.softmax(logits, -1)
-        k = torch.tensor(float(max(2, logits.numel())))
+        k = torch.tensor(float(max(2, logits.numel())), device=logits.device)
         entropy = -(p * torch.log(p.clamp_min(1e-9))).sum() / torch.log(k)
         top = p.topk(min(2, p.numel())).values
         gap = top[0] - (top[1] if top.numel() > 1 else 0)
