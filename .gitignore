@@ -42,3 +42,6 @@ Thumbs.db
 
 # Eigene Hugging-Face-Repos (Modell + Datensatz) — werden getrennt gepusht
 /hf/
+
+# Eigene Recherche-Notizen
+pollysort RLCD Rechere.md
