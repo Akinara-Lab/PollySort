@@ -331,3 +331,128 @@ def test_eintrag_bleibt_rueckfrage(tmp_path, monkeypatch):
     run_cycle(ctx, mode="move")
     zeile = next(r for r in ctx.store.query() if r["filename"] == "r.txt")
     assert zeile["status"] == Status.NEEDS_REVIEW.value
+
+
+# --------------------------------------------------------------------------- #
+#  Auf der Grafikkarte rechnen
+# --------------------------------------------------------------------------- #
+def _torch(monkeypatch, version: str | None, *, plattform: str = "win32"):
+    import importlib.metadata as md
+
+    def v(name):
+        if name == "torch" and version is not None:
+            return version
+        raise md.PackageNotFoundError(name)
+    monkeypatch.setattr(beenara_big.importlib.metadata, "version", v)
+    monkeypatch.setattr(beenara_big.sys, "platform", plattform)
+
+
+@pytest.mark.parametrize("version,plattform,ohne", [
+    ("2.14.0", "win32", True),            # PyPI-Rad unter Windows: nur CPU
+    ("2.14.0+cpu", "linux", True),
+    ("2.14.0+cu130", "win32", False),
+    ("2.14.0", "linux", False),           # PyPI unter Linux bringt CUDA mit
+    (None, "win32", False),               # nicht installiert: fehlt ohnehin
+])
+def test_cpu_torch_wird_erkannt(monkeypatch, gpu, version, plattform, ohne):
+    _torch(monkeypatch, version, plattform=plattform)
+    assert beenara_big.torch_ohne_cuda() is ohne
+
+
+def test_ohne_passende_karte_ist_cpu_torch_kein_mangel(monkeypatch):
+    _torch(monkeypatch, "2.14.0")
+    assert beenara_big.torch_ohne_cuda() is False and beenara_big.auf_gpu() is False
+    klein = {"name": "MX 550", "mb": 2048, "treiber": "591.44"}
+    monkeypatch.setattr(beenara_big, "gpus", lambda: (klein,))
+    assert beenara_big.cuda_index() == "cpu" and beenara_big.torch_ohne_cuda() is False
+
+
+def _spezifiziert(monkeypatch, *, torch_da: bool, pip: bool):
+    echt = beenara_big.importlib.util.find_spec
+
+    def find_spec(name, *a):
+        if name == "torch":
+            return object() if torch_da else None
+        if name == "pip":
+            return object() if pip else None
+        return echt(name, *a)
+    monkeypatch.setattr(beenara_big.importlib.util, "find_spec", find_spec)
+    monkeypatch.setattr(beenara_big.shutil, "which", lambda n: "uv" if n == "uv" else None)
+
+
+def test_cpu_torch_wird_gegen_cuda_getauscht_pip(monkeypatch, gpu):
+    _torch(monkeypatch, "2.14.0")
+    _spezifiziert(monkeypatch, torch_da=True, pip=True)
+    assert "torch (CUDA)" in beenara_big.laufzeit_fehlt()
+    torch_befehl, rest = beenara_big.installationsbefehle()
+    assert "--force-reinstall" in torch_befehl and "--no-deps" in torch_befehl
+    assert torch_befehl[torch_befehl.index("--index-url") + 1].endswith("/cu130")
+    assert not any(a.startswith("torch") for a in rest) and "--index-url" not in rest
+
+
+def test_cpu_torch_wird_gegen_cuda_getauscht_uv(monkeypatch, gpu):
+    _torch(monkeypatch, "2.14.0")
+    _spezifiziert(monkeypatch, torch_da=True, pip=False)
+    torch_befehl, rest = beenara_big.installationsbefehle()
+    assert torch_befehl[:3] == ["uv", "pip", "install"]
+    assert torch_befehl[torch_befehl.index("--reinstall-package") + 1] == "torch"
+    assert torch_befehl[torch_befehl.index("--index-url") + 1].endswith("/cu130")
+    assert "--extra-index-url" not in rest and "--index-url" not in rest
+
+
+def test_ohne_torch_kommt_es_aus_dem_cuda_index(monkeypatch, gpu):
+    _torch(monkeypatch, None)
+    _spezifiziert(monkeypatch, torch_da=False, pip=False)
+    torch_befehl, _rest = beenara_big.installationsbefehle()
+    assert "--reinstall-package" not in torch_befehl and torch_befehl[-1].startswith("torch")
+
+
+def test_passendes_torch_wird_nicht_angefasst(monkeypatch, gpu):
+    _torch(monkeypatch, "2.14.0+cu130")
+    _spezifiziert(monkeypatch, torch_da=True, pip=True)
+    assert len(beenara_big.installationsbefehle()) == 1, "nur der Rest von PyPI"
+
+
+@pytest.mark.parametrize("karte,geraet", [(49140, None), (6141, "cpu")])
+def test_oeffnen_nimmt_die_grafikkarte_nur_wenn_sie_reicht(monkeypatch, karte, geraet):
+    from pollysort import beenara_big_laufzeit
+    gesehen = {}
+
+    class Big:
+        def __init__(self, pfad, **kw):
+            gesehen.update(kw)
+    monkeypatch.setattr(beenara_big_laufzeit, "BeeNaraBig", Big)
+    monkeypatch.setattr(beenara_big, "gpus", lambda: ({"name": "x", "mb": karte, "treiber": "591.44"},))
+    beenara_big.oeffnen()
+    assert gesehen["device"] == geraet
+
+
+def test_sortierlauf_sagt_einmal_worauf_big_rechnet(tmp_path, monkeypatch, capsys):
+    _bereit(monkeypatch)
+    monkeypatch.setattr(FakeBig, "device", "cuda", raising=False)
+    from pollysort.console import BeeConsole
+    ctx = _ctx(tmp_path / "hive", OfflineClient(VIELE), kats=VIELE)
+    ctx.console = BeeConsole()
+    pipeline._beenara(ctx)
+    assert "Grafikkarte" in capsys.readouterr().out
+
+
+def test_bericht_nennt_das_rechengeraet(monkeypatch, gpu):
+    monkeypatch.setattr(beenara_big, "warum_nicht", lambda _c: None)
+    _torch(monkeypatch, "2.14.0+cu130")
+    texte = [t for _a, _e, t in beenara_big.bericht(AppConfig())]
+    assert any("Grafikkarte." in t for t in texte)
+    _torch(monkeypatch, "2.14.0")
+    texte = [t for _a, _e, t in beenara_big.bericht(AppConfig())]
+    assert any("CPU" in t for t in texte)
+
+
+def test_cli_big_und_modellwahl():
+    from typer.testing import CliRunner
+
+    from pollysort.cli import app
+    r = CliRunner().invoke(app, ["beenara", "modell", "big"])
+    assert r.exit_code == 0 and config.load_config().beenara_modell == "big"
+    assert CliRunner().invoke(app, ["beenara", "modell", "riesig"]).exit_code == 2
+    r = CliRunner().invoke(app, ["beenara", "big"])
+    assert r.exit_code == 1 and "beenara big laden" in r.output

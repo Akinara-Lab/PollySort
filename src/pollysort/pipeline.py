@@ -508,12 +508,18 @@ def _beenara(ctx: Context):
     if modell is None:
         return None
     mod, texte = (beenara, "bn") if modell == "klein" else (beenara_big, "bb")
-    if not mod.ist_offen():
+    frisch = not mod.ist_offen()
+    if frisch:
         ctx.console.bloom(i18n.t(f"{texte}.run.loading"), "🐝")   # klein ~3 s, Big bis ~1 min
     try:
-        ctx.beenara = _Behutsam(mod.oeffnen(), ctx.console)
+        bee = mod.oeffnen()
+        ctx.beenara = _Behutsam(bee, ctx.console)
     except Exception as exc:
         ctx.console.error(i18n.t("bn.run.load_failed", err=exc))
+        return None
+    if modell == "big" and frisch:          # einmal je Prozess, nicht in jedem Wachen-Durchlauf
+        auf = "gpu" if str(getattr(bee, "device", "cpu")).startswith("cuda") else "cpu"
+        ctx.console.info(i18n.t("bb.run.geraet", geraet=i18n.t(f"bb.run.{auf}")), "⚙️")
     return ctx.beenara
 
 

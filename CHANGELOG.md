@@ -25,9 +25,12 @@ sichtbar ist der Produktname PollySort.
   Knopf in der Werkstatt prüft zuerst die Grafikkarte (NVIDIA ab 8 GB; `POLLYSORT_BEENARA_BIG_CPU=1`
   erzwingt die CPU), lädt dann LoRA und Kopf (~164 MB) und das Basismodell Qwen3.5-2B-Base
   (~4,6 GB), je aus einem festen Commit mit Prüfsumme, und installiert torch passend zum
-  Grafiktreiber. Big macht in v0.3 nur Vorschläge: Sein Favorit wird immer eine Rückfrage.
+  Grafiktreiber — eine schon installierte CPU-Fassung von torch wird dabei gegen die CUDA-Fassung
+  getauscht. Big macht in v0.3 nur Vorschläge: Sein Favorit wird immer eine Rückfrage.
 - **Modellwahl, wenn beide da sind** (`beenara modell auto|klein|big`, Schalter in der Werkstatt):
   Automatisch nimmt BeeNara bei 3–9 Ordnern und Big bei mehr. Ohne Big ändert sich nichts.
+  Der Schalter steht schon vor dem Download in der Werkstatt; Konsole und `pollysort-cli`
+  zeigen, ob Big auf der Grafikkarte oder der CPU rechnet.
 
 ### Dokumentation — README für die Beta
 - **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —

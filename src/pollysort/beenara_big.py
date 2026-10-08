@@ -21,6 +21,7 @@ Einstellung ``beenara_modell`` (siehe :func:`pollysort.entscheidung.beenara_mode
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
 import importlib.util
 import os
 import shutil
@@ -35,9 +36,10 @@ from . import beenara, config, i18n
 from .beenara import Quelle, Stand, stand_in
 
 REPO = "Kwokou/BeeNara-Big"
-#: BeeNara Big v0.3 (Hub-Commit vom 2026-10-08). Wer diesen Wert anhebt, prüft vorher die
-#: Laufzeit gegen das neue Modell (Paritätstest) — wie bei BeeNara.
-REVISION = "91e082d789f987ba86d2cf4cd7345f3998d270d9"
+#: BeeNara Big v0.3 (Hub-Commit vom 2026-10-08, Tag ``v0.3``, mit Lader und Quickstart; die
+#: Modelldateien sind dieselben wie im ersten Upload 91e082d). Wer diesen Wert anhebt, prüft
+#: vorher die Laufzeit gegen das neue Modell (Paritätstest) — wie bei BeeNara.
+REVISION = "64266f0783557431f6e2d5bcf06e00bd8631f4d6"
 BASIS_REPO = "Qwen/Qwen3.5-2B-Base"
 #: Genau die Basis, auf der Big trainiert wurde (steht auch in ``big_config.json``).
 BASIS_REVISION = "b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
@@ -165,6 +167,12 @@ def gpu_grund() -> str | None:
     return None
 
 
+def gpu_reicht() -> bool:
+    """Steckt eine NVIDIA-Karte mit mindestens :data:`MIN_VRAM_MB`? (Ohne Rücksicht auf die
+    CPU-Erlaubnis — die entscheidet nur, ob geladen werden darf.)"""
+    return any(k["mb"] >= MIN_VRAM_MB for k in gpus())
+
+
 def torch_index(treiber: str | None) -> str:
     """CUDA-Build von torch passend zum Treiber: cu130 braucht Treiber ≥ 580, cu126 ≥ 560
     (wie im Trainingspaket); darunter oder ohne Karte die CPU-Fassung."""
@@ -179,12 +187,43 @@ def torch_index(treiber: str | None) -> str:
     return "cpu"
 
 
+def cuda_index() -> str:
+    """Der PyTorch-Index für diese Maschine: ``cu130`` · ``cu126`` · ``cpu``."""
+    karten = gpus()
+    return torch_index(karten[0]["treiber"] if karten and gpu_reicht() else None)
+
+
+def torch_ohne_cuda() -> bool:
+    """Liegt torch nur als CPU-Fassung da, obwohl eine passende NVIDIA-Karte steckt? Dann würde
+    Big auf der CPU rechnen; ``beenara big laden`` tauscht torch gegen die CUDA-Fassung.
+
+    Gelesen wird nur die Versionsangabe — torch zu importieren dauert Sekunden. ``+cpu`` und die
+    Windows-Räder von PyPI (ohne ``+cu…``) sind reine CPU-Fassungen; unter Linux bringt das Rad
+    von PyPI CUDA schon mit."""
+    if cuda_index() == "cpu":
+        return False
+    try:
+        v = importlib.metadata.version("torch")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    return v.endswith("+cpu") or (sys.platform == "win32" and "+cu" not in v)
+
+
+def auf_gpu() -> bool:
+    """Wird Big auf der Grafikkarte rechnen? (Passende Karte, CUDA-Fassung von torch.)"""
+    return cuda_index() != "cpu" and not torch_ohne_cuda()
+
+
 # --------------------------------------------------------------------------- #
 #  Laufzeit
 # --------------------------------------------------------------------------- #
 def laufzeit_fehlt() -> list[str]:
-    """Welche Laufzeit-Pakete fehlen? Leer = Big kann rechnen."""
-    return [m for m in _MODULE if importlib.util.find_spec(m) is None]
+    """Welche Laufzeit-Pakete fehlen? Leer = Big kann rechnen. ``torch (CUDA)``: torch ist da,
+    aber ohne CUDA, obwohl die Grafikkarte reicht."""
+    fehlt = [m for m in _MODULE if importlib.util.find_spec(m) is None]
+    if "torch" not in fehlt and torch_ohne_cuda():
+        fehlt.append("torch (CUDA)")
+    return fehlt
 
 
 def warum_nicht(cfg) -> str | None:
@@ -203,24 +242,27 @@ def warum_nicht(cfg) -> str | None:
 
 
 def installationsbefehle() -> list[list[str]] | None:
-    """Wie die Laufzeit in genau die Umgebung kommt, in der PollySort läuft: torch aus dem
-    PyTorch-Index (CUDA passend zum Treiber), dann der Rest von PyPI. ``None``: weder pip noch uv."""
-    karten = gpus()
-    index = torch_index(karten[0]["treiber"] if karten else None)
-    url = f"https://download.pytorch.org/whl/{index}"
+    """Wie die Laufzeit in genau die Umgebung kommt, in der PollySort läuft: erst torch, allein aus
+    dem PyTorch-Index (CUDA passend zum Treiber; eine CPU-Fassung wird dabei ersetzt), dann der
+    Rest von PyPI — der lässt das passende torch stehen. ``None``: weder pip noch uv.
+
+    pip, wenn vorhanden (venv, pipx); sonst ``uv pip --python`` (uv-Tool-Umgebungen haben kein pip)."""
+    url = f"https://download.pytorch.org/whl/{cuda_index()}"
     torch_spez, rest = PAKETE[0], list(PAKETE[1:])
+    tauschen = importlib.util.find_spec("torch") is not None and torch_ohne_cuda()
+    noetig = importlib.util.find_spec("torch") is None or tauschen
     if importlib.util.find_spec("pip") is not None:
         basis = [sys.executable, "-m", "pip", "install", "--quiet"]
         if sys.prefix == sys.base_prefix:
             basis.append("--user")
-        torch_fehlt = importlib.util.find_spec("torch") is None
-        befehle = [[*basis, "--index-url", url, torch_spez]] if torch_fehlt else []
-        return [*befehle, [*basis, *rest]]
-    uv = shutil.which("uv")
-    if uv:
-        return [[uv, "pip", "install", "--quiet", "--python", sys.executable, "--index-strategy",
-                 "unsafe-best-match", "--extra-index-url", url, *PAKETE]]
-    return None
+        tausch = ["--force-reinstall", "--no-deps"] if tauschen else []
+    elif uv := shutil.which("uv"):
+        basis = [uv, "pip", "install", "--quiet", "--python", sys.executable]
+        tausch = ["--reinstall-package", "torch"] if tauschen else []
+    else:
+        return None
+    befehle = [[*basis, *tausch, "--index-url", url, torch_spez]] if noetig else []
+    return [*befehle, [*basis, *rest]]
 
 
 def laufzeit_installieren(con) -> bool:
@@ -232,6 +274,8 @@ def laufzeit_installieren(con) -> bool:
     if befehle is None:
         con.error(i18n.t("bn.rt.manual", pakete=" ".join(PAKETE)))
         return False
+    # Ist torch schon in diesem Prozess geladen, rechnet er bis zum Neustart mit der alten Fassung.
+    neu_starten = "torch" in sys.modules and torch_ohne_cuda()
     con.bloom(i18n.t("bb.rt.installing", pakete=", ".join(fehlt)), "📦")
     for befehl in befehle:
         try:
@@ -249,7 +293,7 @@ def laufzeit_installieren(con) -> bool:
                              cmd=" ".join(befehl)))
             return False
     importlib.invalidate_caches()
-    if laufzeit_fehlt():
+    if laufzeit_fehlt() or neu_starten:
         con.info(i18n.t("bn.rt.restart"), "🔁")
         return False
     con.honey(i18n.t("bb.rt.done"), "✅")
@@ -293,7 +337,10 @@ def oeffnen():
         schluessel = str(ordner())
         if schluessel not in _SITZUNGEN:
             from .beenara_big_laufzeit import BeeNaraBig
+            # Auf der Grafikkarte nur, wenn sie reicht — mit der CPU-Erlaubnis und einer zu
+            # kleinen Karte lieber langsam als ein Abbruch mitten im Lauf (Speicher voll).
             _SITZUNGEN[schluessel] = BeeNaraBig(ordner(), base=str(basis_ordner()),
+                                                device=None if gpu_reicht() else "cpu",
                                                 threads=beenara.threads())
         return _SITZUNGEN[schluessel]
 
@@ -322,9 +369,14 @@ def bericht(cfg) -> list[tuple[str, str, str]]:
     if karten:
         k = max(karten, key=lambda x: x["mb"])
         zeilen.append(("info", "🖥️", i18n.t("bb.gpu.ok", name=k["name"], mb=k["mb"])))
+    gpu = gpu_grund()
+    if gpu is not None and not s.vollstaendig:
+        zeilen.append(("ask", "❓", i18n.t(f"bb.gpu.{gpu}", mb=max((k["mb"] for k in karten), default=0),
+                                           need=MIN_VRAM_MB, env=CPU_ERLAUBT)))
     grund = warum_nicht(cfg)
     if grund is None:
         zeilen.append(("honey", "⚡", i18n.t("bb.active.ja")))
+        zeilen.append(("info", "⚙️", i18n.t("bb.geraet.gpu" if auf_gpu() else "bb.geraet.cpu")))
     elif grund == "version":
         zeilen.append(("ask", "❓", i18n.t("bb.active.version", have=s.version, need=REVISION[:7])))
     elif grund == "laufzeit":

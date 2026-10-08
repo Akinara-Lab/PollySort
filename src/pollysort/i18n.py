@@ -770,6 +770,12 @@ _CATALOG: dict[str, dict[str, str]] = {
               "installs it.",
     },
     "bb.gpu.ok": {"de": "Grafikkarte: {name} · {mb} MB", "en": "Graphics card: {name} · {mb} MB"},
+    "bb.geraet.gpu": {"de": "Rechnet auf der Grafikkarte.", "en": "Runs on the graphics card."},
+    "bb.geraet.cpu": {"de": "Rechnet auf der CPU — Sekunden bis Minuten je Dokument.",
+                      "en": "Runs on the CPU — seconds to minutes per document."},
+    "bb.run.geraet": {"de": "BeeNara Big rechnet auf {geraet}.", "en": "BeeNara Big runs on {geraet}."},
+    "bb.run.gpu": {"de": "der Grafikkarte", "en": "the graphics card"},
+    "bb.run.cpu": {"de": "der CPU (langsam)", "en": "the CPU (slow)"},
     "bb.gpu.keine": {
         "de": "Keine NVIDIA-Grafikkarte gefunden — BeeNara Big braucht eine mit mindestens "
               "{need} MB. Auf der CPU rechnet es Sekunden bis Minuten je Dokument; wer das will, "
@@ -2466,6 +2472,12 @@ _CATALOG: dict[str, dict[str, str]] = {
     "web.bb.auto": {"de": "Automatisch", "en": "Automatic"},
     "web.bb.klein": {"de": "Nur BeeNara", "en": "BeeNara only"},
     "web.bb.big": {"de": "Nur Big", "en": "Big only"},
+    "web.bb.modell.text": {
+        "de": "Automatisch: BeeNara bei 3 bis 9 Ordnern, BeeNara Big bei mehr. Gilt, sobald das "
+              "gewählte Modell geladen ist; vorher sortiert PollySort wie bisher.",
+        "en": "Automatic: BeeNara with 3 to 9 folders, BeeNara Big with more. Applies once the "
+              "chosen model is downloaded; until then PollySort sorts as before.",
+    },
     "web.bb.remove.text": {
         "de": "BeeNara Big ({mb} MB, mit Basismodell) von diesem Rechner entfernen? Deine "
               "Dokumente bleiben, wie sie sind.",

@@ -896,9 +896,10 @@
       ${bb.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
       <div class="zeile abstand">
         ${bbUnfertig ? `<button class="knopf ${bb.gpu_grund ? 'zweit' : ''}" type="button" data-tun="bb-laden">${esc(t(bb.vorhanden || bb.angefangen ? 'web.btn.bn_finish' : 'web.btn.bb_pull'))}</button>` : ''}
-        ${bb.vorhanden && bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bb.modell'))}</span>${schalter('bb-modell', [['auto', 'web.bb.auto'], ['klein', 'web.bb.klein'], ['big', 'web.bb.big']], bb.modus)}</div>` : ''}
         ${bb.vorhanden || bb.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bb-entfernen" data-mb="${esc(bb.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
-      </div></div>`;
+      </div>
+      <div class="feld abstand"><span>${esc(t('web.bb.modell'))}</span>${schalter('bb-modell', [['auto', 'web.bb.auto'], ['klein', 'web.bb.klein'], ['big', 'web.bb.big']], bb.modus)}
+        <small class="leise">${esc(t('web.bb.modell.text'))}</small></div></div>`;
     const beenaraKarte = `<section class="karte" aria-labelledby="bn-titel"><div class="zeile weit"><h2 id="bn-titel">${esc(t('fr.bn.title'))}</h2>
         <span class="chip ${bnChip[0]}">${esc(t(bnChip[1]))}</span></div>
       <p class="hinweis">${esc(t('bn.what'))} ${esc(t('fr.bn.size', { repo: bn.repo, mb: bn.ungefaehr_mb }))}</p>
