@@ -46,6 +46,9 @@ Changelog = "https://github.com/Akinara-Lab/PollySort/blob/main/CHANGELOG.md"
 # Ohne dieses Extra fällt das Tool auf `mimetypes` + rohes Textlesen zurück (funktioniert).
 extract = [
     "markitdown>=0.0.1a2",
+    # markitdown zieht magika; 0.6.3 hält unter Windows onnxruntime auf <=1.20.1 fest, und damit
+    # lässt sich BeeNara v0.3 (8-Bit, braucht onnxruntime>=1.30) nicht öffnen. 0.6.2 läuft mit 1.30.
+    "magika<0.6.3; sys_platform == 'win32'",
     "python-magic; sys_platform != 'win32'",
     "python-magic-bin; sys_platform == 'win32'",
 ]

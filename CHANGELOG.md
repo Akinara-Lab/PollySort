@@ -20,6 +20,10 @@ sichtbar ist der Produktname PollySort.
   einsortiert; dafür fragt PollySort 7–15 Punkte öfter nach.
 - **Anfang und Ende des Dokuments:** BeeNara bekommt bei langen Dokumenten jetzt Anfang und
   Ende statt nur den Anfang, wie im Training von v0.3 (Summe, Unterschrift, Grußformel).
+- **Zu alte Laufzeit wird erkannt:** `beenara laden` prüft jetzt auch die Versionen, nicht nur ob
+  die Pakete da sind. Unter Windows zog `markitdown` magika 0.6.3 und hielt damit onnxruntime auf
+  1.20.1; BeeNara v0.3 ließ sich so nicht öffnen und galt trotzdem als bereit. Das Extra `extract`
+  begrenzt magika unter Windows deshalb auf < 0.6.3.
 - **BeeNara Big (Vorschau):** das große Modell für ganze Ordnerbäume (3 bis etwa 300 Ordner,
   [Kwokou/BeeNara-Big](https://huggingface.co/Kwokou/BeeNara-Big)). `beenara big laden` bzw. der
   Knopf in der Werkstatt prüft zuerst die Grafikkarte (NVIDIA ab 8 GB; `POLLYSORT_BEENARA_BIG_CPU=1`

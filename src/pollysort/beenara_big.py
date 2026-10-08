@@ -219,9 +219,9 @@ def auf_gpu() -> bool:
 #  Laufzeit
 # --------------------------------------------------------------------------- #
 def laufzeit_fehlt() -> list[str]:
-    """Welche Laufzeit-Pakete fehlen? Leer = Big kann rechnen. ``torch (CUDA)``: torch ist da,
-    aber ohne CUDA, obwohl die Grafikkarte reicht."""
-    fehlt = [m for m in _MODULE if importlib.util.find_spec(m) is None]
+    """Welche Laufzeit-Pakete fehlen oder sind zu alt? Leer = Big kann rechnen. ``torch (CUDA)``:
+    torch ist da, aber ohne CUDA, obwohl die Grafikkarte reicht."""
+    fehlt = [m for m in _MODULE if importlib.util.find_spec(m) is None] + beenara.zu_alt(PAKETE)
     if "torch" not in fehlt and torch_ohne_cuda():
         fehlt.append("torch (CUDA)")
     return fehlt
@@ -251,7 +251,7 @@ def installationsbefehle() -> list[list[str]] | None:
     url = f"https://download.pytorch.org/whl/{cuda_index()}"
     torch_spez, rest = PAKETE[0], list(PAKETE[1:])
     tauschen = importlib.util.find_spec("torch") is not None and torch_ohne_cuda()
-    noetig = importlib.util.find_spec("torch") is None or tauschen
+    noetig = importlib.util.find_spec("torch") is None or tauschen or bool(beenara.zu_alt(PAKETE[:1]))
     if importlib.util.find_spec("pip") is not None:
         basis = [sys.executable, "-m", "pip", "install", "--quiet"]
         if sys.prefix == sys.base_prefix:
