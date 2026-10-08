@@ -503,9 +503,10 @@
     $('#lauf-balken').innerHTML = wabenbalken(anteil, 18, vorher);
     $('#lauf-zahl').textContent = !S.lauf.gesamt ? ''
       : S.lauf.einheit === 'bytes' ? `${mb(S.lauf.erledigt)}/${mb(S.lauf.gesamt)} MB` : `${S.lauf.erledigt}/${S.lauf.gesamt}`;
-    if (S.lauf.name === 'beenara_laden') {
-      $('#lauf-titel').textContent = t('web.run.beenara.title');
-      $('#lauf-text').textContent = S.lauf.text || t('bn.checking', { repo: (S.z.beenara || {}).repo || '' });
+    if (S.lauf.name === 'beenara_laden' || S.lauf.name === 'beenara_big_laden') {
+      const big = S.lauf.name === 'beenara_big_laden';
+      $('#lauf-titel').textContent = t(big ? 'web.run.bb.title' : 'web.run.beenara.title');
+      $('#lauf-text').textContent = S.lauf.text || (big ? '' : t('bn.checking', { repo: (S.z.beenara || {}).repo || '' }));
       return;
     }
     $('#lauf-text').textContent = S.lauf.text || t(S.lauf.name === 'vorschau' ? 'web.run.preview' : 'web.run.sort');
@@ -884,16 +885,31 @@
     const bnChip = bn.bereit ? ['wache', 'web.bn.chip.on'] : bn.grund === 'aus' ? ['aus', 'web.bn.chip.off']
       : bn.vorhanden || bn.angefangen ? ['frage', 'web.bn.chip.incomplete'] : ['aus', 'web.bn.chip.missing'];
     const bnUnfertig = !bn.vorhanden || bn.angefangen || bn.grund === 'version' || bn.grund === 'laufzeit';
+    // BeeNara Big: derselbe Platz, für große Ordnerbäume — nur mit NVIDIA-GPU ab 8 GB.
+    const bb = w.beenara_big;
+    const bbChip = bb.bereit ? ['wache', 'web.bn.chip.on'] : bb.vorhanden || bb.angefangen ? ['frage', 'web.bn.chip.incomplete']
+      : bb.gpu_grund ? ['aus', 'web.bb.chip.gpu'] : ['aus', 'web.bn.chip.missing'];
+    const bbUnfertig = !bb.vorhanden || bb.angefangen || bb.grund === 'version' || bb.grund === 'laufzeit';
+    const bigTeil = `<div class="abstand"><div class="zeile weit"><h3>${esc(t('bb.title'))}</h3>
+        <span class="chip ${bbChip[0]}">${esc(t(bbChip[1]))}</span></div>
+      <p class="hinweis">${esc(t('bb.what'))}</p>
+      ${bb.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
+      <div class="zeile abstand">
+        ${bbUnfertig ? `<button class="knopf ${bb.gpu_grund ? 'zweit' : ''}" type="button" data-tun="bb-laden">${esc(t(bb.vorhanden || bb.angefangen ? 'web.btn.bn_finish' : 'web.btn.bb_pull'))}</button>` : ''}
+        ${bb.vorhanden && bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bb.modell'))}</span>${schalter('bb-modell', [['auto', 'web.bb.auto'], ['klein', 'web.bb.klein'], ['big', 'web.bb.big']], bb.modus)}</div>` : ''}
+        ${bb.vorhanden || bb.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bb-entfernen" data-mb="${esc(bb.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
+      </div></div>`;
     const beenaraKarte = `<section class="karte" aria-labelledby="bn-titel"><div class="zeile weit"><h2 id="bn-titel">${esc(t('fr.bn.title'))}</h2>
         <span class="chip ${bnChip[0]}">${esc(t(bnChip[1]))}</span></div>
       <p class="hinweis">${esc(t('bn.what'))} ${esc(t('fr.bn.size', { repo: bn.repo, mb: bn.ungefaehr_mb }))}</p>
       ${bn.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
-      ${laufBlock()}
       <div class="zeile abstand">
         ${bnUnfertig ? `<button class="knopf" type="button" data-tun="bn-laden">${esc(t(bn.vorhanden || bn.angefangen ? 'web.btn.bn_finish' : 'web.btn.bn_pull'))}</button>` : ''}
         ${bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
         ${bn.vorhanden || bn.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bn-entfernen" data-mb="${esc(bn.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
-      </div></section>`;
+      </div>
+      ${bigTeil}
+      ${laufBlock()}</section>`;
     const checks = S.check ? `<table class="liste"><tbody>${S.check.map((c) => `<tr><td>${c.status === 'ok' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'}</td>
       <td><b>${esc(c.titel)}</b></td><td class="klein">${esc(c.detail)}</td></tr>`).join('')}</tbody></table>` : '';
     return `${seitenKopf('web.nav.workshop', 'web.nav.workshop.k')}
@@ -1365,6 +1381,22 @@
     'bn-entfernen': async (el) => {
       if (!await bestaetigen({ titel: t('web.btn.bn_remove'), text: t('web.bn.remove.text', { mb: el.dataset.mb }), ja: t('web.btn.bn_remove'), gefahr: true })) return;
       try { await tun('beenara_entfernen'); hinweis({ titel: t('bn.remove.done') }); } catch (e) { fehler(e); }
+      await zustandLaden(); seiteZeichnen(true);
+    },
+    // -- BeeNara Big (Werkstatt) --
+    'bb-laden': async () => {
+      const r = await arbeit('beenara_big_laden');
+      if (r) hinweis(r.ok ? { titel: t('web.toast.bb.ready'), text: t('web.toast.bb.ready.text'), art: 'erfolg' }
+        : { titel: t('web.toast.bb.failed'), text: t('web.toast.bn.failed.text'), art: 'fehler' });
+      seiteZeichnen(true);
+    },
+    'bb-modell': async (el) => {
+      try { await tun('beenara_modell', { modell: el.dataset.wert }); } catch (e) { fehler(e); }
+      seiteZeichnen(true);
+    },
+    'bb-entfernen': async (el) => {
+      if (!await bestaetigen({ titel: t('web.btn.bn_remove'), text: t('web.bb.remove.text', { mb: el.dataset.mb }), ja: t('web.btn.bn_remove'), gefahr: true })) return;
+      try { await tun('beenara_big_entfernen'); hinweis({ titel: t('bb.remove.done') }); } catch (e) { fehler(e); }
       await zustandLaden(); seiteZeichnen(true);
     },
     wechseln: async (el) => {

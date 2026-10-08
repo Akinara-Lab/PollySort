@@ -392,7 +392,7 @@ class BeehiveShell(cmd.Cmd):
             ("nacherfassen [an|aus|jetzt]", "enrich [on|off|now]", "help.d.enrich"),
             ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
             ("doctor", "doctor", "help.d.doctor"),
-            ("beenara [laden|entfernen]", "beenara [pull|remove]", "help.d.beenara"),
+            ("beenara [laden|big|modell]", "beenara [pull|big|model]", "help.d.beenara"),
             ("sprache <de|en>", "language <de|en>", "help.d.language"),
             ("thema [dunkel|hell|auto]", "theme [dark|light|auto]", "help.d.theme"),
             ("ansicht [statisch|log]", "view [static|log]", "help.d.view"),
@@ -1043,17 +1043,28 @@ class BeehiveShell(cmd.Cmd):
     # ------------------------------------------------------------------ #
     #  BeeNara — lokales Entscheider-Modell von Hugging Face
     # ------------------------------------------------------------------ #
+    _LADEN = ("laden", "ziehen", "holen", "herunterladen", "aktualisieren",
+              "pull", "download", "install", "update")
+    _ENTFERNEN = ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall")
+
     def do_beenara(self, arg: str) -> None:
-        """beenara [laden|an|aus|entfernen] — BeeNara, das lokale Entscheider-Modell (Kwokou/BeeNara)."""
+        """beenara [laden|an|aus|entfernen] · beenara big [laden|entfernen] · beenara modell
+        [auto|klein|big] — BeeNara und BeeNara Big, die lokalen Entscheider-Modelle."""
+        sub, _, rest = arg.strip().lower().partition(" ")
+        if sub == "big":
+            self._big(rest.strip())
+            return
+        if sub in ("modell", "model"):
+            self._beenara_modell(rest.strip())
+            return
         sub = arg.strip().lower()
-        if sub in ("laden", "ziehen", "holen", "herunterladen", "aktualisieren",
-                   "pull", "download", "install", "update"):
+        if sub in self._LADEN:
             self._beenara_laden()
         elif sub in ("an", "ein", "on", "enable"):
             self._beenara_schalten(True)
         elif sub in ("aus", "off", "disable"):
             self._beenara_schalten(False)
-        elif sub in ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall"):
+        elif sub in self._ENTFERNEN:
             self._beenara_entfernen()
         elif sub in ("", "status", "info"):
             self._beenara_status()
@@ -1100,6 +1111,51 @@ class BeehiveShell(cmd.Cmd):
             self.con.error(i18n.t("bn.remove.failed", err=exc))
             return
         self.con.honey(i18n.t("bn.remove.done"), "🗑️")
+
+    def _big(self, sub: str) -> None:
+        from pollysort import beenara_big
+        if sub in self._LADEN:
+            try:
+                beenara_big.einrichten(self.con)
+            except Exception as exc:
+                self.con.error(i18n.t("bb.err.download", err=exc))
+        elif sub in self._ENTFERNEN:
+            s = beenara_big.stand()
+            if not s.vollstaendig and not s.angefangen:
+                self.con.info(i18n.t("bb.remove.none"), "🐝")
+                return
+            if not self._ja(i18n.t("bb.remove.confirm", mb=s.mb)):
+                self.con.info(i18n.t("r.cancelled"), "🐝")
+                return
+            try:
+                beenara_big.entfernen()
+            except OSError as exc:
+                self.con.error(i18n.t("bn.remove.failed", err=exc))
+                return
+            self.con.honey(i18n.t("bb.remove.done"), "🗑️")
+        elif sub in ("", "status", "info"):
+            self.con.rule(i18n.t("bb.title"))
+            self.con.info(i18n.t("bb.what"), "🐝")
+            for art, emoji, text in beenara_big.bericht(config.load_config()):
+                getattr(self.con, art)(text, emoji)
+            self.con.info(i18n.t("bb.usage"), "🐝")
+        else:
+            self.con.ask(i18n.t("bb.usage"))
+
+    def _beenara_modell(self, wahl: str) -> None:
+        """Welches BeeNara sortiert, wenn beide da sind (Einstellung ``beenara_modell``)."""
+        wahl = {"automatisch": "auto", "small": "klein", "gross": "big", "groß": "big"}.get(wahl, wahl)
+        cfg = config.load_config()
+        if wahl == "":
+            self.con.info(i18n.t(f"bb.modus.{cfg.beenara_modell}"), "🔀")
+            return
+        from pollysort.entscheidung import MODELLE
+        if wahl not in MODELLE:
+            self.con.ask(i18n.t("bb.usage"))
+            return
+        cfg.beenara_modell = wahl
+        config.save_config(cfg)
+        self.con.honey(i18n.t(f"bb.modus.{wahl}"), "🔀")
 
     def do_sprache(self, arg: str) -> None:
         """sprache <de|en> — UI-Sprache umschalten (auch: language, lang)."""

@@ -58,6 +58,10 @@ app = ["pywebview>=5.0"]
 # Modell selbst holt `beenara laden` von Hugging Face und installiert dieses Extra mit, falls
 # es fehlt — gleiche Liste wie beenara.PAKETE.
 beenara = ["onnxruntime>=1.30", "tokenizers>=0.20", "numpy>=1.26"]
+# BeeNara Big (großes Modell, NVIDIA-GPU ab 8 GB) — gleiche Liste wie beenara_big.PAKETE. torch mit
+# CUDA kommt aus dem PyTorch-Index; 'beenara big laden' wählt ihn passend zum Treiber.
+beenara-big = ["torch>=2.14", "transformers>=5.17", "peft>=0.21", "safetensors>=0.8",
+               "tokenizers>=0.20", "pillow>=10"]
 # Alles Optionale auf einmal.
 full = ["pollysort[extract,app,beenara]"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
@@ -89,6 +93,11 @@ select = ["E", "F", "I", "UP", "B"]
 # B905: zip() über gleich lange Vektoren (Länge vorher geprüft).
 # UP042: str+Enum ist bewusst gewählt (JSON-/DB-Serialisierung der Werte).
 ignore = ["E402", "B904", "B905", "UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+# Kopie des Laders aus dem Hub-Repo Kwokou/BeeNara-Big (Zeilenlänge 120 wie dort) — so bleibt
+# der Abgleich mit dem Original ein reines Diff.
+"src/pollysort/beenara_big_laufzeit.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

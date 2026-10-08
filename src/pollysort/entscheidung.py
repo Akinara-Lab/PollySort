@@ -31,6 +31,10 @@ Rückfrage mit seinem Favoriten als Vorschlag. Danach rät kein zweites Modell n
 passt" wird nie automatisch übergangen. Eine gelernte Wachstafel-Regel und ein widersprechendes
 Gedächtnis haben Vorrang. Außerhalb von 3–9 Ordnern (so trainiert und kalibriert) und ohne
 lokalen Text gilt der bisherige Weg; im Modus Cloud entscheidet BeeNara nicht mit.
+
+**BeeNara Big** (seit 2026-10-08, :mod:`pollysort.beenara_big`) nimmt denselben Platz ein, für
+3–500 Ordner und nur mit Vorschlägen: Sein Favorit wird immer eine Rückfrage. Welches der beiden
+entscheidet, sagt :func:`beenara_modell_fuer` (Einstellung ``beenara_modell``).
 """
 
 from __future__ import annotations
@@ -61,15 +65,36 @@ BEENARA_ENDE = 0.3
 #: (δ = 0,1). Stufe-0 am 2026-10-08: fehlt der richtige Ordner, 0 statt 4 von 70 falsch
 #: einsortiert (``conformal``, wie v0.2), dafür 7–15 Punkte öfter eine Rückfrage.
 BEENARA_REGEL = "risk"
+#: BeeNara Big (:mod:`pollysort.beenara_big`) ist auf 3–300 Ordner trainiert, in 5 % der
+#: Aufgaben bis 500. In v0.3 macht es nur Vorschläge (keine Risiko-Schwelle zertifizierbar).
+BIG_MIN, BIG_MAX = 3, 500
+#: Werte der Einstellung ``beenara_modell``: welches Modell sortiert, wenn beide da sind.
+MODELLE = ("auto", "klein", "big")
 
 
-def beenara_text(text: str) -> str:
+def beenara_text(text: str, zeichen: int = BEENARA_ZEICHEN) -> str:
     """Anfang und Ende eines langen Dokuments. v0.3 liest das Ende mit — dort stehen Summe,
     Unterschrift und Grußformel; ein reiner Anfangsausschnitt würde es abschneiden."""
-    if len(text) <= BEENARA_ZEICHEN:
+    if len(text) <= zeichen:
         return text
-    ende = int(BEENARA_ZEICHEN * BEENARA_ENDE)
-    return text[:BEENARA_ZEICHEN - ende - 1] + "\n" + text[-ende:]
+    ende = int(zeichen * BEENARA_ENDE)
+    return text[:zeichen - ende - 1] + "\n" + text[-ende:]
+
+
+def beenara_modell_fuer(modus: str, n: int, *, klein_bereit: bool, big_bereit: bool) -> str | None:
+    """Welches BeeNara bei ``n`` Ordnern entscheidet: ``klein`` · ``big`` · ``None`` (keins).
+
+    ``auto`` (Standard): das kleine BeeNara für 3–9 Ordner — dort sortiert es selbst; sonst
+    Big bis 500 Ordner, das nur vorschlägt. ``klein`` und ``big`` erzwingen ein Modell; außerhalb
+    seines Bereichs entscheidet dann der bisherige Weg. Ist Big nicht geladen, ist ``auto``
+    genau das Verhalten vor Big."""
+    klein = klein_bereit and BEENARA_MIN <= n <= BEENARA_MAX
+    big = big_bereit and BIG_MIN <= n <= BIG_MAX
+    if modus == "klein":
+        return "klein" if klein else None
+    if modus == "big":
+        return "big" if big else None
+    return "klein" if klein else ("big" if big else None)
 
 
 @dataclass
@@ -119,9 +144,9 @@ def beenara_weg(client) -> str | None:
     return "spar" if isinstance(client, OfflineClient) else None
 
 
-def beenara_passt(kategorien: list[str]) -> bool:
-    """Liegt die Ordnerzahl im Bereich, auf den BeeNara trainiert und kalibriert ist?"""
-    return BEENARA_MIN <= len(ordner_namen(kategorien)) <= BEENARA_MAX
+def beenara_passt(kategorien: list[str], bereich: tuple[int, int] = (BEENARA_MIN, BEENARA_MAX)) -> bool:
+    """Liegt die Ordnerzahl im Bereich, auf den das Modell trainiert ist (Standard: BeeNara)?"""
+    return bereich[0] <= len(ordner_namen(kategorien)) <= bereich[1]
 
 
 def ordner_namen(kategorien: list[str]) -> list[str]:
@@ -140,14 +165,18 @@ def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, floa
     * unsicher zwischen Ordnern → Favorit als Vorschlag, gedeckelt → Rückfrage.
 
     ``bee.decide`` darf ``None`` liefern (ausgefallen, siehe pipeline); dann ``None``.
+    Ordnerbereich und Textlänge bringt das Modell mit (``ordner_bereich``, ``text_zeichen`` —
+    BeeNara Big liest 3–500 Ordner und mehr Text); ohne sie gelten die Werte von BeeNara.
     """
     from .assigner import CONFLICT
     from .beenara_laufzeit import NONE
 
     namen = ordner_namen(kategorien)
-    if not beenara_passt(namen) or not (text or "").strip():
+    bereich = getattr(bee, "ordner_bereich", (BEENARA_MIN, BEENARA_MAX))
+    if not beenara_passt(namen, bereich) or not (text or "").strip():
         return None
-    d = bee.decide(beenara_text(text), namen, language=sprache, rule=BEENARA_REGEL)
+    d = bee.decide(beenara_text(text, getattr(bee, "text_zeichen", BEENARA_ZEICHEN)), namen,
+                   language=sprache, rule=BEENARA_REGEL)
     if d is None:
         return None
     if d.category is not None:

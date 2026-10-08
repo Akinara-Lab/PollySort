@@ -20,6 +20,14 @@ sichtbar ist der Produktname PollySort.
   einsortiert; dafür fragt PollySort 7–15 Punkte öfter nach.
 - **Anfang und Ende des Dokuments:** BeeNara bekommt bei langen Dokumenten jetzt Anfang und
   Ende statt nur den Anfang, wie im Training von v0.3 (Summe, Unterschrift, Grußformel).
+- **BeeNara Big (Vorschau):** das große Modell für ganze Ordnerbäume (3 bis etwa 300 Ordner,
+  [Kwokou/BeeNara-Big](https://huggingface.co/Kwokou/BeeNara-Big)). `beenara big laden` bzw. der
+  Knopf in der Werkstatt prüft zuerst die Grafikkarte (NVIDIA ab 8 GB; `POLLYSORT_BEENARA_BIG_CPU=1`
+  erzwingt die CPU), lädt dann LoRA und Kopf (~164 MB) und das Basismodell Qwen3.5-2B-Base
+  (~4,6 GB), je aus einem festen Commit mit Prüfsumme, und installiert torch passend zum
+  Grafiktreiber. Big macht in v0.3 nur Vorschläge: Sein Favorit wird immer eine Rückfrage.
+- **Modellwahl, wenn beide da sind** (`beenara modell auto|klein|big`, Schalter in der Werkstatt):
+  Automatisch nimmt BeeNara bei 3–9 Ordnern und Big bei mehr. Ohne Big ändert sich nichts.
 
 ### Dokumentation — README für die Beta
 - **Screenshots:** Vorschau als Titelbild, dazu Zuhause, Rückfragen, Waben und die BeeNara-Karte —

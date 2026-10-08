@@ -538,8 +538,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                       "en": "Set responsibility in the background"},
     "help.d.doctor": {"de": "Health-Check: Python, KI-Provider, Modelle, Datenbank, Gedächtnis",
                       "en": "Health check: Python, AI provider, models, database, memory"},
-    "help.d.beenara": {"de": "Lokales Entscheider-Modell: laden · an/aus · entfernen",
-                       "en": "Local decider model: download · on/off · remove"},
+    "help.d.beenara": {"de": "Lokale Entscheider-Modelle: laden · an/aus · entfernen · Big · Modellwahl",
+                       "en": "Local decider models: download · on/off · remove · Big · model choice"},
     "help.d.language": {"de": "UI-Sprache umschalten (language / lang)",
                         "en": "Switch the UI language (sprache)"},
     "help.d.theme": {"de": "Dark/Light; 'auto' = tags dunkel, abends hell",
@@ -604,6 +604,13 @@ _CATALOG: dict[str, dict[str, str]] = {
                           "en": "version {version}, expected {need} → 'beenara pull'"},
     "doctor.bn.laufzeit": {"de": "Version {version} · Laufzeit fehlt → 'beenara laden'",
                            "en": "version {version} · runtime missing → 'beenara pull'"},
+    "doctor.beenara_big": {"de": "BeeNara Big", "en": "BeeNara Big"},
+    "doctor.bb.partial": {"de": "unvollständig → 'beenara big laden' setzt fort",
+                          "en": "incomplete → 'beenara big pull' resumes"},
+    "doctor.bb.version": {"de": "Version {version}, erwartet {need} → 'beenara big laden'",
+                          "en": "version {version}, expected {need} → 'beenara big pull'"},
+    "doctor.bb.laufzeit": {"de": "Version {version} · Laufzeit fehlt → 'beenara big laden'",
+                           "en": "version {version} · runtime missing → 'beenara big pull'"},
     # BeeNara — lokales Entscheider-Modell von Hugging Face (beenara.py)
     "bn.title": {"de": "🐝 BeeNara", "en": "🐝 BeeNara"},
     "bn.what": {
@@ -723,6 +730,109 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bn.remove.none": {"de": "BeeNara ist nicht geladen — nichts zu entfernen.",
                        "en": "BeeNara is not downloaded — nothing to remove."},
     "bn.remove.failed": {"de": "Entfernen fehlgeschlagen: {err}", "en": "Removing failed: {err}"},
+    # BeeNara Big — das große Modell für ganze Ordnerbäume (beenara_big.py). Fehlt hier ein
+    # Text, gilt der bn.…-Text (beenara._t).
+    "bb.title": {"de": "🐝 BeeNara Big", "en": "🐝 BeeNara Big"},
+    "bb.what": {
+        "de": "Das große Modell für ganze Ordnerbäume (3 bis etwa 300 Ordner). Es schlägt den "
+              "passenden Ordner vor — in dieser Version immer als Rückfrage, nie automatisch. "
+              "Braucht eine NVIDIA-Grafikkarte mit mindestens 8 GB; ca. 4,7 GB Download.",
+        "en": "The large model for whole folder trees (3 to about 300 folders). It suggests the "
+              "right folder — in this version always as a review, never automatically. Needs an "
+              "NVIDIA graphics card with at least 8 GB; about 4.7 GB download.",
+    },
+    "bb.status.ok": {"de": "Geladen: Version {version} · {mb} MB · {path}",
+                     "en": "Downloaded: version {version} · {mb} MB · {path}"},
+    "bb.status.none": {
+        "de": "Nicht geladen. 'beenara big laden' holt es von Hugging Face ({repo} und das "
+              "Basismodell, ca. {mb} MB).",
+        "en": "Not downloaded. 'beenara big pull' fetches it from Hugging Face ({repo} and the "
+              "base model, about {mb} MB).",
+    },
+    "bb.status.partial": {"de": "Unvollständig — 'beenara big laden' setzt den Download fort.",
+                          "en": "Incomplete — 'beenara big pull' resumes the download."},
+    "bb.active.ja": {
+        "de": "Bereit: schlägt Ordner vor, wo es laut Modellwahl dran ist. Jeder Vorschlag wird "
+              "eine Rückfrage.",
+        "en": "Ready: suggests folders where the model choice puts it in charge. Every suggestion "
+              "becomes a review.",
+    },
+    "bb.active.version": {
+        "de": "Schlägt nicht vor: Geladen ist Version {have}, dieses PollySort braucht {need} — "
+              "'beenara big laden' holt sie.",
+        "en": "Not suggesting: version {have} is downloaded, this PollySort needs {need} — "
+              "'beenara big pull' fetches it.",
+    },
+    "bb.active.laufzeit": {
+        "de": "Schlägt noch nicht vor: Die Laufzeit fehlt ({pakete}) — 'beenara big laden' "
+              "installiert sie.",
+        "en": "Not suggesting yet: the runtime is missing ({pakete}) — 'beenara big pull' "
+              "installs it.",
+    },
+    "bb.gpu.ok": {"de": "Grafikkarte: {name} · {mb} MB", "en": "Graphics card: {name} · {mb} MB"},
+    "bb.gpu.keine": {
+        "de": "Keine NVIDIA-Grafikkarte gefunden — BeeNara Big braucht eine mit mindestens "
+              "{need} MB. Auf der CPU rechnet es Sekunden bis Minuten je Dokument; wer das will, "
+              "setzt {env}=1 und lädt dann.",
+        "en": "No NVIDIA graphics card found — BeeNara Big needs one with at least {need} MB. "
+              "On the CPU it takes seconds to minutes per document; to do that anyway, set "
+              "{env}=1 and pull again.",
+    },
+    "bb.gpu.klein": {
+        "de": "Die Grafikkarte hat {mb} MB — BeeNara Big braucht mindestens {need} MB. Wer es "
+              "trotzdem versuchen will, setzt {env}=1 und lädt dann.",
+        "en": "The graphics card has {mb} MB — BeeNara Big needs at least {need} MB. To try "
+              "anyway, set {env}=1 and pull again.",
+    },
+    "bb.modus.auto": {
+        "de": "Modellwahl: automatisch — BeeNara bei 3 bis 9 Ordnern, BeeNara Big bei mehr.",
+        "en": "Model choice: automatic — BeeNara with 3 to 9 folders, BeeNara Big with more.",
+    },
+    "bb.modus.klein": {"de": "Modellwahl: nur BeeNara — BeeNara Big bleibt geladen, sortiert aber nicht.",
+                       "en": "Model choice: BeeNara only — BeeNara Big stays downloaded but does not sort."},
+    "bb.modus.big": {
+        "de": "Modellwahl: nur BeeNara Big — auch bei 3 bis 9 Ordnern, dann nur Vorschläge.",
+        "en": "Model choice: BeeNara Big only — also with 3 to 9 folders, then suggestions only.",
+    },
+    "bb.usage": {"de": "Nutzung: beenara big (Stand) · beenara big laden · beenara big entfernen · "
+                       "beenara modell auto|klein|big",
+                 "en": "Usage: beenara big (status) · beenara big pull · beenara big remove · "
+                       "beenara model auto|small|big"},
+    "bb.rt.installing": {"de": "Installiere die Laufzeit für BeeNara Big ({pakete}) — torch ist "
+                               "groß, das dauert einige Minuten …",
+                         "en": "Installing the runtime for BeeNara Big ({pakete}) — torch is large, "
+                               "this takes a few minutes …"},
+    "bb.rt.done": {"de": "Laufzeit installiert — BeeNara Big ist ab dem nächsten Lauf bereit.",
+                   "en": "Runtime installed — BeeNara Big is ready from the next run."},
+    "bb.run.loading": {"de": "BeeNara Big wird geladen (beim ersten Mal bis zu einer Minute) …",
+                       "en": "Loading BeeNara Big (up to a minute the first time) …"},
+    "bb.checking": {"de": "Frage Hugging Face nach {repo} …", "en": "Asking Hugging Face for {repo} …"},
+    "bb.current": {"de": "Aktuell (Version {version}) · {path}",
+                   "en": "Up to date (version {version}) · {path}"},
+    "bb.start": {
+        "de": "Lade {n} Datei(en), {mb} MB — Version {version} → {path}. "
+              "Strg-C unterbricht, 'beenara big laden' setzt später fort.",
+        "en": "Downloading {n} file(s), {mb} MB — version {version} → {path}. "
+              "Ctrl-C pauses, 'beenara big pull' resumes later.",
+    },
+    "bb.progress": {"de": "BeeNara Big laden", "en": "Downloading BeeNara Big"},
+    "bb.done": {"de": "Geladen und geprüft (Version {version}, {mb} MB) · {path}",
+                "en": "Downloaded and verified (version {version}, {mb} MB) · {path}"},
+    "bb.interrupted": {
+        "de": "Unterbrochen — 'beenara big laden' setzt an derselben Stelle fort.",
+        "en": "Paused — 'beenara big pull' resumes where it stopped.",
+    },
+    "bb.err.download": {
+        "de": "Download fehlgeschlagen: {err} — 'beenara big laden' versucht es erneut und setzt fort.",
+        "en": "Download failed: {err} — 'beenara big pull' tries again and resumes.",
+    },
+    "bb.remove.confirm": {
+        "de": "BeeNara Big ({mb} MB, mit Basismodell) von diesem Rechner entfernen? [j/N]: ",
+        "en": "Remove BeeNara Big ({mb} MB, with base model) from this computer? [y/N]: ",
+    },
+    "bb.remove.done": {"de": "BeeNara Big entfernt.", "en": "BeeNara Big removed."},
+    "bb.remove.none": {"de": "BeeNara Big ist nicht geladen — nichts zu entfernen.",
+                       "en": "BeeNara Big is not downloaded — nothing to remove."},
     # Dreistufige Entscheidung & Nacherfassung (Plan §8.3)
     "pl.quellen": {"de": "Entschieden: {teile}", "en": "Decided: {teile}"},
     "pl.quelle.gedaechtnis": {"de": "{n} aus dem Gedächtnis", "en": "{n} from memory"},
@@ -2350,6 +2460,24 @@ _CATALOG: dict[str, dict[str, str]] = {
     "web.toast.bn.failed": {"de": "BeeNara ist noch nicht bereit", "en": "BeeNara is not ready yet"},
     "web.toast.bn.failed.text": {"de": "Was fehlt, steht im Protokoll und in der Werkstatt.",
                                  "en": "What is missing is in the log and in the workshop."},
+    "web.btn.bb_pull": {"de": "Herunterladen (ca. 4,7 GB)", "en": "Download (about 4.7 GB)"},
+    "web.bb.chip.gpu": {"de": "GPU fehlt", "en": "no GPU"},
+    "web.bb.modell": {"de": "Welches Modell sortiert", "en": "Which model sorts"},
+    "web.bb.auto": {"de": "Automatisch", "en": "Automatic"},
+    "web.bb.klein": {"de": "Nur BeeNara", "en": "BeeNara only"},
+    "web.bb.big": {"de": "Nur Big", "en": "Big only"},
+    "web.bb.remove.text": {
+        "de": "BeeNara Big ({mb} MB, mit Basismodell) von diesem Rechner entfernen? Deine "
+              "Dokumente bleiben, wie sie sind.",
+        "en": "Remove BeeNara Big ({mb} MB, with base model) from this computer? Your documents "
+              "stay as they are.",
+    },
+    "web.run.bb.title": {"de": "BeeNara Big laden", "en": "Downloading BeeNara Big"},
+    "web.toast.bb.ready": {"de": "BeeNara Big ist bereit", "en": "BeeNara Big is ready"},
+    "web.toast.bb.ready.text": {"de": "Ab dem nächsten Sortierlauf schlägt es Ordner vor.",
+                                "en": "It suggests folders from the next sorting run."},
+    "web.toast.bb.failed": {"de": "BeeNara Big ist noch nicht bereit",
+                            "en": "BeeNara Big is not ready yet"},
     "web.su.bn.label": {"de": "BeeNara nach dem Einrichten mit herunterladen",
                         "en": "Also download BeeNara after setup"},
     "web.su.bn.row": {"de": "BeeNara", "en": "BeeNara"},
@@ -2388,6 +2516,11 @@ def modus_name(provider: str) -> str:
     damit jedes bestehende Projekt ohne Umbau weiterläuft."""
     key = f"mode.{provider}"
     return t(key) if key in _CATALOG else str(provider)
+
+
+def vorhanden(key: str) -> bool:
+    """Gibt es einen Text unter ``key``?"""
+    return key in _CATALOG
 
 
 def t(key: str, /, **kw) -> str:

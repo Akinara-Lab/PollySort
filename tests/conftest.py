@@ -28,6 +28,10 @@ def _eigenes_beenara(monkeypatch, tmp_path):
     """Kein Test sieht ein echtes BeeNara. Liegt das Modell samt Laufzeit auf dem Rechner,
     würde es sonst in jedem Sortier-Test mitentscheiden — und deren Erwartungen kippen.
     BeeNara-Tests legen sich ihr Modell selbst hin (``config.POLLYSORT_HOME``)."""
-    from pollysort import beenara, config
+    from pollysort import beenara, beenara_big, config
     monkeypatch.setattr(config, "POLLYSORT_HOME", tmp_path / "pollysort-home")
     beenara.schliessen()
+    beenara_big.schliessen()
+    # Auch keine echte Grafikkarte: Ob BeeNara Big laden darf, legt jeder Test selbst fest.
+    monkeypatch.setattr(beenara_big, "gpus", lambda: ())
+    monkeypatch.delenv(beenara_big.CPU_ERLAUBT, raising=False)

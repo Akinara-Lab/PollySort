@@ -473,6 +473,10 @@ class _Behutsam:
 
     def __init__(self, bee, con: BeeConsole):
         self._bee, self._con, self.aus = bee, con, False
+        # Ordnerbereich und Textlänge des Modells (BeeNara Big) — siehe entscheidung.beenara_waehlen.
+        for name in ("ordner_bereich", "text_zeichen"):
+            if hasattr(bee, name):
+                setattr(self, name, getattr(bee, name))
 
     def decide(self, text: str, kategorien: list[str], **kw):
         if self.aus:
@@ -486,22 +490,28 @@ class _Behutsam:
 
 
 def _beenara(ctx: Context):
-    """BeeNara für diesen Kontext, oder ``None``: Modus Cloud, abgeschaltet, nicht geladen,
-    Laufzeit fehlt, Ordnerzahl außerhalb 3–9 — oder das Öffnen schlug fehl (einmal gemeldet)."""
+    """BeeNara oder BeeNara Big für diesen Kontext (:func:`entscheidung.beenara_modell_fuer`),
+    oder ``None``: Modus Cloud, abgeschaltet, nicht geladen, Laufzeit fehlt, Ordnerzahl außerhalb
+    des Bereichs — oder das Öffnen schlug fehl (einmal gemeldet)."""
     if ctx.beenara_geprueft:
         return ctx.beenara
     ctx.beenara_geprueft = True
     ctx.beenara = None
-    if entscheidung.beenara_weg(ctx.client) is None \
-            or not entscheidung.beenara_passt(ctx.taxonomy.categories):
+    if entscheidung.beenara_weg(ctx.client) is None:
         return None
-    from . import beenara
-    if beenara.warum_nicht(ctx.cfg) is not None:
+    from . import beenara, beenara_big
+    modell = entscheidung.beenara_modell_fuer(
+        getattr(ctx.cfg, "beenara_modell", "auto"),
+        len(entscheidung.ordner_namen(ctx.taxonomy.categories)),
+        klein_bereit=beenara.warum_nicht(ctx.cfg) is None,
+        big_bereit=beenara_big.warum_nicht(ctx.cfg) is None)
+    if modell is None:
         return None
-    if not beenara.ist_offen():
-        ctx.console.bloom(i18n.t("bn.run.loading"), "🐝")   # ~3 s beim ersten Lauf
+    mod, texte = (beenara, "bn") if modell == "klein" else (beenara_big, "bb")
+    if not mod.ist_offen():
+        ctx.console.bloom(i18n.t(f"{texte}.run.loading"), "🐝")   # klein ~3 s, Big bis ~1 min
     try:
-        ctx.beenara = _Behutsam(beenara.oeffnen(), ctx.console)
+        ctx.beenara = _Behutsam(mod.oeffnen(), ctx.console)
     except Exception as exc:
         ctx.console.error(i18n.t("bn.run.load_failed", err=exc))
     return ctx.beenara

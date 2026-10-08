@@ -189,11 +189,28 @@ def _beenara_check(_hive: Path | None) -> Check:
     return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
 
 
+def _beenara_big_check(_hive: Path | None) -> Check | None:
+    """BeeNara Big — nur, wenn es (teilweise) geladen ist; sonst trifft es hier nicht zu."""
+    from .beenara_big import REVISION, stand, warum_nicht
+    label = i18n.t("doctor.beenara_big")
+    s = stand()
+    if not s.vollstaendig:
+        return (label, "warn", i18n.t("doctor.bb.partial")) if s.angefangen else None
+    grund = warum_nicht(config.load_config())
+    if grund == "aus":
+        return (label, "ok", i18n.t("doctor.bn.aus", version=s.version))
+    if grund == "version":
+        return (label, "warn", i18n.t("doctor.bb.version", version=s.version, need=REVISION[:7]))
+    if grund == "laufzeit":
+        return (label, "warn", i18n.t("doctor.bb.laufzeit", version=s.version))
+    return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
+
+
 def run_checks(hive: Path | None) -> list[Check]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles);
     ``None`` heißt „trifft auf diese Umgebung nicht zu" und wird ausgelassen."""
     checks = (_py_check, _provider_check, _models_check, _gpu_check, _db_check, _extras_check,
-              _memory_check, _beenara_check)
+              _memory_check, _beenara_check, _beenara_big_check)
     out: list[Check] = []
     for fn in checks:
         try:

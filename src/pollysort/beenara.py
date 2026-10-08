@@ -69,6 +69,30 @@ class DownloadFehler(Exception):
     """Ein Download-Schritt ist gescheitert; die Meldung ist schon übersetzt."""
 
 
+@dataclass(frozen=True)
+class Quelle:
+    """Ein Hub-Repo auf einem festen Commit: welche Dateien gebraucht werden und welche nur
+    mitkommen. Dieselbe Download-Logik lädt BeeNara und die Teile von BeeNara Big."""
+
+    repo: str
+    revision: str
+    pflicht: tuple[str, ...]
+    beilagen: tuple[str, ...] = ()
+    #: Präfix der Meldungen: ``bn`` (BeeNara) oder ``bb`` (BeeNara Big); fehlt ein ``bb.…``-
+    #: Text, gilt der ``bn.…``-Text.
+    texte: str = "bn"
+
+
+def quelle() -> Quelle:
+    """BeeNara selbst — zur Aufrufzeit gebaut, damit ein angehobenes :data:`REVISION` greift."""
+    return Quelle(REPO, REVISION, PFLICHT, BEILAGEN)
+
+
+def _t(q: Quelle, key: str, **kw) -> str:
+    eigen = f"{q.texte}.{key}"
+    return i18n.t(eigen if i18n.vorhanden(eigen) else f"bn.{key}", **kw)
+
+
 def ordner() -> Path:
     """Wo BeeNara liegt. Zur Aufrufzeit berechnet, damit ``POLLYSORT_HOME`` greift."""
     return config.POLLYSORT_HOME / "modelle" / "BeeNara"
@@ -92,6 +116,7 @@ class Stand:
     revision: str | None
     belegt: int                 # Bytes im Ordner, auch Halbfertiges
     angefangen: bool            # Teile da, aber nicht vollständig → 'beenara laden' setzt fort
+    soll: str | None = None     # der Commit, auf den die Laufzeit abgestimmt ist (Standard: REVISION)
 
     @property
     def version(self) -> str:
@@ -104,7 +129,7 @@ class Stand:
     @property
     def passend(self) -> bool:
         """Vollständig UND genau der Commit, auf den die Laufzeit abgestimmt ist."""
-        return self.vollstaendig and self.revision == REVISION
+        return self.vollstaendig and self.revision == (self.soll or REVISION)
 
 
 def _herkunft_lesen(d: Path) -> dict | None:
@@ -118,7 +143,11 @@ def _herkunft_lesen(d: Path) -> dict | None:
 def stand() -> Stand:
     """Liegt BeeNara vollständig da? Liest nur ``herkunft.json`` und die Dateigrößen —
     die Prüfsummen wurden beim Download geprüft, ein Neu-Hashen von 330 MB wäre hier zu teuer."""
-    d = ordner()
+    return stand_in(ordner(), quelle())
+
+
+def stand_in(d: Path, q: Quelle) -> Stand:
+    """Der Stand eines Download-Ordners für die Quelle ``q`` (siehe :func:`stand`)."""
     try:
         belegt = sum(f.stat().st_size for f in d.rglob("*") if f.is_file()) if d.is_dir() else 0
     except OSError:
@@ -126,13 +155,13 @@ def stand() -> Stand:
     man = _herkunft_lesen(d) or {}
     dateien = man.get("dateien") or {}
     try:
-        vollstaendig = all(p in dateien for p in PFLICHT) and all(
+        vollstaendig = all(p in dateien for p in q.pflicht) and all(
             (d / p).is_file() and (d / p).stat().st_size == info.get("size")
             for p, info in dateien.items())
     except (OSError, AttributeError):
         vollstaendig = False
     return Stand(pfad=d, vollstaendig=vollstaendig, revision=man.get("revision"),
-                 belegt=belegt, angefangen=belegt > 0 and not vollstaendig)
+                 belegt=belegt, angefangen=belegt > 0 and not vollstaendig, soll=q.revision)
 
 
 def entfernen() -> None:
@@ -325,19 +354,19 @@ def _kurz(exc: Exception) -> str:
     return text if len(text) <= 160 else text[:157] + "…"
 
 
-def _dateiliste(client: httpx.Client) -> tuple[str, dict[str, dict]]:
-    """``main`` auf einen Commit auflösen und Größe + Prüfsumme der gebrauchten Dateien holen."""
-    r = client.get(f"{_endpoint()}/api/models/{REPO}/revision/{REVISION}",
+def _dateiliste(client: httpx.Client, q: Quelle) -> tuple[str, dict[str, dict]]:
+    """Den festen Commit auflösen und Größe + Prüfsumme der gebrauchten Dateien holen."""
+    r = client.get(f"{_endpoint()}/api/models/{q.repo}/revision/{q.revision}",
                    params={"blobs": "true"})
     r.raise_for_status()
     data = r.json()
     sha = str(data["sha"])
     hub = {s["rfilename"]: s for s in data.get("siblings") or []}
-    fehlt = [p for p in PFLICHT if p not in hub]
+    fehlt = [p for p in q.pflicht if p not in hub]
     if fehlt:
-        raise DownloadFehler(i18n.t("bn.err.layout", repo=REPO, names=", ".join(fehlt)))
+        raise DownloadFehler(i18n.t("bn.err.layout", repo=q.repo, names=", ".join(fehlt)))
     dateien: dict[str, dict] = {}
-    for p in (*PFLICHT, *(b for b in BEILAGEN if b in hub)):
+    for p in (*q.pflicht, *(b for b in q.beilagen if b in hub)):
         s = hub[p]
         lfs = s.get("lfs") or {}
         # Große Dateien (LFS/Xet) tragen SHA-256, kleine nur die Git-Blob-ID (SHA-1).
@@ -405,8 +434,8 @@ def _datei_laden(client: httpx.Client, url: str, ziel: Path, info: dict,
         raise DownloadFehler(i18n.t("bn.err.hash", name=ziel.name))
 
 
-def _herkunft_schreiben(d: Path, sha: str, dateien: dict[str, dict]) -> None:
-    data = {"repo": REPO, "revision": sha,
+def _herkunft_schreiben(d: Path, q: Quelle, sha: str, dateien: dict[str, dict]) -> None:
+    data = {"repo": q.repo, "revision": sha,
             "geladen": datetime.now(UTC).replace(microsecond=0).isoformat(),
             "dateien": dateien}
     tmp = d / (HERKUNFT + ".tmp")
@@ -414,10 +443,9 @@ def _herkunft_schreiben(d: Path, sha: str, dateien: dict[str, dict]) -> None:
     os.replace(tmp, d / HERKUNFT)
 
 
-def _offene_laden(con, client: httpx.Client, sha: str, dateien: dict[str, dict],
-                  offen: list[str]) -> bool:
+def _offene_laden(con, client: httpx.Client, q: Quelle, d: Path, sha: str,
+                  dateien: dict[str, dict], offen: list[str]) -> bool:
     """Die fehlenden Dateien laden — mit Platz-Check und Fortschrittsbalken."""
-    d = ordner()
     gesamt = sum(dateien[p]["size"] for p in offen)
     # Was von einem früheren Versuch schon als .part daliegt, muss nicht mehr übers Netz.
     noch = gesamt - sum(min(_part_groesse(d / p), dateien[p]["size"]) for p in offen)
@@ -425,12 +453,12 @@ def _offene_laden(con, client: httpx.Client, sha: str, dateien: dict[str, dict],
     if frei < noch + _PUFFER_MB * 1_000_000:
         con.error(i18n.t("bn.err.space", need=_mb(noch) + _PUFFER_MB, free=_mb(frei), path=d))
         return False
-    con.info(i18n.t("bn.start", n=len(offen), mb=_mb(noch), version=sha[:7], path=d), "⬇️")
+    con.info(_t(q, "start", n=len(offen), mb=_mb(noch), version=sha[:7], path=d), "⬇️")
     try:
-        with con.progress(i18n.t("bn.progress"), transfer=True) as prog:
-            task = prog.add_task(i18n.t("bn.progress"), total=gesamt)
+        with con.progress(_t(q, "progress"), transfer=True) as prog:
+            task = prog.add_task(_t(q, "progress"), total=gesamt)
             for p in offen:
-                _datei_laden(client, f"{_endpoint()}/{REPO}/resolve/{sha}/{p}", d / p,
+                _datei_laden(client, f"{_endpoint()}/{q.repo}/resolve/{sha}/{p}", d / p,
                              dateien[p], lambda n: prog.advance(task, n))
         # Erst jetzt tauschen, alles in einem Zug — sonst läge nach einem abgebrochenen
         # Update ein neues Modell neben der alten Kalibrierung. Ohne herkunft.json gilt der
@@ -440,13 +468,13 @@ def _offene_laden(con, client: httpx.Client, sha: str, dateien: dict[str, dict],
             os.replace(_part(d / p), d / p)
     except KeyboardInterrupt:
         con.raw("")
-        con.info(i18n.t("bn.interrupted"), "⏸️")
+        con.info(_t(q, "interrupted"), "⏸️")
         return False
     except DownloadFehler as exc:
         con.error(str(exc))
         return False
     except (httpx.HTTPError, OSError) as exc:
-        con.error(i18n.t("bn.err.download", err=_kurz(exc)))
+        con.error(_t(q, "err.download", err=_kurz(exc)))
         return False
     return True
 
@@ -458,10 +486,18 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
     fehlender Platz und Strg-C werden gemeldet statt geworfen — der Erststart darf an einem
     Download nie scheitern. Halbfertige Dateien bleiben für das nächste Mal liegen.
     """
-    d = ordner()
-    if stand().passend:
+    ok = laden_quelle(con, quelle(), ordner(), client=client)
+    if ok:
+        schliessen()                    # eine Sitzung auf dem alten Stand nicht weiterbenutzen
+    return ok
+
+
+def laden_quelle(con, q: Quelle, d: Path, *, client: httpx.Client | None = None) -> bool:
+    """Die Dateien der Quelle ``q`` nach ``d`` laden, fortsetzen oder aktualisieren — siehe
+    :func:`laden`. Gemeldet wird mit den Texten der Quelle (``q.texte``)."""
+    if stand_in(d, q).passend:
         # Der Commit ist fest — liegt er vollständig da, gibt es nichts nachzufragen (auch offline).
-        con.honey(i18n.t("bn.current", version=REVISION[:7], path=d), "✅")
+        con.honey(_t(q, "current", version=q.revision[:7], path=d), "✅")
         return True
     eigener = client is None
     if client is None:
@@ -469,9 +505,9 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
                               timeout=httpx.Timeout(30.0, connect=10.0),
                               headers={"User-Agent": f"pollysort/{__version__}"})
     try:
-        con.bloom(i18n.t("bn.checking", repo=REPO), "🔎")
+        con.bloom(_t(q, "checking", repo=q.repo), "🔎")
         try:
-            sha, dateien = _dateiliste(client)
+            sha, dateien = _dateiliste(client, q)
         except DownloadFehler as exc:
             con.error(str(exc))
             return False
@@ -481,18 +517,17 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
 
         alt = _herkunft_lesen(d) or {}
         alt_dateien = alt.get("dateien") or {}
-        if alt.get("revision") == sha and stand().vollstaendig:
-            con.honey(i18n.t("bn.current", version=sha[:7], path=d), "✅")
+        if alt.get("revision") == sha and stand_in(d, q).vollstaendig:
+            con.honey(_t(q, "current", version=sha[:7], path=d), "✅")
             return True
 
         offen = [p for p, info in dateien.items()
                  if not _aktuell(d / p, info, alt_dateien.get(p))]
         d.mkdir(parents=True, exist_ok=True)
-        if offen and not _offene_laden(con, client, sha, dateien, offen):
+        if offen and not _offene_laden(con, client, q, d, sha, dateien, offen):
             return False
-        _herkunft_schreiben(d, sha, dateien)
-        schliessen()                    # eine Sitzung auf dem alten Stand nicht weiterbenutzen
-        con.honey(i18n.t("bn.done", version=sha[:7], mb=_mb(stand().belegt), path=d), "✅")
+        _herkunft_schreiben(d, q, sha, dateien)
+        con.honey(_t(q, "done", version=sha[:7], mb=_mb(stand_in(d, q).belegt), path=d), "✅")
         return True
     finally:
         if eigener:
