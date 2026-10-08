@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import importlib.metadata
 import importlib.util
 import json
 import os
@@ -175,9 +176,40 @@ def entfernen() -> None:
 # --------------------------------------------------------------------------- #
 #  Laufzeit: Pakete prüfen, installieren, Modell öffnen
 # --------------------------------------------------------------------------- #
+def _version(v: str) -> tuple[int, ...]:
+    """``"1.30.0"`` → ``(1, 30, 0)``; ``"2.14.1+cu130"`` → ``(2, 14, 1)``. Nur die Zahlen vorn."""
+    teile: list[int] = []
+    for t in v.split("+")[0].split("."):
+        ziffern = t[:len(t) - len(t.lstrip("0123456789"))]
+        if not ziffern:
+            break
+        teile.append(int(ziffern))
+    return tuple(teile)
+
+
+def zu_alt(pakete: tuple[str, ...]) -> list[str]:
+    """Die Angaben aus ``pakete`` (``name>=x.y``), deren installierte Fassung älter ist.
+
+    Fehlt ein Paket ganz, meldet das :func:`laufzeit_fehlt` über den Import-Namen. Am 2026-10-08
+    gefunden: ``markitdown`` zog unter Windows magika 0.6.3 und damit ``onnxruntime<=1.20.1`` —
+    BeeNara v0.3 (8-Bit) lässt sich damit nicht öffnen, galt aber als „bereit“."""
+    alt = []
+    for spez in pakete:
+        name, _, mindest = spez.partition(">=")
+        if not mindest:
+            continue
+        try:
+            ist = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        if _version(ist) < _version(mindest):
+            alt.append(spez)
+    return alt
+
+
 def laufzeit_fehlt() -> list[str]:
-    """Welche Laufzeit-Pakete fehlen? Leer = BeeNara kann rechnen."""
-    return [m for m in _MODULE if importlib.util.find_spec(m) is None]
+    """Welche Laufzeit-Pakete fehlen oder sind zu alt? Leer = BeeNara kann rechnen."""
+    return [m for m in _MODULE if importlib.util.find_spec(m) is None] + zu_alt(PAKETE)
 
 
 def warum_nicht(cfg) -> str | None:
@@ -226,6 +258,8 @@ def laufzeit_installieren(con) -> bool:
         con.error(i18n.t("bn.rt.manual", pakete=" ".join(PAKETE)))
         return False
     con.bloom(i18n.t("bn.rt.installing", pakete=", ".join(fehlt)), "📦")
+    # Ein schon geladenes, zu altes onnxruntime rechnet bis zum Neustart weiter.
+    neu_starten = any(s.partition(">=")[0] in sys.modules for s in zu_alt(PAKETE))
     try:
         r = subprocess.run(befehl, capture_output=True, text=True, timeout=1800)
     except KeyboardInterrupt:
@@ -241,9 +275,9 @@ def laufzeit_installieren(con) -> bool:
         con.error(i18n.t("bn.rt.failed", err=letzte[-1] if letzte else f"Code {r.returncode}",
                          cmd=" ".join(befehl)))
         return False
-    if laufzeit_fehlt():
+    if laufzeit_fehlt() or neu_starten:
         # Installiert, aber in einem Pfad, den dieser Prozess beim Start nicht kannte
-        # (z. B. ein frisch angelegtes Benutzer-site-packages).
+        # (z. B. ein frisch angelegtes Benutzer-site-packages) — oder die alte Fassung ist geladen.
         con.info(i18n.t("bn.rt.restart"), "🔁")
         return False
     con.honey(i18n.t("bn.rt.done"), "✅")

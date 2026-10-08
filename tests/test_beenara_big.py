@@ -456,3 +456,11 @@ def test_cli_big_und_modellwahl():
     assert CliRunner().invoke(app, ["beenara", "modell", "riesig"]).exit_code == 2
     r = CliRunner().invoke(app, ["beenara", "big"])
     assert r.exit_code == 1 and "beenara big laden" in r.output
+
+
+def test_zu_altes_torch_wird_erneuert(monkeypatch, gpu):
+    _torch(monkeypatch, "2.9.0+cu130")
+    _spezifiziert(monkeypatch, torch_da=True, pip=True)
+    assert "torch>=2.14" in beenara_big.laufzeit_fehlt()
+    torch_befehl, _rest = beenara_big.installationsbefehle()
+    assert torch_befehl[-1] == "torch>=2.14" and "--force-reinstall" not in torch_befehl

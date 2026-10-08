@@ -555,3 +555,38 @@ def test_extra_und_installationsliste_sind_gleich():
 def test_beenara_geht_auch_ohne_projekt():
     from pollysort.repl import BeehiveShell
     assert "beenara" in BeehiveShell._NO_PROJECT_OK
+
+
+# --------------------------------------------------------------------------- #
+#  Laufzeit-Versionen
+# --------------------------------------------------------------------------- #
+def _installiert(monkeypatch, versionen: dict[str, str]):
+    import importlib.metadata as md
+
+    def v(name):
+        if name in versionen:
+            return versionen[name]
+        raise md.PackageNotFoundError(name)
+    monkeypatch.setattr(beenara.importlib.metadata, "version", v)
+
+
+def test_zu_altes_onnxruntime_gilt_als_fehlend(monkeypatch):
+    """magika 0.6.3 hielt unter Windows onnxruntime auf 1.20.1 — damit öffnet sich v0.3 nicht."""
+    _installiert(monkeypatch, {"onnxruntime": "1.20.1", "tokenizers": "0.22.0", "numpy": "2.5.2"})
+    monkeypatch.setattr(beenara.importlib.util, "find_spec", lambda _n, *a: object())
+    assert beenara.laufzeit_fehlt() == ["onnxruntime>=1.30"]
+    _installiert(monkeypatch, {"onnxruntime": "1.30.0", "tokenizers": "0.22.0", "numpy": "2.5.2"})
+    assert beenara.laufzeit_fehlt() == []
+
+
+@pytest.mark.parametrize("ist,soll,alt", [("1.20.1", "1.30", True), ("1.30.0", "1.30", False),
+                                          ("2.14.1+cu130", "2.14", False), ("0.6.3rc1", "0.7", True),
+                                          ("10.4.0", "10", False)])
+def test_versionen_vergleichen(monkeypatch, ist, soll, alt):
+    _installiert(monkeypatch, {"paket": ist})
+    assert beenara.zu_alt((f"paket>={soll}",)) == ([f"paket>={soll}"] if alt else [])
+
+
+def test_fehlendes_paket_ist_nicht_zu_alt(monkeypatch):
+    _installiert(monkeypatch, {})
+    assert beenara.zu_alt(("onnxruntime>=1.30", "ohne-version")) == []
