@@ -36,9 +36,10 @@ from . import beenara, config, i18n
 from .beenara import Quelle, Stand, stand_in
 
 REPO = "Kwokou/BeeNara-Big"
-#: BeeNara Big v0.3 (Hub-Commit vom 2026-10-08, Tag ``v0.3``, mit Lader und Quickstart; die
-#: Modelldateien sind dieselben wie im ersten Upload 91e082d). Wer diesen Wert anhebt, prüft
-#: vorher die Laufzeit gegen das neue Modell (Paritätstest) — wie bei BeeNara.
+#: BeeNara Big v0.3 (Hub-Commit vom 2026-10-08, mit Lader und Quickstart). Die Modelldateien sind
+#: dieselben wie in 91e082d und in d453bef (Tag ``v0.3``, dort nur der Lader für die GPU
+#: korrigiert — PollySort lädt keinen Code vom Hub). Wer diesen Wert anhebt, prüft vorher die
+#: Laufzeit gegen das neue Modell (Paritätstest) — wie bei BeeNara.
 REVISION = "64266f0783557431f6e2d5bcf06e00bd8631f4d6"
 BASIS_REPO = "Qwen/Qwen3.5-2B-Base"
 #: Genau die Basis, auf der Big trainiert wurde (steht auch in ``big_config.json``).
