@@ -84,13 +84,18 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--bg);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48' viewBox='0 0 56 48' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23000' stroke-opacity='.06' stroke-width='2' d='M14 2h14l7 12-7 12H14L7 14zM42 26h14M0 26h7M35 14l7 12-7 12M14 26l-7 12 7 12'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='24' viewBox='0 0 42 24' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23000' stroke-opacity='.06' stroke-width='2' stroke-linecap='square' d='M0 12L7 0H21L28 12L21 24H7ZM28 12H42'/%3E%3C/svg%3E");
   color: var(--text);
   font-family: var(--schrift);
   line-height: 1.5;
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='24' viewBox='0 0 42 24' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23FFC83D' stroke-opacity='.05' stroke-width='2' stroke-linecap='square' d='M0 12L7 0H21L28 12L21 24H7ZM28 12H42'/%3E%3C/svg%3E");
+  }
+}
 :root[data-theme="dark"] body {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48' viewBox='0 0 56 48' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23FFC83D' stroke-opacity='.05' stroke-width='2' d='M14 2h14l7 12-7 12H14L7 14zM42 26h14M0 26h7M35 14l7 12-7 12M14 26l-7 12 7 12'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='24' viewBox='0 0 42 24' shape-rendering='crispEdges'%3E%3Cpath fill='none' stroke='%23FFC83D' stroke-opacity='.05' stroke-width='2' stroke-linecap='square' d='M0 12L7 0H21L28 12L21 24H7ZM28 12H42'/%3E%3C/svg%3E");
 }
 a { color: inherit; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -110,6 +115,13 @@ code, .mono { font-family: var(--mono); font-size: .92em; }
 
 /* Sprites */
 .sprite { display: inline-block; width: auto; height: 24px; vertical-align: middle; }
+.sprite.symbol { height: 1.15em; vertical-align: -0.22em; flex: none; }
+.mit-symbol { display: flex; align-items: flex-start; gap: .5em; }
+.mit-symbol > .sprite.symbol { margin-top: .15em; }
+td.mit-symbol { display: table-cell; }
+td.mit-symbol .sprite.symbol { margin-right: .45em; }
+.polly .sprite.symbol { height: 16px; vertical-align: -3px; }
+.protokoll li .sprite.symbol { height: 16px; }
 .sp-k { fill: var(--sp-k); } .sp-d { fill: var(--sp-d); } .sp-y { fill: var(--sp-y); }
 .sp-o { fill: var(--sp-o); } .sp-b { fill: var(--sp-b); } .sp-w { fill: var(--sp-w); }
 .sp-l { fill: var(--sp-l); } .sp-h { fill: var(--sp-h); } .sp-r { fill: var(--sp-r); }

@@ -36,7 +36,19 @@
     ['rueckflug', 'Rückflug', 'Letzte Verschiebung zurück'],
     ['kalender', 'Bienen-Kalender', 'Deadlines, .ics'],
     ['auge', 'Auge der Biene', 'Datei mit dem Standardprogramm ansehen'],
-    ['blitz', 'Fehler', 'Datei nicht lesbar'],
+    ['blitz', 'Tempo', 'Ultra Swarm, „sortiert mit" (BeeNara)'],
+    ['warnung', 'Warnung', 'Fehler, Datei nicht lesbar, Rückfall'],
+    ['haken', 'Erledigt', 'Stock-Check ok, Wache aktiv, eingerichtet'],
+    ['kreuz', 'Fehlgeschlagen', 'Stock-Check-Fehler'],
+    ['schluessel', 'Nektar-Quelle', 'OpenRouter-Schlüssel'],
+    ['route', 'Flugroute', 'Discord, E-Mail, Benachrichtigungen'],
+    ['gehirn', 'Gedächtnis', 'Lernen, Vorwärmen, Neuaufbau'],
+    ['ordner', 'Ordner', 'Projekt, Unterordner'],
+    ['laden', 'Herunterladen', 'BeeNara-Modell holen'],
+    ['chip', 'Grafikkarte', 'GPU, lokales Modell'],
+    ['zahnrad', 'Technik', 'Stock-Check, Darstellung'],
+    ['weiche', 'Modellwahl', 'BeeNara oder BeeNara Big'],
+    ['eimer', 'Entfernen', 'heruntergeladenes Modell löschen'],
     ['stift', 'Lehrmeister', 'Erste Korrektur beigebracht'],
     ['funkeln', 'Blitzblank', 'Eingang komplett leer'],
     ['sonne', 'Sieben Tage Sonne', '7 Tage in Folge aufgeräumt'],
@@ -76,7 +88,7 @@
       `<div class="abzeichen ${ok ? 'verdient' : ''}">${plakette(i)}<b>${name}</b><small>${grund}</small></div>`).join('');
     $('#mb-flugloch').innerHTML = P.sprite('flugloch');
     $('#mb-wabe').innerHTML = P.sprite('wabe');
-    $('#mb-schlaf').innerHTML = `<span>${P.sprite('schlaf')}<span class="schlaf-z">z</span></span><p>Keine losen Dateien. Alles aufgeräumt. ✨</p>`;
+    $('#mb-schlaf').innerHTML = `<span>${P.sprite('schlaf')}<span class="schlaf-z">z</span></span><p>Keine losen Dateien. Alles aufgeräumt.</p>`;
     regeln(false);
     P.schrift(document);
   }

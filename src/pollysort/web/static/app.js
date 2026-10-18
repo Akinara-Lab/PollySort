@@ -18,6 +18,61 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // ------------------------------------------------------------------ //
+  //  Keine Emojis in der Oberfläche: Die Konsole schmückt ihre Meldungen mit Emojis
+  //  (Honigtopf, Biene, Haken …). Im Flugbrett wird daraus das passende Pixel-Icon. Die Schlüssel
+  //  stehen als Escapes, damit diese Datei selbst emoji-frei bleibt (ein Test prüft das).
+  // ------------------------------------------------------------------ //
+  const SYMBOL = {
+    '\u{1F36F}': 'topf', '\u{1F4B8}': 'topf',                       // Honigtopf, Kosten
+    '\u{1F41D}': 'biene',                                            // Biene
+    '\u{1F338}': 'blume',                                            // Blüte (in Arbeit)
+    '\u2753': 'frage',                                               // Rückfrage
+    '\u26A0': 'warnung', '\u{1F6DF}': 'warnung', '\u{1F7E0}': 'warnung', // Warnung, Rettungsring
+    '\u274C': 'kreuz', '\u{1F534}': 'kreuz',                        // nein, rot
+    '\u2705': 'haken', '\u{1F7E2}': 'haken',                        // erledigt, grün
+    '\u{1F389}': 'funkeln', '\u2728': 'funkeln', '\u{1F3C5}': 'funkeln', '\u{1F195}': 'funkeln',
+    '\u{1F3C6}': 'krone', '\u{1F451}': 'krone',                     // Pokal, Königin
+    '\u270D': 'stift',                                               // Nacherfassung
+    '\u{1F9EA}': 'lupe', '\u{1F50E}': 'lupe', '\u{1F50D}': 'lupe', // Vorschau, Analyse
+    '\u{1F440}': 'auge',                                             // Wache schaut
+    '\u{1F9E0}': 'gehirn',                                           // Gedächtnis
+    '\u{1F4DC}': 'tafel', '\u{1F4CB}': 'tafel',                     // Wachstafel, Bericht
+    '\u21A9': 'rueckflug', '\u{1F501}': 'rueckflug', '\u{1F504}': 'rueckflug',
+    '\u26B0': 'kiste', '\u{1F6E1}': 'kiste', '\u{1F5C4}': 'kiste', // Quarantäne, Dublette, Sicherung
+    '\u{1F4C2}': 'ordner', '\u{1F4C1}': 'ordner', '\u{1F5C2}': 'ordner',
+    '\u{1F6E0}': 'hammer',                                           // Baubienen
+    '\u{1F4C5}': 'kalender', '\u23F1': 'kalender',                  // Kalender, Zeit
+    '\u{1F514}': 'glocke',                                           // Wächterbienen
+    '\u{1F9ED}': 'route', '\u{1F4E7}': 'route', '\u{1F3AE}': 'route', // Flugrouten, E-Mail, Discord
+    '\u{1F4E5}': 'flugloch', '\u{1F4ED}': 'flugloch',               // Eingang
+    '\u{1F3E0}': 'haus',
+    '\u{1F511}': 'schluessel',                                       // Nektar-Quelle
+    '\u26A1': 'blitz',                                               // Tempo, sortiert mit
+    '\u{1F5A5}': 'chip', '\u{1F999}': 'chip',                       // Grafikkarte, Ollama
+    '\u2699': 'zahnrad', '\u{1F3A8}': 'zahnrad',                    // Technik, Darstellung
+    '\u{1F500}': 'weiche',                                           // Modellwahl
+    '\u{1F5D1}': 'eimer',                                            // Modell entfernt
+    '\u{1F4E6}': 'laden', '\u2B07': 'laden',                        // Paket, Download
+    '\u{1F423}': 'wabe',                                             // neue Kategorie schlüpft
+    '\u{1F30D}': 'zahnrad', '\u{1F310}': 'zahnrad', '\u{1FA7A}': 'zahnrad', // Sprache, Stock-Check
+    '\u{1F578}': 'lupe',                                             // keine Treffer
+    '\u{1F680}': 'blitz',                                            // Start, Tempo
+    '\u{1F9F9}': 'eimer',                                            // aufräumen
+    '\u{1F9FD}': 'tafel',                                            // Wachstafel abgewischt
+  };
+  const ART_SYMBOL = { honey: 'topf', error: 'warnung', ask: 'frage', bloom: 'blume', feier: 'funkeln', info: 'biene' };
+  const PIKTOGRAMM = /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu;
+
+  /** Das Pixel-Icon zu einem Emoji der Konsole — sonst eins passend zur Meldungsart. */
+  function symbol(emoji, art) {
+    const name = SYMBOL[String(emoji || '').replace(/[\uFE0F\u200D]/g, '')] || ART_SYMBOL[art] || 'biene';
+    return P.sprite(name, 'symbol');
+  }
+
+  /** Text ohne Emojis (Pfeile, Häkchen-Zeichen und Satzzeichen bleiben). */
+  const ohneEmoji = (text) => String(text == null ? '' : text).replace(PIKTOGRAMM, '').replace(/ {2,}/g, ' ').trim();
+
+  // ------------------------------------------------------------------ //
   //  Sitzungs-Token: kommt einmalig im Fragment (#t=…), dann nur noch im Speicher
   // ------------------------------------------------------------------ //
   const TOKEN = (() => {
@@ -67,7 +122,7 @@
   function t(key, p) {
     let s = T[key];
     if (s == null) return key;
-    s = s.replace(/\[\/?(?:honey|bloom|ask|err|muted|bold|dim|italic|b|i|u)\]/g, '');
+    s = ohneEmoji(s.replace(/\[\/?(?:honey|bloom|ask|err|muted|bold|dim|italic|b|i|u)\]/g, ''));
     if (p) s = s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
     return s;
   }
@@ -361,15 +416,15 @@
 
   function pollySagt(e) {
     const el = $('#polly');
-    el.innerHTML = `<span class="art-${esc(e.art)}">${esc(e.emoji || '🐝')} ${esc(e.text)}</span>`;
+    el.innerHTML = `<span class="art-${esc(e.art)}">${symbol(e.emoji, e.art)} ${esc(ohneEmoji(e.text))}</span>`;
   }
 
   function protokollZeichnen() {
     const liste = $('#protokoll-liste');
     if ($('#protokoll').hidden) return;
     liste.innerHTML = S.ereignisse.slice().reverse().map((e) =>
-      `<li class="art-${esc(e.art)}"><time>${esc(e.zeit || '')}</time><span>${esc(e.emoji || '·')}</span>` +
-      `<span>${esc(e.text)}</span></li>`).join('') || `<li><span></span><span></span><span class="leise">${esc(t('web.log.empty'))}</span></li>`;
+      `<li class="art-${esc(e.art)}"><time>${esc(e.zeit || '')}</time><span>${symbol(e.emoji, e.art)}</span>` +
+      `<span>${esc(ohneEmoji(e.text))}</span></li>`).join('') || `<li><span></span><span></span><span class="leise">${esc(t('web.log.empty'))}</span></li>`;
   }
 
   // ------------------------------------------------------------------ //
@@ -552,7 +607,7 @@
     </section>`);
     if (p.fehler) {
       kacheln.push(`<section class="karte kachel fehler">
-        <div class="kachel-kopf">${P.sprite('blitz')}<h2>${esc(t('web.st.error'))}</h2></div>
+        <div class="kachel-kopf">${P.sprite('warnung')}<h2>${esc(t('web.st.error'))}</h2></div>
         <div class="zahl">${px(p.fehler)}</div><p class="zahl-text">${esc(t('web.home.errors'))}</p>
         <div class="aktionen"><a class="knopf zweit" href="#/waben/_fehler">${esc(t('web.btn.show'))}</a></div></section>`);
     }
@@ -819,7 +874,7 @@
       <p>${esc(t('web.memory.vectors', { n: g.vektoren }))}</p>
       ${g.drift ? `<p class="chip frage">${esc(t('r.mem.drift', { drift: g.drift }))}</p>` : ''}
       <div class="zeile">${g.waben.map((x) => `<span class="chip">${esc(x.name)}</span>`).join('')}</div>
-      ${g.vorschlaege.length ? `<h3 class="abstand">${esc(t('web.memory.proposals'))}</h3>${g.vorschlaege.map((v) => `<div class="regel"><span>🐣 ${esc(v.text)}</span>
+      ${g.vorschlaege.length ? `<h3 class="abstand">${esc(t('web.memory.proposals'))}</h3>${g.vorschlaege.map((v) => `<div class="regel"><span class="mit-symbol">${P.sprite('wabe', 'symbol')}<span>${esc(v.text)}</span></span>
         <button class="knopf zweit klein-knopf" type="button" data-tun="gedaechtnis-ok" data-slug="${esc(v.slug)}">${esc(t('web.btn.accept_short'))}</button></div>`).join('')}` : ''}
       <div class="zeile abstand"><button class="knopf leise-knopf" type="button" data-tun="gedaechtnis-neu">${esc(t('web.btn.rebuild'))}</button></div>
       <p class="hinweis">${esc(t('help.d.memory'))}</p></section>` : '';
@@ -890,10 +945,10 @@
     const bbChip = bb.bereit ? ['wache', 'web.bn.chip.on'] : bb.vorhanden || bb.angefangen ? ['frage', 'web.bn.chip.incomplete']
       : bb.gpu_grund ? ['aus', 'web.bb.chip.gpu'] : ['aus', 'web.bn.chip.missing'];
     const bbUnfertig = !bb.vorhanden || bb.angefangen || bb.grund === 'version' || bb.grund === 'laufzeit';
-    const bigTeil = `<div class="abstand"><div class="zeile weit"><h3>${esc(t('bb.title'))}</h3>
+    const bigTeil = `<div class="abstand"><div class="zeile weit"><h3 class="mit-symbol">${P.sprite('biene', 'symbol')}<span>${esc(t('bb.title'))}</span></h3>
         <span class="chip ${bbChip[0]}">${esc(t(bbChip[1]))}</span></div>
       <p class="hinweis">${esc(t('bb.what'))}</p>
-      ${bb.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
+      ${bb.zeilen.map((z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`).join('')}
       <div class="zeile abstand">
         ${bbUnfertig ? `<button class="knopf ${bb.gpu_grund ? 'zweit' : ''}" type="button" data-tun="bb-laden">${esc(t(bb.vorhanden || bb.angefangen ? 'web.btn.bn_finish' : 'web.btn.bb_pull'))}</button>` : ''}
         ${bb.vorhanden || bb.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bb-entfernen" data-mb="${esc(bb.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
@@ -903,7 +958,7 @@
     const beenaraKarte = `<section class="karte" aria-labelledby="bn-titel"><div class="zeile weit"><h2 id="bn-titel">${esc(t('fr.bn.title'))}</h2>
         <span class="chip ${bnChip[0]}">${esc(t(bnChip[1]))}</span></div>
       <p class="hinweis">${esc(t('bn.what'))} ${esc(t('fr.bn.size', { repo: bn.repo, mb: bn.ungefaehr_mb }))}</p>
-      ${bn.zeilen.map((z) => `<p class="${z.art === 'ask' ? '' : 'leise'}">${esc(z.emoji)} ${esc(z.text)}</p>`).join('')}
+      ${bn.zeilen.map((z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`).join('')}
       <div class="zeile abstand">
         ${bnUnfertig ? `<button class="knopf" type="button" data-tun="bn-laden">${esc(t(bn.vorhanden || bn.angefangen ? 'web.btn.bn_finish' : 'web.btn.bn_pull'))}</button>` : ''}
         ${bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
@@ -911,7 +966,7 @@
       </div>
       ${bigTeil}
       ${laufBlock()}</section>`;
-    const checks = S.check ? `<table class="liste"><tbody>${S.check.map((c) => `<tr><td>${c.status === 'ok' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'}</td>
+    const checks = S.check ? `<table class="liste"><tbody>${S.check.map((c) => `<tr><td>${P.sprite(c.status === 'ok' ? 'haken' : c.status === 'warn' ? 'warnung' : 'kreuz', 'symbol')}<span class="sr-only">${esc(c.status)}</span></td>
       <td><b>${esc(c.titel)}</b></td><td class="klein">${esc(c.detail)}</td></tr>`).join('')}</tbody></table>` : '';
     return `${seitenKopf('web.nav.workshop', 'web.nav.workshop.k')}
       <div class="stapel">
@@ -945,11 +1000,11 @@
         ${beenaraKarte}
         <section class="karte"><h2>${esc(t('web.ws.access'))}</h2>
           <table class="liste"><tbody>
-            <tr><td>🔑 <b>${esc(t('r.key.title'))}</b></td><td>${w.schluessel.quelle ? `<span class="mono">${esc(w.schluessel.maskiert)}</span> <span class="leise klein">(${esc(t('web.key.' + w.schluessel.quelle))})</span>` : `<span class="leise">${esc(t('r.key.none'))}</span>`}</td><td><code>schluessel setzen</code></td></tr>
-            <tr><td>🧭 <b>${esc(t('r.routes.title'))}</b></td><td>${['discord', 'email', 'kalender'].map((k) => `<span class="chip ${w.flugrouten[k] ? 'wache' : 'aus'}">${esc(t('web.routes.' + k))}</span>`).join(' ')}</td><td><code>flugrouten setup</code></td></tr>
+            <tr><td class="mit-symbol">${P.sprite('schluessel', 'symbol')}<b>${esc(t('r.key.title'))}</b></td><td>${w.schluessel.quelle ? `<span class="mono">${esc(w.schluessel.maskiert)}</span> <span class="leise klein">(${esc(t('web.key.' + w.schluessel.quelle))})</span>` : `<span class="leise">${esc(t('r.key.none'))}</span>`}</td><td><code>schluessel setzen</code></td></tr>
+            <tr><td class="mit-symbol">${P.sprite('route', 'symbol')}<b>${esc(t('r.routes.title'))}</b></td><td>${['discord', 'email', 'kalender'].map((k) => `<span class="chip ${w.flugrouten[k] ? 'wache' : 'aus'}">${esc(t('web.routes.' + k))}</span>`).join(' ')}</td><td><code>flugrouten setup</code></td></tr>
           </tbody></table>
           <p class="hinweis">${esc(t('web.ws.access.text'))}</p></section>
-        <section class="karte"><div class="zeile weit"><h2>🩺 ${esc(t('web.ws.check'))}</h2>
+        <section class="karte"><div class="zeile weit"><h2 class="mit-symbol">${P.sprite('zahnrad', 'symbol')}<span>${esc(t('web.ws.check'))}</span></h2>
           <button class="knopf zweit" type="button" data-tun="stock-check">${esc(t('web.btn.check'))}</button></div>
           <p class="hinweis">${esc(t('help.d.doctor'))}</p>${checks}</section>
         <section class="karte"><div class="zeile weit"><h2>${esc(t('projects.title'))}</h2>
