@@ -4,10 +4,13 @@
     python tools/readme_bilder.py                    # nach docs/bilder/
     python tools/readme_bilder.py --nur-hell         # nur das helle Thema
     python tools/readme_bilder.py --modell <ordner>  # BeeNara von woanders (Standard: ~/.pollysort)
+    python tools/readme_bilder.py --big <ordner>     # BeeNara Big von woanders (dito)
 
 Braucht Playwright (``pip install playwright``) und ein installiertes Edge oder Chrome — einen
 eigenen Browser lädt das Skript nicht herunter. Für die BeeNara-Bilder außerdem das Extra
-``[beenara]`` und ein geladenes Modell; fehlt es, sortiert die Demo ohne BeeNara.
+``[beenara]`` und ein geladenes Modell; fehlt es, sortiert die Demo ohne BeeNara. Damit die
+Karte BeeNara Big als bereit zeigt, braucht diese Python-Umgebung auch dessen Laufzeit (Extra
+``[beenara-big]``, torch mit CUDA) und das geladene Modell — sonst steht dort, was fehlt.
 
 Alles läuft in einem eigenen, temporären ``POLLYSORT_HOME``: Deine echte Ablage, deine Projekte
 und dein Gedächtnis bleiben unberührt. Die Dokumente sind erfunden und englisch, wie die README.
@@ -34,134 +37,330 @@ DEMO_ABLAGE = r"C:\Users\alex\.pollysort"
 
 # Bewusst gemischt: sprechende Namen und nichtssagende Scans — sortiert wird nach dem Inhalt.
 DOKUMENTE = {
-    "northwind-energy-bill.txt": """Northwind Energy Ltd
-Customer no. 448 201 · Meter 7Q-31877
+    "northwind-energy-bill.txt": """Northwind Energy Ltd · Harbour Road 18 · 20457 Hamburg
+Customer service: +49 40 555 0182 · service@northwind-energy.example
 
-ELECTRICITY BILL · Invoice no. NE-2026-09-4471
+Alex Morgan
+12 Linden Street
+10115 Berlin
+
+ELECTRICITY BILL
+Invoice no. NE-2026-09-4471 · Invoice date 2 Sep 2026
+Customer no. 448 201 · Contract: Green Basic 12 · Meter no. 7Q-31877
+
 Billing period: 1 Aug 2026 – 31 Aug 2026
+Meter reading 1 Aug 2026                 18,402 kWh
+Meter reading 31 Aug 2026                18,714 kWh
+Consumption                                 312 kWh
 
-Consumption 312 kWh × 0.29 EUR          90.48 EUR
-Standing charge                         12.00 EUR
-VAT 19 %                                19.47 EUR
-Total due                              121.95 EUR
+Energy charge 312 kWh × 0.2900 EUR          90.48 EUR
+Standing charge (1 month)                   12.00 EUR
+Net amount                                 102.48 EUR
+VAT 19 %                                    19.47 EUR
+Total due                                  121.95 EUR
 
-Payable by direct debit on 15 Sep 2026.
+The amount of 121.95 EUR will be collected by direct debit on 15 Sep 2026
+under mandate reference NE-448201-01. Your next monthly payment remains 115.00 EUR.
+
+Northwind Energy Ltd · Registered in Hamburg HRB 99812 · VAT ID DE 000 111 222
 """,
-    "scan_0912.txt": """Bluewave Mobile
-Invoice 2026/09 · Account 0176-2290
+    "scan_0912.txt": """Bluewave Mobile GmbH                                          Page 1 of 1
+P.O. Box 4410 · 80331 Munich
 
-Monthly plan "Unlimited 30"             29.99 EUR
-Roaming EU                               0.00 EUR
-Total incl. VAT                         29.99 EUR
+Alex Morgan · 12 Linden Street · 10115 Berlin
 
-Thank you for paying on time. Amount will be collected on 05 Oct 2026.
+INVOICE 2026/09
+Invoice no. BW-0176-2290-0926 · Date 1 Oct 2026
+Customer account 0176-2290 · Phone number 0176 ••• 2290
+Billing period 1 Sep 2026 – 30 Sep 2026
+
+Monthly plan "Unlimited 30"                         25.20 EUR
+Roaming EU (regulated, included)                     0.00 EUR
+Third-party services                                 0.00 EUR
+Net amount                                          25.20 EUR
+VAT 19 %                                             4.79 EUR
+Total incl. VAT                                     29.99 EUR
+
+Thank you for paying on time. The total will be collected from your account
+ending 4471 on 5 Oct 2026 (SEPA mandate BW-77120).
+
+Questions about your invoice? bluewave-mobile.example/help · Hotline 0800 555 0110
+Bluewave Mobile GmbH · Munich Local Court HRB 230017 · VAT ID DE 000 333 444
 """,
-    "Plumber Weber - invoice.txt": """Weber Plumbing & Heating
-Invoice no. 2026-118 · Date: 22 Sep 2026
+    "Plumber Weber - invoice.txt": """Weber Plumbing & Heating · Master Plumber Jonas Weber
+Kastanienallee 41 · 10435 Berlin · Tel. 030 555 4410
 
-Replaced kitchen tap, sealed drain       180.00 EUR
-Call-out fee                              45.00 EUR
-VAT 19 %                                  42.75 EUR
-Invoice total                            267.75 EUR
+Ms Alex Morgan
+12 Linden Street, 3rd floor left
+10115 Berlin
 
-Please transfer within 14 days quoting the invoice number.
+INVOICE
+Invoice no. 2026-118 · Date: 22 Sep 2026 · Customer no. 3307
+Job: kitchen, leaking tap and blocked drain · Work carried out on 19 Sep 2026
+
+Pos  Description                                   Qty    Price      Total
+1    Call-out charge, Berlin city zone              1      45.00      45.00
+2    Labour, plumber                              1.5 h    68.00     102.00
+3    Single-lever kitchen tap, chrome               1      64.00      64.00
+4    Drain cleaning, sealing material               1      14.00      14.00
+                                             Net amount            225.00 EUR
+                                             VAT 19 %               42.75 EUR
+                                             Invoice total         267.75 EUR
+
+Please transfer the invoice total within 14 days, quoting invoice number 2026-118.
+Of this, 102.00 EUR labour costs can be claimed as household services.
+
+Bank: Berliner Handwerksbank · IBAN DE00 1000 0000 0000 2026 18
+Tax no. 21/555/01234 · Thank you for your order!
 """,
-    "tenancy agreement flat.txt": """TENANCY AGREEMENT
+    "tenancy agreement flat.txt": """RESIDENTIAL TENANCY AGREEMENT
 
-between Maple Court Properties (landlord) and Alex Morgan (tenant)
-for the flat at 12 Linden Street, 3rd floor left.
+between
+Maple Court Properties GmbH, Am Wasserturm 3, 10405 Berlin (the "Landlord")
+and
+Alex Morgan, born 3 May 1991 (the "Tenant")
 
-§1 The tenancy begins on 1 March 2026 and runs for an indefinite period.
-§2 Monthly rent: 980.00 EUR plus 210.00 EUR service charges.
-§3 Deposit: three months' basic rent.
-§4 Either party may terminate with three months' notice.
+§1 Rented premises
+The Landlord lets to the Tenant the flat at 12 Linden Street, 10115 Berlin,
+3rd floor left, consisting of 2 rooms, kitchen, bathroom and balcony,
+approx. 64 m², together with cellar compartment no. 7.
 
-Signed, Berlin, 14 February 2026
+§2 Term
+The tenancy begins on 1 March 2026 and runs for an indefinite period.
+Either party may terminate it in writing with three months' notice.
+
+§3 Rent and service charges
+The monthly basic rent is 980.00 EUR. In addition, the Tenant pays an advance
+of 210.00 EUR per month for heating and service charges, settled annually.
+Rent is payable in advance by the third working day of each month.
+
+§4 Deposit
+The Tenant pays a deposit of three months' basic rent (2,940.00 EUR), which the
+Landlord keeps separate from its own assets in an interest-bearing account.
+
+§5 Repairs and alterations
+Minor repairs up to 100 EUR per case are borne by the Tenant, at most 8 % of the
+annual basic rent. Structural alterations require the Landlord's written consent.
+
+Berlin, 14 February 2026
+
+________________________            ________________________
+Landlord                            Tenant
 """,
-    "gym-membership.txt": """FitHive Studios — Membership contract
+    "gym-membership.txt": """FitHive Studios GmbH · Torstraße 120 · 10119 Berlin
 
-Member: Alex Morgan · Membership no. FH-20931
-Plan: Premium, 24 months minimum term, 39.90 EUR per month
-Start date: 1 October 2026
+MEMBERSHIP CONTRACT
 
-The contract renews automatically for 12 months unless cancelled
-four weeks before the end of the minimum term.
+Member: Alex Morgan · Date of birth 3 May 1991 · Membership no. FH-20931
+Studio: FitHive Mitte · Contract date 24 Sep 2026
+
+Plan: Premium (all studios, courses, sauna)
+Monthly fee: 39.90 EUR · One-off joining fee: 29.00 EUR
+Minimum term: 24 months, starting 1 October 2026
+
+Terms
+1. Fees are collected monthly in advance by direct debit from the account
+   ending 4471.
+2. After the minimum term the contract renews for an indefinite period and can
+   then be cancelled with one month's notice.
+3. Cancellation during the minimum term must be received in writing at least
+   four weeks before the end of the minimum term.
+4. Membership can be paused for illness or pregnancy on presentation of a
+   certificate.
+
+By signing, the member accepts the studio rules and the general terms and
+conditions, which form part of this contract.
+
+________________________            ________________________
+FitHive Studios                     Member
 """,
-    "Document (3).txt": """Car insurance — renewal of your policy
+    "Document (3).txt": """Harbourline Insurance AG · Motor Division · Postfach 1180 · 50667 Cologne
 
-Policy no. KFZ-5521-8830 · Vehicle: B-AM 2207
-Cover: fully comprehensive, excess 300 EUR
-New annual premium from 1 Jan 2027: 612.40 EUR
-No-claims class SF 9
+Ms Alex Morgan
+12 Linden Street
+10115 Berlin
 
-Please check the enclosed insurance certificate.
-""",
-    "home-contents-policy.txt": """Household contents insurance — policy schedule
+Cologne, 18 November 2026
 
-Policyholder: Alex Morgan, 12 Linden Street
-Sum insured: 45,000 EUR · includes bicycle theft up to 1,500 EUR
-Premium: 9.80 EUR per month
+Your car insurance — renewal for 2027
+Policy no. KFZ-5521-8830 · Vehicle registration B-AM 2207 · VW Golf, 2019
 
-Insurance period 1 Mar 2026 – 1 Mar 2027, renews annually.
-""",
-    "tax-assessment-2025.txt": """Tax Office Berlin-Mitte
-Tax number 13/245/67890
-
-NOTICE OF ASSESSMENT — Income tax 2025
-
-Taxable income                         48,312 EUR
-Income tax assessed                     8,941 EUR
-Tax already withheld                    9,655 EUR
-Refund                                    714 EUR
-
-The refund will be paid into your account ending 4471.
-""",
-    "scan_0917.txt": """Payslip September 2026
-
-Employer: Lumen Data GmbH · Employee: Alex Morgan · Personnel no. 1187
-
-Gross salary                            4,350.00 EUR
-Income tax                               -612.33 EUR
-Social security contributions            -893.18 EUR
-Net pay                                 2,844.49 EUR
-
-Paid to account ending 4471 on 30 Sep 2026.
-""",
-    "payslip_2026-08.txt": """Payslip August 2026
-
-Employer: Lumen Data GmbH · Employee: Alex Morgan · Personnel no. 1187
-
-Gross salary                            4,350.00 EUR
-Income tax                               -612.33 EUR
-Social security contributions            -893.18 EUR
-Net pay                                 2,844.49 EUR
-""",
-    "statement-sep-2026.txt": """Riverbank · Current account statement no. 9/2026
-Account ending 4471 · 1 Sep – 30 Sep 2026
-
-Opening balance                         3,112.40 EUR
-01.09. Rent Maple Court               -1,190.00 EUR
-05.09. Bluewave Mobile                   -29.99 EUR
-15.09. Northwind Energy                 -121.95 EUR
-30.09. Salary Lumen Data              +2,844.49 EUR
-Closing balance                         4,614.95 EUR
-""",
-    "credit card october.txt": """Riverbank Visa — monthly statement
-Card ending 9902 · Statement date 3 Oct 2026
-
-Online bookstore                         34.90 EUR
-Train tickets                           118.00 EUR
-Restaurant Olive                         62.50 EUR
-New balance                             215.40 EUR
-
-The amount will be debited from your current account on 10 Oct 2026.
-""",
-    "letter-landlord-heating.txt": """Maple Court Properties
 Dear Ms Morgan,
 
-we would like to inform you that the heating system in your building
-will be serviced on 14 October 2026 between 8 am and 1 pm. Please
-make sure the radiators in your flat are accessible.
+your car insurance renews on 1 January 2027. Here is an overview of your cover
+for the new insurance year:
+
+Third-party liability, sum insured 100 million EUR          318.20 EUR
+Fully comprehensive cover, excess 300 EUR                    251.60 EUR
+Partial cover (theft, glass, storm), excess 150 EUR          included
+Roadside assistance                                           42.60 EUR
+New annual premium from 1 Jan 2027                           612.40 EUR
+
+Your no-claims class improves to SF 9 because you made no claim this year.
+The premium will be collected on 2 January 2027 from your account ending 4471.
+
+Please keep the enclosed insurance certificate in your vehicle.
+
+Kind regards
+Your Harbourline Insurance team
+""",
+    "home-contents-policy.txt": """Harbourline Insurance AG · Home & Property
+
+POLICY SCHEDULE — HOUSEHOLD CONTENTS INSURANCE
+Policy no. HR-77-410293 · Date of issue 20 Feb 2026
+
+Policyholder: Alex Morgan
+Insured location: 12 Linden Street, 10115 Berlin, 3rd floor left (64 m²)
+
+Insurance period: 1 Mar 2026 – 1 Mar 2027, renews annually unless cancelled
+three months before expiry.
+
+Cover                                           Sum insured
+Household contents (fire, burglary, water,
+storm and hail)                                   45,000 EUR
+Bicycle theft, around the clock                    1,500 EUR
+Overvoltage from lightning                         included
+Valuables (jewellery, cash) in the home           up to 20 % of the sum insured
+
+Excess per claim: 150 EUR
+Premium: 9.80 EUR per month, including 19 % insurance tax
+
+This schedule, together with the general insurance conditions HR-2026 and the
+product information sheet, forms your insurance contract.
+""",
+    "tax-assessment-2025.txt": """Tax Office Lindenfeld · Steuerallee 5 · 10117 Berlin
+Tax number 13/245/67890 · Date 9 Sep 2026
+
+Alex Morgan
+12 Linden Street
+10115 Berlin
+
+NOTICE OF ASSESSMENT for 2025
+Income tax and solidarity surcharge
+
+The assessment is based on your income tax return received on 28 May 2026.
+
+Income from employment                                  52,200 EUR
+less work-related expenses (lump sum exceeded)          -2,688 EUR
+less special expenses and insurance contributions       -1,200 EUR
+Taxable income                                          48,312 EUR
+
+Income tax assessed                                      8,941 EUR
+Solidarity surcharge                                         0 EUR
+Tax withheld from wages                                 -9,655 EUR
+Refund                                                     714 EUR
+
+The refund of 714 EUR will be paid into your account ending 4471.
+
+Notice of rights: You may appeal against this notice within one month of its
+announcement. The appeal must be submitted in writing or electronically to the
+tax office named above.
+""",
+    "scan_0917.txt": """Lumen Data GmbH · Payroll · Invalidenstraße 90 · 10115 Berlin
+
+PAYSLIP · September 2026
+Employee: Alex Morgan · Personnel no. 1187 · Tax class 1 · Church tax: none
+Entry date 1 Apr 2022 · Position: Data Analyst · Weekly hours: 40
+
+Earnings                                              Amount
+Basic salary                                       4,200.00 EUR
+Capital-forming benefits                              40.00 EUR
+Public transport allowance                           110.00 EUR
+Gross salary                                       4,350.00 EUR
+
+Deductions
+Income tax                                          -612.33 EUR
+Health insurance (incl. supplementary rate)         -369.75 EUR
+Pension insurance                                   -404.55 EUR
+Unemployment insurance                               -56.55 EUR
+Long-term care insurance                             -62.33 EUR
+Net pay                                            2,844.49 EUR
+
+Year to date: gross 39,150.00 EUR · income tax 5,510.97 EUR
+Paid to account ending 4471 on 30 Sep 2026.
+""",
+    "payslip_2026-08.txt": """Lumen Data GmbH · Payroll · Invalidenstraße 90 · 10115 Berlin
+
+PAYSLIP · August 2026
+Employee: Alex Morgan · Personnel no. 1187 · Tax class 1 · Church tax: none
+Entry date 1 Apr 2022 · Position: Data Analyst · Weekly hours: 40
+
+Earnings                                              Amount
+Basic salary                                       4,200.00 EUR
+Capital-forming benefits                              40.00 EUR
+Public transport allowance                           110.00 EUR
+Gross salary                                       4,350.00 EUR
+
+Deductions
+Income tax                                          -612.33 EUR
+Health insurance (incl. supplementary rate)         -369.75 EUR
+Pension insurance                                   -404.55 EUR
+Unemployment insurance                               -56.55 EUR
+Long-term care insurance                             -62.33 EUR
+Net pay                                            2,844.49 EUR
+
+Year to date: gross 34,800.00 EUR · income tax 4,898.64 EUR
+Paid to account ending 4471 on 29 Aug 2026.
+""",
+    "statement-sep-2026.txt": """Riverbank AG · Current account statement
+Statement no. 9/2026 · Page 1 of 1 · Date 1 Oct 2026
+
+Account holder: Alex Morgan
+Account ending 4471 · Giro Plus · Statement period 1 Sep – 30 Sep 2026
+
+Opening balance                                       3,112.40 EUR
+
+Date    Transaction                                         Amount
+01.09.  Standing order rent, Maple Court Properties      -1,190.00
+01.09.  Direct debit FitHive Studios                         -39.90
+05.09.  Direct debit Bluewave Mobile                         -29.99
+08.09.  Card payment supermarket                             -64.21
+12.09.  Cash withdrawal ATM Alexanderplatz                  -100.00
+15.09.  Direct debit Northwind Energy                       -121.95
+22.09.  Transfer received, refund                            +45.00
+30.09.  Salary Lumen Data GmbH                            +2,844.49
+
+Closing balance                                       4,455.84 EUR
+
+Overdraft limit 1,000.00 EUR · Interest on overdraft 11.9 % p.a.
+Please check this statement. Objections must be raised within six weeks.
+""",
+    "credit card october.txt": """Riverbank Visa Classic · Monthly statement
+Card ending 9902 · Cardholder Alex Morgan · Statement date 3 Oct 2026
+
+Statement period 4 Sep – 3 Oct 2026
+Previous balance                                         188.30 EUR
+Payment received, thank you                             -188.30 EUR
+
+Date    Merchant                                            Amount
+09.09.  Online bookstore                                     34.90
+17.09.  Rail tickets, online booking                        118.00
+26.09.  Restaurant Olive, Berlin                             62.50
+New balance                                              215.40 EUR
+
+Credit limit 2,500.00 EUR · Available 2,284.60 EUR
+The new balance will be debited in full from your current account ending
+4471 on 10 Oct 2026. No interest is charged on full repayment.
+""",
+    "letter-landlord-heating.txt": """Maple Court Properties GmbH · Facility Management
+Am Wasserturm 3 · 10405 Berlin
+
+To all tenants of 12 Linden Street
+
+Berlin, 30 September 2026
+
+Annual maintenance of the heating system
+
+Dear tenants,
+
+we would like to inform you that the heating system in your building will be
+serviced on 14 October 2026 between 8 am and 1 pm. During this time the hot
+water supply may be interrupted for up to two hours.
+
+Please make sure the radiators in your flat are accessible. If you will not be
+at home, you can leave a key with the caretaker, Mr Brandt (ground floor).
+
+Thank you for your understanding.
 
 Kind regards,
 Facility Management
@@ -176,15 +375,36 @@ Facility Management
 }
 
 
-def demo_anlegen(wurzel: Path, modell: Path | None, thema: str) -> Path:
+def _verlinken(quelle: Path, ziel: Path) -> None:
+    """Große Dateien als Hardlink (BeeNara Big hat 4,7 GB), kleine als Kopie — so kann die Demo
+    an ``herkunft.json`` & Co. nie das echte Modell verändern. Ohne Hardlinks: kopieren."""
+    for f in quelle.rglob("*"):
+        if not f.is_file():
+            continue
+        z = ziel / f.relative_to(quelle)
+        z.parent.mkdir(parents=True, exist_ok=True)
+        if f.stat().st_size > 10_000_000:
+            try:
+                os.link(f, z)
+                continue
+            except OSError:
+                pass
+        shutil.copy2(f, z)
+
+
+def demo_anlegen(wurzel: Path, modell: Path | None, big: Path | None, thema: str) -> Path:
     """Ablage + Projekt „Home office" mit losen Dokumenten. Gibt den Projektordner zurück."""
-    from pollysort import beenara, config
+    from pollysort import beenara, beenara_big, config
     from pollysort.web.dienst import Dienst
 
     if modell and modell.is_dir():
         shutil.copytree(modell, beenara.ordner())
     else:
         print("!  BeeNara nicht gefunden — die Demo sortiert ohne.", file=sys.stderr)
+    if big and big.is_dir():
+        _verlinken(big, beenara_big.ordner())
+    else:
+        print("!  BeeNara Big nicht gefunden — die Karte zeigt es als nicht geladen.", file=sys.stderr)
 
     cfg = config.load_config()
     cfg.language = "en"
@@ -259,14 +479,19 @@ def fotografieren(url: str, ziel: Path, thema: str, ersetzen: list[tuple[str, st
                 raise SystemExit(f"✗  '{verboten}' steht noch auf der Seite '{name}' — kein Bild.")
             pfad = ziel / f"{name}{endung}.png"
             if karte:
-                # Mit etwas Rand, sonst fehlt der Pixel-Schatten der Karte.
+                # Mit etwas Rand, sonst fehlt der Pixel-Schatten der Karte. Die BeeNara-Karte ist
+                # mit Big höher als das Fenster: kurz ein hohes Fenster, Karte unter die Kopfleiste.
                 k = seite.locator(karte).first
-                k.scroll_into_view_if_needed()
+                seite.set_viewport_size({"width": 1280, "height": 2400})
+                k.evaluate("(el) => { el.style.scrollMarginTop = '96px';"
+                           " el.scrollIntoView({block: 'start'}); }")
+                seite.wait_for_timeout(200)
                 b = k.bounding_box()
                 rand = 16
                 seite.screenshot(path=str(pfad), clip={
                     "x": b["x"] - rand, "y": b["y"] - rand,
                     "width": b["width"] + 2 * rand, "height": b["height"] + 2 * rand})
+                seite.set_viewport_size({"width": 1280, "height": 820})
             else:
                 seite.screenshot(path=str(pfad))
             bilder.append(pfad)
@@ -308,14 +533,14 @@ def fotografieren(url: str, ziel: Path, thema: str, ersetzen: list[tuple[str, st
     return bilder
 
 
-def lauf(thema: str, wurzel: Path, ziel: Path, modell: Path) -> int:
+def lauf(thema: str, wurzel: Path, ziel: Path, modell: Path, big: Path) -> int:
     """Ein Thema in einem eigenen Prozess — erst nach dessen Ende sind Datenbank und Modell zu."""
     # Vor dem ersten Import: config liest den Ablage-Ort beim Laden.
     os.environ["POLLYSORT_HOME"] = str(wurzel / "home")
     sys.path.insert(0, str(REPO / "src"))
     from pollysort.web.server import starten
 
-    projekt = demo_anlegen(wurzel, modell, thema)
+    projekt = demo_anlegen(wurzel, modell, big, thema)
     httpd, url, dienst = starten(projekt, port=0, browser=False)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     ersetzen = []
@@ -339,19 +564,20 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ziel", default=str(REPO / "docs" / "bilder"))
     ap.add_argument("--modell", default=str(Path.home() / ".pollysort" / "modelle" / "BeeNara"))
+    ap.add_argument("--big", default=str(Path.home() / ".pollysort" / "modelle" / "BeeNara-Big"))
     ap.add_argument("--nur-hell", action="store_true")
     ap.add_argument("--lauf", nargs=2, metavar=("THEMA", "WURZEL"), help=argparse.SUPPRESS)
     args = ap.parse_args()
     ziel = Path(args.ziel)
     ziel.mkdir(parents=True, exist_ok=True)
     if args.lauf:
-        return lauf(args.lauf[0], Path(args.lauf[1]), ziel, Path(args.modell))
+        return lauf(args.lauf[0], Path(args.lauf[1]), ziel, Path(args.modell), Path(args.big))
 
     for thema in ["light"] if args.nur_hell else ["light", "dark"]:
         wurzel = Path(tempfile.mkdtemp(prefix="pollysort-bilder-"))
         try:
             code = subprocess.call([sys.executable, __file__, "--lauf", thema, str(wurzel),
-                                    "--ziel", str(ziel), "--modell", args.modell])
+                                    "--ziel", str(ziel), "--modell", args.modell, "--big", args.big])
         finally:
             # Der Prozess ist beendet, also ist nichts mehr geöffnet. Scheitert es trotzdem,
             # wenigstens sagen, wo die Demo (mit Modell-Kopie) noch liegt.
