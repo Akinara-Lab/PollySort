@@ -1,16 +1,29 @@
-# 🐝 PollySort
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/logo-dark.svg">
+    <img src="docs/bilder/logo.svg" width="430" alt="PollySort">
+  </picture>
+</h1>
 
-> **A learning document archivist: as an app, in the console or in your browser.** Point it at
-> a folder full of loose files, press **Sort** and it files them into clean category folders,
-> getting smarter with every correction.
->
-> _Developed by **Akinara** · **beta** · Apache-2.0_
+<p align="center">
+  <b>A learning document archivist: as an app, in the console or in your browser.</b><br>
+  Point it at a folder full of loose files, press <b>Sort</b> and it files them into clean
+  category folders, getting smarter with every correction. Local models, no cloud required.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Akinara-Lab/PollySort/actions/workflows/ci.yml"><img src="https://github.com/Akinara-Lab/PollySort/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-Apache--2.0-8A5A00" alt="Licence: Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/python-3.12%2B-8A5A00" alt="Python 3.12+">
+  <img src="https://img.shields.io/badge/status-beta-E39B1B" alt="Status: beta">
+  <a href="https://huggingface.co/collections/Kwokou/beenara-local-document-sorting"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20models-BeeNara-FFC83D" alt="Models: BeeNara on Hugging Face"></a>
+</p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/vorschau-dark.png">
     <img src="docs/bilder/vorschau.png" width="880"
-         alt="PollySort's preview: every loose file with the folder it would go to, how sure PollySort is and who decided (here the local model BeeNara). 10 files would be filed, 4 go to review.">
+         alt="PollySort's preview: every loose file with the folder it would go to, how sure PollySort is and who decided (here the local model BeeNara). 5 files would be filed, 9 go to review.">
   </picture>
 </p>
 
@@ -21,11 +34,15 @@ overwritten: files are only moved, with undo.** Everything the tool generates (i
 logs, entries, quarantine) lives in **one hidden folder, `.honig/`**, so your directory stays
 clean and only the category folders appear.
 
-> ⚠️ **Beta.** The core is well tested and stable, but commands, settings and file layout may
-> still change before 1.0. Your files are safe by design (move-only, never delete), but treat
-> this as pre-release software.
+_Developed by **Akinara** · Apache-2.0._
 
-> 🌍 **Language.** English and German are equivalent: the first start asks, English is the
+> [!WARNING]
+> **Beta.** The core is well tested and stable, but commands, settings and file layout may still
+> change before 1.0. Your files are safe by design (move-only, never delete), but treat this as
+> pre-release software.
+
+> [!NOTE]
+> **Language.** English and German are equivalent: the first start asks, English is the
 > default, `language de` switches at any time. This README uses the English command names; the
 > original German names are shown in parentheses. Still German only: the installer scripts and
 > some messages of the scripting CLI `pollysort-cli`.
@@ -43,7 +60,7 @@ clean and only the category folders appear.
 - [Everyday workflow](#everyday-workflow)
 - [Command reference](#command-reference)
 - [How it works](#how-it-works)
-- [BeeNara: the local decider](#beenara-the-local-decider)
+- [BeeNara: the local deciders](#beenara-the-local-deciders)
 - [What lives where](#what-lives-where)
 - [Modes: low-power · local · cloud](#modes)
 - [Learning: the Wachstafel](#learning-the-wachstafel)
@@ -68,7 +85,9 @@ clean and only the category folders appear.
 On the first start a short setup asks for your language and look (dark, light or automatic),
 the folder to sort, the AI mode (with a tick box to download **BeeNara**, the free local
 sorting model) and proposes categories from what is already there. Then **Show preview →
-Apply** sorts your first files. Nothing moves before you confirm.
+Apply** sorts your first files. Nothing moves before you confirm. With an NVIDIA graphics card
+(8 GB or more) you can add **BeeNara Big** for large folder trees later, in **Workshop →
+BeeNara**.
 
 Prefer the keyboard? Type `pollysort` in a new terminal: same features, as a console. Details,
 options and help with problems: [Installation](#installation).
@@ -89,8 +108,12 @@ don't fit. PollySort is different:
   file. Name clashes get a unique suffix; deletion only ever happens through an explicit,
   confirmed quarantine step.
 - **It works without the cloud.** A free offline mode sorts without any network or API key,
-  and the small local model **BeeNara** makes it accurate. Add a local **Ollama** model or an
-  **OpenRouter** key for full AI analysis: your choice, per project.
+  and our own small local model **BeeNara** makes it accurate; **BeeNara Big** handles whole
+  folder trees on a graphics card. Add a local **Ollama** model or an **OpenRouter** key for
+  full AI analysis: your choice, per project.
+- **It knows when to ask.** BeeNara files a document on its own only when it is calibrated to be
+  wrong in at most 1 % of such cases; everything else comes to you as a quick review with its
+  suggestion.
 - **It stays out of your way.** One hidden `.honig/` folder holds everything generated; your
   working directory only ever shows the clean category folders.
 
@@ -100,23 +123,24 @@ don't fit. PollySort is different:
 
 | | Feature |
 |---|---|
-| 🪟 | **Own app, console or browser.** The same core as a program window (`pollysort-app`), an interactive console (`pollysort`) or a browser tab (`pollysort-web`) |
-| 🗂️ | **Content-aware sorting**: title, summary, keywords, function and category per document |
-| 🐝 | **BeeNara**: a small local model that picks the folder (or says "none fits") in about a third of a second on a laptop CPU, offline and free |
-| 🧠 | **Learning memory (Hive Mind)**: kNN vector memory and a living taxonomy that grows with use |
-| ❓ | **Confidence & review**: sure files are filed automatically, unsure ones are queued for you |
-| 👁️ | **Real-time watch**: a `watchdog` observer sorts or announces new files the instant they land |
-| 👀 | **Preview & apply**: dry run first, then apply from cache with **no second AI calls** |
-| ⚡ | **Ultra Swarm**: parallel analysis for large batches, free and unrestricted |
-| 📁 | **Dynamic subfolders**, e.g. file invoices into `Invoices/{year}/{month}` automatically |
-| 🔁 | **Learns from manual moves**: drag a file between folders, `scan` turns it into a rule |
-| 🧹 | **Duplicate detection**: SHA-256 dedupe; a second run makes **zero** new AI calls |
-| ↩️ | **Undo & quarantine**: move-only, unique-suffix collisions, reversible, never auto-deletes |
-| 🐝 | **Stage 2 project management**: turn a category into a project with charter & deadlines |
-| 🔔 | **Notifications**: optional Discord / e-mail alerts for due deadlines; `.ics` calendar sync |
-| 🔌 | **Three modes**: low-power (any PC) · local (AI via Ollama) · cloud (AI via API), per project |
-| 🩺 | **`doctor` health check**, 🌍 **DE/EN**, 🎨 **dark/light**, 🛟 **abort any prompt** |
-| 🔓 | **Apache-2.0**: real open source, no feature gates, no project limit, commercial use OK |
+| <img src="docs/bilder/icons/haus.svg" width="28" alt=""> | **Own app, console or browser.** The same core as a program window (`pollysort-app`), an interactive console (`pollysort`) or a browser tab (`pollysort-web`) |
+| <img src="docs/bilder/icons/ordner.svg" width="28" alt=""> | **Content-aware sorting**: title, summary, keywords, function and category per document |
+| <img src="docs/bilder/icons/biene.svg" width="28" alt=""> | **BeeNara**: our small local model picks the folder (or says "none fits") in about a third of a second on a laptop CPU, offline and free |
+| <img src="docs/bilder/icons/chip.svg" width="28" alt=""> | **BeeNara Big** *(preview)*: suggests the right folder in whole folder trees of up to ~300 folders, on an NVIDIA graphics card |
+| <img src="docs/bilder/icons/gehirn.svg" width="28" alt=""> | **Learning memory (Hive Mind)**: kNN vector memory and a living taxonomy that grows with use |
+| <img src="docs/bilder/icons/frage.svg" width="28" alt=""> | **Confidence & review**: sure files are filed automatically, unsure ones are queued for you |
+| <img src="docs/bilder/icons/auge.svg" width="28" alt=""> | **Real-time watch**: a `watchdog` observer sorts or announces new files the instant they land |
+| <img src="docs/bilder/icons/lupe.svg" width="28" alt=""> | **Preview & apply**: dry run first, then apply from cache with **no second AI calls** |
+| <img src="docs/bilder/icons/blitz.svg" width="28" alt=""> | **Ultra Swarm**: parallel analysis for large batches, free and unrestricted |
+| <img src="docs/bilder/icons/wabe.svg" width="28" alt=""> | **Dynamic subfolders**, e.g. file invoices into `Invoices/{year}/{month}` automatically |
+| <img src="docs/bilder/icons/tafel.svg" width="28" alt=""> | **Learns from manual moves**: drag a file between folders, `scan` turns it into a rule |
+| <img src="docs/bilder/icons/kiste.svg" width="28" alt=""> | **Duplicate detection**: SHA-256 dedupe; a second run makes **zero** new AI calls |
+| <img src="docs/bilder/icons/rueckflug.svg" width="28" alt=""> | **Undo & quarantine**: move-only, unique-suffix collisions, reversible, never auto-deletes |
+| <img src="docs/bilder/icons/hammer.svg" width="28" alt=""> | **Stage 2 project management**: turn a category into a project with charter & deadlines |
+| <img src="docs/bilder/icons/glocke.svg" width="28" alt=""> | **Notifications**: optional Discord / e-mail alerts for due deadlines; `.ics` calendar sync |
+| <img src="docs/bilder/icons/weiche.svg" width="28" alt=""> | **Three modes**: low-power (any PC) · local (AI via Ollama) · cloud (AI via API), per project |
+| <img src="docs/bilder/icons/zahnrad.svg" width="28" alt=""> | **`doctor` health check**, **DE/EN**, **dark/light**, **abort any prompt** |
+| <img src="docs/bilder/icons/schluessel.svg" width="28" alt=""> | **Apache-2.0**: real open source, no feature gates, no project limit, commercial use OK |
 
 ---
 
@@ -134,7 +158,8 @@ other Python programs.
 | **macOS** | `brew install python@3.12`, or the installer from python.org | `python3 --version` |
 | **Linux** | already included in Ubuntu 24.04+, Debian 13+, Fedora 39+; otherwise your distribution's `python3.12` package | `python3 --version` |
 
-> 💡 Optional but recommended: [**uv**](https://docs.astral.sh/uv/) (`winget install
+> [!TIP]
+> Optional but recommended: [**uv**](https://docs.astral.sh/uv/) (`winget install
 > astral-sh.uv` · `brew install uv`). The installer uses it if present: fast, isolated and
 > easy to update. Without it the installer falls back to `pipx`, then to `pip --user`.
 
@@ -190,19 +215,21 @@ pollysort-cli doctor     # Python, AI backends, BeeNara, database, extras, memor
 
 ### Optional: more intelligence
 
-All three are optional; PollySort sorts without them.
+All of these are optional; PollySort sorts without them.
 
 | | What | How |
 |---|---|---|
-| 🐝 | **BeeNara**, the local sorting model (~370 MB, CPU, offline) | Tick it in the setup, use **Workshop → BeeNara → Download** in the app, or type `beenara pull` in the console. Its runtime (`onnxruntime`, `tokenizers`, `numpy`) is installed with it |
-| 🦙 | **Ollama** for *local* mode: full AI analysis on your own machine | Install [Ollama](https://ollama.com) and pull a model, e.g. `ollama pull qwen3.5:9b`; PollySort detects it |
-| ☁️ | **OpenRouter** for *cloud* mode: best quality, paid per use | Create a key on [openrouter.ai](https://openrouter.ai) and enter it with `key set` in the console |
+| <img src="docs/bilder/icons/biene.svg" width="28" alt=""> | **BeeNara**, the local sorting model (~370 MB, CPU, offline) | Tick it in the setup, use **Workshop → BeeNara → Download** in the app, or type `beenara pull` in the console. Its runtime (`onnxruntime`, `tokenizers`, `numpy`) is installed with it |
+| <img src="docs/bilder/icons/chip.svg" width="28" alt=""> | **BeeNara Big** for large folder trees (~4.7 GB, NVIDIA GPU with 8 GB or more) | **Workshop → BeeNara → BeeNara Big → Download**, or `beenara big pull` in the console. It checks the graphics card first and installs PyTorch with CUDA to match your driver |
+| <img src="docs/bilder/icons/haus.svg" width="28" alt=""> | **Ollama** for *local* mode: full AI analysis on your own machine | Install [Ollama](https://ollama.com) and pull a model, e.g. `ollama pull qwen3.5:9b`; PollySort detects it |
+| <img src="docs/bilder/icons/route.svg" width="28" alt=""> | **OpenRouter** for *cloud* mode: best quality, paid per use | Create a key on [openrouter.ai](https://openrouter.ai) and enter it with `key set` in the console |
 
 ### Updating
 
 Get the new version (download the ZIP again, or `git pull`) and **run the installer again**; it
-replaces the old installation. Your settings, projects, learned memory and a downloaded BeeNara
-stay where they are (`~/.pollysort` and the `.honig` folders).
+replaces the old installation. Your settings, projects, learned memory and downloaded models
+stay where they are (`~/.pollysort` and the `.honig` folders). If a new PollySort needs a newer
+BeeNara, the Workshop says so; `beenara pull` then fetches only the changed files.
 
 ### Manual install
 
@@ -219,7 +246,8 @@ pollysort-cli doctor
 | `[extract]` | DOCX, CSV and HTML as text, file-type detection via libmagic | `mimetypes` and raw text reading; PDFs are always read (`pypdf` is in the core) |
 | `[app]` | a native window for `pollysort-app` (pywebview) | a frameless Edge/Chrome window, otherwise a browser tab |
 | `[beenara]` | the runtime for BeeNara (`onnxruntime`, `tokenizers`, `numpy`) | `beenara pull` installs it when you need it |
-| `[full]` | all three | |
+| `[beenara-big]` | the runtime for BeeNara Big (`torch`, `transformers`, `peft`, …) | `beenara big pull` installs it, with **CUDA**: PyTorch from PyPI is CPU-only on Windows, so prefer letting PollySort install it |
+| `[full]` | `extract`, `app` and `beenara` | |
 
 Update with `uv tool install --force ".[extract,app]"` (or `pipx install --force …`).
 
@@ -237,7 +265,7 @@ By default this removes only the **application**: the commands, the shortcuts an
 entry the installer added (and that only if nothing else lives in that folder). Add
 **`--alles`** (PowerShell: `-Alles`) to also delete the global store `~/.pollysort`:
 settings, your OpenRouter key, the project list, notification routes, the input history and
-a downloaded BeeNara. That step asks for confirmation.
+downloaded models (BeeNara, BeeNara Big). That step asks for confirmation.
 
 **Your documents are never touched**, under any option. Neither are the hidden `.honig`
 folders inside your projects: they hold the catalogue, the learned memory and `papierkorb/`,
@@ -258,6 +286,9 @@ Both scripts accept `--dry-run` to show what would happen without changing anyth
 | **Windows warns about `install.bat`** from the ZIP | Files from the internet are marked. Right-click the ZIP → *Properties* → *Unblock* before unpacking, or start `install.bat` from a terminal |
 | **The app opens in a browser tab**, not in a window | The `[app]` extra is missing and there is no Edge or Chrome. Run the installer again. On Linux the installer leaves `[app]` out (pywebview needs GTK/Qt bindings from your distribution); with Chromium or Chrome installed you still get a window of its own |
 | **BeeNara download aborted** | Start it again: it resumes where it stopped and checks every file. Behind a firewall, `HF_ENDPOINT` can point to a Hugging Face mirror |
+| **BeeNara is downloaded but does not sort** | `beenara` (or the Workshop card) says why: switched off, an older model version, the runtime missing or outdated, or the project has fewer than 3 or more than 9 folders. `beenara pull` fixes the first three |
+| **BeeNara Big refuses to download** | It needs an NVIDIA graphics card with at least 8 GB. To run it on the CPU anyway (seconds to minutes per document), set `POLLYSORT_BEENARA_BIG_CPU=1` and pull again |
+| **BeeNara Big runs on the CPU** although there is a GPU | The Workshop shows "Runs on the CPU". Run `beenara big pull`: it replaces a CPU-only PyTorch with the CUDA build matching your driver. Then restart PollySort |
 | **Ollama crashes** on the GPU (driver issues) | Nothing to do: PollySort falls back to the CPU (`num_gpu: 0`) automatically, slower but working |
 | **Something else** | `pollysort-cli doctor` names what is missing. The app logs to `~/.pollysort/app.log`. Issues welcome: [GitHub Issues](https://github.com/Akinara-Lab/PollySort/issues) |
 
@@ -284,7 +315,7 @@ inbox. PollySort does **not** assume the current directory: it remembers your pr
 
 On the **very first launch** a one-time setup clarifies the AI backend (it detects a local
 **Ollama** and offers to store an **OpenRouter** key) and offers to download **BeeNara**
-(~370 MB plus its runtime, see [BeeNara](#beenara-the-local-decider)); Enter means "later",
+(~370 MB plus its runtime, see [BeeNara](#beenara-the-local-deciders)); Enter means "later",
 `beenara pull` (`beenara laden`) fetches it any time. Then a short **3-step tutorial** appears
 (**pick a folder → `preview` → `sort`**), and the wizard walks you through the project setup.
 
@@ -331,7 +362,8 @@ independently** side by side.
 Re-opening the same folder loads the config (no wizard). `setup` reconfigures, `projects` lists
 all projects, `switch <n>` changes project.
 
-> 🛟 **Abort anytime.** Any interactive prompt (setup, review, …) can be left cleanly by typing
+> [!TIP]
+> **Abort anytime.** Any interactive prompt (setup, review, …) can be left cleanly by typing
 > `abort` / `bye` / `exit` (German: `abbruch`) or pressing **Ctrl-C**. The action is **not**
 > executed and nothing is lost.
 
@@ -349,14 +381,14 @@ Prefer clicking to typing? **PollySort is also an application of its own**, call
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/zuhause-dark.png">
-        <img src="docs/bilder/zuhause.png" alt="Home: the project with mode and watch status, four loose files, four open reviews and ten files in six combs.">
+        <img src="docs/bilder/zuhause.png" alt="Home: the project with mode and watch status, nine loose files, nine open reviews and five files in six combs.">
       </picture>
       <p align="center"><b>Home</b>: what is waiting, at a glance</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/rueckfragen-dark.png">
-        <img src="docs/bilder/rueckfragen.png" alt="Review: a scanned phone bill with title, summary and the suggestion Invoices; one key per comb, Enter accepts the suggestion.">
+        <img src="docs/bilder/rueckfragen.png" alt="Review: a car insurance renewal with title, summary and BeeNara's suggestion Insurance; one key per comb, Enter accepts the suggestion.">
       </picture>
       <p align="center"><b>Review</b>: keys 1–9, Enter, s, v, as in the console</p>
     </td>
@@ -372,17 +404,17 @@ Prefer clicking to typing? **PollySort is also an application of its own**, call
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/beenara-dark.png">
-        <img src="docs/bilder/beenara.png" alt="The BeeNara card in the Workshop: downloaded, sorting with it, switch on/off and remove.">
+        <img src="docs/bilder/beenara.png" alt="The BeeNara card in the Workshop: BeeNara and BeeNara Big downloaded, Big running on the graphics card, and the model choice Automatic, BeeNara only or Big only.">
       </picture>
-      <p align="center"><b>Workshop → BeeNara</b>: download, switch, remove</p>
+      <p align="center"><b>Workshop → BeeNara</b>: both models, and which one sorts</p>
     </td>
   </tr>
 </table>
 
-| | Command | Opens |
-|---|---|---|
-| 🪟 | `pollysort-app` | its own window: native via the `[app]` extra (pywebview), otherwise a frameless Edge/Chrome app window, otherwise a browser tab |
-| 🌐 | `pollysort-web` | a tab in your browser; `Ctrl-C` stops it |
+| Command | Opens |
+|---|---|
+| `pollysort-app` | its own window: native via the `[app]` extra (pywebview), otherwise a frameless Edge/Chrome app window, otherwise a browser tab |
+| `pollysort-web` | a tab in your browser; `Ctrl-C` stops it |
 
 ```bash
 pollysort-app                         # last used project, own window
@@ -397,9 +429,11 @@ Both run a small local server on **127.0.0.1 only** with a one-time session toke
 
 - Everything the console does day to day: **home**, **entrance** (preview → apply with live
   progress), **review**, **combs**, **swarm & calendar**, **rules & memory**, **quarantine**,
-  **workshop** (settings, BeeNara) and a **setup wizard** that also does the first run.
-- **Retro pixel look, calm enough for work:** a self-drawn pixel font and sprites, the console's
-  colour meaning, WCAG AA contrast, dark/light/auto. Levels and badges come only from real work.
+  **workshop** (settings, BeeNara, BeeNara Big, model choice) and a **setup wizard** that also
+  does the first run.
+- **Retro pixel look, calm enough for work:** a self-drawn pixel font and pixel icons instead of
+  emojis (the icons in this README come from the same sprites), the console's colour meaning,
+  WCAG AA contrast, dark/light/auto. Levels and badges come only from real work.
 - **Work mode:** one click for subtle animations, hidden levels/badges and plain words before
   the bee terms ("Categories" above "Combs"). Animations can be set to full · subtle · off, and
   the system's *reduce motion* setting always wins.
@@ -428,10 +462,10 @@ style tile is served at `/musterbuch.html`.
 
 ## Command reference
 
-`help` groups commands into three tiers: **🐝 Daily**, **🎯 Situational**, **🛠️ Pro**. Commands
-below list the **English alias** first and the original **German** name in parentheses.
+`help` groups commands into three tiers: **Daily**, **Situational**, **Pro**. Commands below
+list the **English alias** first and the original **German** name in parentheses.
 
-### 🐝 Daily
+### Daily
 
 | Command | What it does |
 |---|---|
@@ -445,7 +479,7 @@ below list the **English alias** first and the original **German** name in paren
 | `app` (`anwendung`) | Open PollySort in its own window; closing it returns to the console |
 | `web` (`oberflaeche`) | Open PollySort in the browser (Flugbrett); `Ctrl-C` returns to the console |
 
-### 🎯 Situational
+### Situational
 
 | Command | What it does |
 |---|---|
@@ -465,7 +499,7 @@ below list the **English alias** first and the original **German** name in paren
 | `swarm` (`schwarm`) | Overview: Queen & bees (combs, open cases, projects, deadlines) |
 | `recommend [para\|johnny\|dewey]` (`empfehlung`) | Filing-strategy suggestions + dynamic hints |
 
-### 🛠️ Pro
+### Pro
 
 | Command | What it does |
 |---|---|
@@ -480,7 +514,9 @@ below list the **English alias** first and the original **German** name in paren
 | `enrich [on\|off\|now]` (`nacherfassen`) | Local mode: let the AI refine titles & summaries after sorting |
 | `person <name> <cat,..>` | Set responsibility in the background |
 | `doctor` | Health check: Python, AI provider, local models, BeeNara, database, extraction extras, memory |
-| `beenara [pull\|on\|off\|remove]` (`beenara [laden\|an\|aus\|entfernen]`) | [BeeNara](#beenara-the-local-decider), the local decider model: download it with its runtime (~370 MB, checksum-verified, resumes after an interruption) · switch it on/off · remove it. Without an argument: is it sorting, and if not, why |
+| `beenara [pull\|on\|off\|remove]` (`beenara [laden\|an\|aus\|entfernen]`) | [BeeNara](#beenara-the-local-deciders), the local decider model: download it with its runtime (~370 MB, checksum-verified, resumes after an interruption) · switch it on/off · remove it. Without an argument: is it sorting, and if not, why |
+| `beenara big [pull\|remove]` (`beenara big [laden\|entfernen]`) | [BeeNara Big](#beenara-big-whole-folder-trees): check the graphics card, download it (~4.7 GB) with PyTorch/CUDA · remove it. Without an argument: is it ready, and on the GPU or the CPU |
+| `beenara model <auto\|small\|big>` (`beenara modell <auto\|klein\|big>`) | Which model sorts when both are there: **auto** (BeeNara for 3–9 folders, Big for more) · only BeeNara · only Big |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |
@@ -533,8 +569,8 @@ Measured on 70 test documents with `qwen3.5:9b` (57 unique, 13 exact duplicates)
 | now | **0.21 s** | **4.0 s** | 56 of 57 |
 
 About half of the documents were decided by memory alone. With
-[BeeNara](#beenara-the-local-decider) downloaded, it takes over step 2 from the language model.
-Cloud mode is unchanged.
+[BeeNara](#beenara-the-local-deciders) downloaded, it takes over step 2 from the language model
+(BeeNara Big does the same in larger folder trees, as a suggestion). Cloud mode is unchanged.
 
 ### Preview → apply
 
@@ -551,52 +587,81 @@ included, no activation needed.
 
 ---
 
-## BeeNara: the local decider
+## BeeNara: the local deciders
 
-[BeeNara](https://huggingface.co/Kwokou/BeeNara) is a small model trained for exactly one
-question: *which of these folders, or none?* It runs on the CPU and is calibrated: it sorts
-only when its conformal prediction set holds exactly one folder (probability ≥ 0.97), and it is
-far better than small LLMs at noticing that **no** folder fits.
+**BeeNara** and **BeeNara Big** are two models Akinara trained for exactly one question:
+*which of these folders does this document belong in, or none?* Both run on your own machine,
+are calibrated, and are far better than small LLMs at noticing that **no** folder fits. Both are
+open (Apache-2.0) on Hugging Face:
+[**BeeNara collection**](https://huggingface.co/collections/Kwokou/beenara-local-document-sorting).
+
+| | <img src="docs/bilder/icons/biene.svg" width="28" alt=""> [**BeeNara**](https://huggingface.co/Kwokou/BeeNara) v0.3 | <img src="docs/bilder/icons/chip.svg" width="28" alt=""> [**BeeNara Big**](https://huggingface.co/Kwokou/BeeNara-Big) v0.3 *(preview)* |
+|---|---|---|
+| **For** | 3 to 9 folders | whole folder trees, 3 to about 300 folders (trained up to 500) |
+| **Runs on** | any CPU, about 0.2–0.3 s per document on a laptop | an NVIDIA GPU with 8 GB or more |
+| **Download** | ~370 MB (ONNX, 8-bit) | ~4.7 GB (adapter 164 MB + base model 4.6 GB) |
+| **Files on its own** | yes, when it is calibrated to be wrong in at most 1 % of such cases | no: in v0.3 every answer is a **suggestion** in review |
+| **Built on** | [mmBERT-base](https://huggingface.co/jhu-clsp/mmBERT-base) | [Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) with LoRA |
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/beenara-dark.png">
     <img src="docs/bilder/beenara.png" width="640"
-         alt="The BeeNara card in the Workshop: version, size and location of the download, what it does when sorting, a switch and a Remove button.">
+         alt="The BeeNara card in the Workshop: BeeNara with version, size and location; BeeNara Big downloaded, ready and running on the graphics card; the model choice Automatic, BeeNara only or Big only.">
   </picture>
 </p>
 
-- **Low-power mode:** BeeNara decides instead of the heuristics (titles and summaries stay
+### How they sort
+
+- **Low-power mode:** the model decides instead of the heuristics (titles and summaries stay
   heuristic). **Local mode:** after the memory, instead of the one-token decision.
   **Cloud mode:** not used.
-- **Unsure or "none fits" → review**, with BeeNara's favourite as the suggestion. No second
+- **Which model:** `beenara model auto` (the default) uses BeeNara for 3–9 folders and BeeNara
+  Big for larger trees. `small` or `big` forces one of them; outside its range the usual path
+  decides. Without Big, nothing changes. In the app: **Workshop → BeeNara → Which model sorts**.
+- **Unsure or "none fits" → review**, with the model's favourite as the suggestion. No second
   model guesses afterwards.
 - **Your rules still win:** a learned Wachstafel rule, or a memory that clearly points to
-  another folder, takes precedence.
-- **3 to 9 folders**: the range it was trained and calibrated for. Outside it, and for files
-  without local text (images), the usual path decides.
+  another folder, takes precedence. Files without local text (images) take the usual path.
+
+### BeeNara: 3 to 9 folders, on the CPU
+
+- **Files only what it is sure of.** BeeNara v0.3 sorts a document on its own only above a
+  **risk threshold**: with 90 % confidence, at most 1 % of the documents it files automatically
+  land in a wrong folder (Learn-then-Test). Everything else is a review with its suggestion.
+- **Measured** ([model card](https://huggingface.co/Kwokou/BeeNara)): on a benchmark with folder
+  trees and names it has never seen, its answer is right in **84–85 %** of the tasks (v0.2:
+  69 %). It files **39 %** of the 3–9-folder tasks automatically, and **0.9 %** of those were
+  wrong. On PollySort's own 70 test documents with the right folder missing, it filed **0**
+  documents wrongly (with the previous rule: 4); in exchange it asks more often.
+- **Reads the start and the end** of long documents, where totals, signatures and closing lines
+  are.
 - **Concrete folder names work best.** *Invoices*, *Payslips* or *Insurance* are recognised
-  reliably; catch-all folders such as *Letters* or *Correspondence* are not, and their
-  documents end up in review as "none fits".
-- `beenara pull` (or **Workshop → BeeNara** in the app) downloads a fixed model version and
-  installs the runtime (`onnxruntime`, `tokenizers`, `numpy`, the `[beenara]` extra) into the
-  environment PollySort runs in. `beenara off` switches it off without deleting it.
-- **Speed:** about 0.35 s per document for the whole sorting step on a laptop CPU (Intel Core
-  Ultra 7, battery). It uses up to 6 threads; `POLLYSORT_BEENARA_THREADS` overrides that.
+  reliably. Catch-all folders such as *Letters* or *Correspondence*, and very short documents
+  (a line or two), usually end up in review.
+- `beenara pull` (or **Workshop → BeeNara** in the app) downloads a fixed model version,
+  verifies every file and installs the runtime (`onnxruntime`, `tokenizers`, `numpy`) into the
+  environment PollySort runs in. `beenara off` switches it off without deleting it. It uses up
+  to 6 CPU threads; `POLLYSORT_BEENARA_THREADS` overrides that.
 
-Measured on the same 70 test documents (57 unique), 8 folders as in the model card:
+### BeeNara Big: whole folder trees
 
-| | correct | **wrong** | review |
-|---|---|---|---|
-| low-power, heuristics | 55 | 0 | 2 |
-| low-power, **BeeNara** | **57** | 0 | 0 |
-| low-power, heuristics, *insurance* and *tax* folders missing | 48 | **8** | 1 |
-| low-power, **BeeNara**, *insurance* and *tax* folders missing | 49 | **4** | 4 ✓ |
-| local, BeeNara (29 by memory, 28 by BeeNara), folders missing | 49 | 4 | 4 ✓ |
-
-With folders missing, a review is the right answer for those 8 documents. The 4 that BeeNara
-still files are insurance policies that end up in *Contracts*: the known weakness from the
-model card when folders have names only.
+- **Sees the whole tree at once.** One pass over up to ~300 folders, with the start and end of
+  the document (up to 2,048 tokens). On held-out trees it finds the right folder in **92 %**
+  (3–9 folders), **88–90 %** (10–49) and **79–83 %** (50–299) of the cases, **85 %** overall
+  ([model card](https://huggingface.co/Kwokou/BeeNara-Big)).
+- **Suggestions only in v0.3.** Its calibration found no threshold that keeps automatic
+  decisions at ≤ 1 % wrong, so every answer becomes a review with its favourite. The next
+  version is meant to file on its own.
+- **Needs a graphics card.** `beenara big pull` (or the Workshop) first checks for an NVIDIA GPU
+  with at least 8 GB, then downloads the adapter and the base model from fixed commits with
+  checksums, and installs PyTorch with CUDA to match your driver. In a short test on a laptop
+  GPU (RTX PRO 1000, 8 GB, 16 folders) it took about 0.1–0.2 s per document and 4.6 GB of
+  graphics memory. On a CPU it needs
+  seconds to minutes per document; `POLLYSORT_BEENARA_BIG_CPU=1` allows that anyway.
+- **Local mode with Ollama:** both share the graphics memory. With 8 GB, a large Ollama model
+  and Big may not fit at the same time; PollySort then reports it once and carries on without
+  Big.
 
 ---
 
@@ -622,11 +687,12 @@ model card when folders have names only.
 
 The Markdown entries start with YAML front matter and open straight in Obsidian, Logseq or
 Notion. Global settings (last project, credentials, project registry, `app.log`) live under
-`~/.pollysort/`, outside your working folders (relocatable via `POLLYSORT_HOME`); a downloaded
-BeeNara sits in `~/.pollysort/modelle/BeeNara/` (`HF_ENDPOINT` points the download at a
-mirror). An old `~/.beehive/` from earlier versions is migrated automatically: copied, never
+`~/.pollysort/`, outside your working folders (relocatable via `POLLYSORT_HOME`); downloaded
+models sit in `~/.pollysort/modelle/BeeNara/` and `~/.pollysort/modelle/BeeNara-Big/` (with the
+base model in `basis/`; `HF_ENDPOINT` points the download at a mirror). An old `~/.beehive/` from earlier versions is migrated automatically: copied, never
 deleted.
 
+> [!NOTE]
 > The hidden folder is named `.honig` ("honey") and categories are internally called "combs"
 > (`Waben`), part of the tool's bee theme. You never need to touch these names.
 
@@ -638,9 +704,9 @@ One interface, three modes, chosen per project (`mode low | local | cloud`):
 
 - **Low-power**: pure heuristics from filename, text start, file type and category names
   (self-named/discovered categories work without hard-coded rules). Instant, free, no network,
-  no model: runs on any PC. With [BeeNara](#beenara-the-local-decider) downloaded, a small
+  no model: runs on any PC. With [BeeNara](#beenara-the-local-deciders) downloaded, a small
   local model picks the folder instead (CPU, about a third of a second per document, still free
-  and offline).
+  and offline); BeeNara Big adds suggestions for large folder trees on a graphics card.
 - **Local**: AI on your own machine via Ollama (free & private); automatic CPU fallback if
   the GPU backend crashes. Decides in **three stages** (see *How it works*), fast enough for a
   laptop without a GPU.
@@ -663,7 +729,8 @@ On the next `sort`, those rules are applied: online they're injected into the LL
 "learned project rules", offline they're applied directly. So each project adapts specifically
 to you.
 
-> 🔒 **Safe & project-scoped:** **no code is ever generated**; learning happens purely through
+> [!NOTE]
+> **Safe & project-scoped:** **no code is ever generated**; learning happens purely through
 > the `wachstafel.md` text file. Rules apply **only** within their project and never leak into
 > another. `rules` shows them, `rules clear` discards them.
 
@@ -683,7 +750,8 @@ project:
   deadline is due they actually notify you (`calendar notify`, or automatically in the `watch`
   service; anti-spam included).
 
-> 🔒 **Credential seal:** notification credentials live **only** locally in
+> [!NOTE]
+> **Credential seal:** notification credentials live **only** locally in
 > `~/.pollysort/flugrouten.toml` (chmod 600, env override possible), **never** in the project and
 > **never** in an LLM prompt. Discord/SMTP calls run completely independently of the AI;
 > sensitive fields are masked in `log.jsonl`. No notifications are sent without your setup.
@@ -695,11 +763,11 @@ project:
 PollySort is licensed under the **[Apache License 2.0](LICENSE)**: real, OSI-approved open
 source.
 
-- ✅ **Everything is included.** No project limit, no feature behind a gate, no licence key.
+- **Everything is included.** No project limit, no feature behind a gate, no licence key.
   **Ultra Swarm** runs free.
-- ✅ **Commercial use is allowed**: your own data and paid client work alike.
-- ✅ **Fork it, change it, ship it.**
-- ✅ **Patent grant included** (Apache-2.0 §3); that is why Apache rather than MIT.
+- **Commercial use is allowed**: your own data and paid client work alike.
+- **Fork it, change it, ship it.**
+- **Patent grant included** (Apache-2.0 §3); that is why Apache rather than MIT.
 
 What the licence does *not* cover is the name and logo: "PollySort" and "Akinara" are
 trademarks of Akinara. See **[`TRADEMARK.md`](TRADEMARK.md)** for what needs no permission.
@@ -716,8 +784,9 @@ Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
 
 ## Privacy & security
 
-- **Low-power / local:** no document content ever leaves your machine. BeeNara runs locally
-  too; only its one-time download comes from Hugging Face.
+- **Low-power / local:** no document content ever leaves your machine. BeeNara and BeeNara Big
+  run locally too; only their one-time downloads come from Hugging Face, and PollySort never
+  runs code from there (the model runtimes ship with PollySort).
 - **Cloud:** document content is sent for analysis (shown at onboarding). Exclude
   confidential files via `.beeignore`/`exclude`, or use low-power or local mode.
 - **No document content is ever logged** (`log.jsonl` holds metadata only).
@@ -742,12 +811,14 @@ ruff check src polly.py tests
 The screenshots in this README come from `python tools/readme_bilder.py`: it builds a demo
 project with invented documents in a temporary `POLLYSORT_HOME`, starts the app and
 photographs it with Edge or Chrome via [Playwright](https://playwright.dev/python/)
-(`pip install playwright`, no browser download needed). Your own data is not touched.
+(`pip install playwright`, no browser download needed). Your own data is not touched; your
+downloaded models are only linked in. The logo and the icons are drawn from the app's own pixel
+sprites by `python tools/readme_grafiken.py` (standard library only).
 
 Stack: Python ≥ 3.12 · `cmd` REPL + `pyreadline3` · `rich` output · `pydantic v2` models ·
 `SQLAlchemy 2 Core`/SQLite index · `httpx` (OpenRouter/Ollama) · `watchdog` · `pypdf` (core) +
 `markitdown` (extra) · standard-library web server + pywebview (extra) · ONNX Runtime for
-BeeNara (extra) · `pytest` + `ruff`.
+BeeNara (extra) · PyTorch, `transformers` and `peft` for BeeNara Big (extra) · `pytest` + `ruff`.
 
 `CHANGELOG.md` tracks releases; the app's design notes are in
 [`docs/flugbrett.md`](docs/flugbrett.md).
@@ -760,8 +831,8 @@ Planned for upcoming releases:
 
 - **Install from PyPI**: `pipx install pollysort` without downloading the repository first.
 - **English throughout**: the installer scripts and the remaining messages of `pollysort-cli`.
-- **The next BeeNara**: better at telling insurance policies from contracts when folders only
-  have names, and at catch-all folders.
+- **BeeNara v0.4**: more everyday and very short documents in the training data, better at
+  catch-all folders, and a **BeeNara Big that files on its own** once its calibration allows it.
 - **Wabenbau contacts & milestones**: enter one or more e-mail addresses when building a
   project so the guard bees mail deadline/milestone reminders (multiple milestones per project).
 - **Project from the parent folder**: create a project directly from the top-level files (two
@@ -785,9 +856,14 @@ Start with **low-power + BeeNara**: free, offline and fast. Choose **local** if 
 Ollama and want AI-written titles and summaries, **cloud** for the best quality on difficult
 documents (paid per use, content leaves your machine).
 
+**Do I need a graphics card?**
+No. PollySort, BeeNara and low-power mode run on any PC. Only **BeeNara Big** (large folder
+trees) wants an NVIDIA GPU with 8 GB or more; local mode with Ollama is faster with one.
+
 **Why does a file stay in the inbox?**
-PollySort was not sure enough, or no folder fits. It waits in **Review**; your answer files it
-and teaches the memory. Nothing is filed on a guess.
+PollySort was not sure enough, or no folder fits. It waits in **Review** with a suggestion;
+your answer files it and teaches the memory. Nothing is filed on a guess: BeeNara v0.3 asks
+rather than risk more than 1 % wrong automatic decisions, and BeeNara Big only suggests.
 
 **What's the bee theme about (`.honig`, "combs", "the Queen")?**
 Flavour. Internally the tool uses a beehive metaphor; it doesn't affect how you use it. In the

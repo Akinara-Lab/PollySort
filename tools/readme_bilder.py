@@ -4,10 +4,13 @@
     python tools/readme_bilder.py                    # nach docs/bilder/
     python tools/readme_bilder.py --nur-hell         # nur das helle Thema
     python tools/readme_bilder.py --modell <ordner>  # BeeNara von woanders (Standard: ~/.pollysort)
+    python tools/readme_bilder.py --big <ordner>     # BeeNara Big von woanders (dito)
 
 Braucht Playwright (``pip install playwright``) und ein installiertes Edge oder Chrome — einen
 eigenen Browser lädt das Skript nicht herunter. Für die BeeNara-Bilder außerdem das Extra
-``[beenara]`` und ein geladenes Modell; fehlt es, sortiert die Demo ohne BeeNara.
+``[beenara]`` und ein geladenes Modell; fehlt es, sortiert die Demo ohne BeeNara. Damit die
+Karte BeeNara Big als bereit zeigt, braucht diese Python-Umgebung auch dessen Laufzeit (Extra
+``[beenara-big]``, torch mit CUDA) und das geladene Modell — sonst steht dort, was fehlt.
 
 Alles läuft in einem eigenen, temporären ``POLLYSORT_HOME``: Deine echte Ablage, deine Projekte
 und dein Gedächtnis bleiben unberührt. Die Dokumente sind erfunden und englisch, wie die README.
@@ -176,15 +179,36 @@ Facility Management
 }
 
 
-def demo_anlegen(wurzel: Path, modell: Path | None, thema: str) -> Path:
+def _verlinken(quelle: Path, ziel: Path) -> None:
+    """Große Dateien als Hardlink (BeeNara Big hat 4,7 GB), kleine als Kopie — so kann die Demo
+    an ``herkunft.json`` & Co. nie das echte Modell verändern. Ohne Hardlinks: kopieren."""
+    for f in quelle.rglob("*"):
+        if not f.is_file():
+            continue
+        z = ziel / f.relative_to(quelle)
+        z.parent.mkdir(parents=True, exist_ok=True)
+        if f.stat().st_size > 10_000_000:
+            try:
+                os.link(f, z)
+                continue
+            except OSError:
+                pass
+        shutil.copy2(f, z)
+
+
+def demo_anlegen(wurzel: Path, modell: Path | None, big: Path | None, thema: str) -> Path:
     """Ablage + Projekt „Home office" mit losen Dokumenten. Gibt den Projektordner zurück."""
-    from pollysort import beenara, config
+    from pollysort import beenara, beenara_big, config
     from pollysort.web.dienst import Dienst
 
     if modell and modell.is_dir():
         shutil.copytree(modell, beenara.ordner())
     else:
         print("!  BeeNara nicht gefunden — die Demo sortiert ohne.", file=sys.stderr)
+    if big and big.is_dir():
+        _verlinken(big, beenara_big.ordner())
+    else:
+        print("!  BeeNara Big nicht gefunden — die Karte zeigt es als nicht geladen.", file=sys.stderr)
 
     cfg = config.load_config()
     cfg.language = "en"
@@ -259,14 +283,19 @@ def fotografieren(url: str, ziel: Path, thema: str, ersetzen: list[tuple[str, st
                 raise SystemExit(f"✗  '{verboten}' steht noch auf der Seite '{name}' — kein Bild.")
             pfad = ziel / f"{name}{endung}.png"
             if karte:
-                # Mit etwas Rand, sonst fehlt der Pixel-Schatten der Karte.
+                # Mit etwas Rand, sonst fehlt der Pixel-Schatten der Karte. Die BeeNara-Karte ist
+                # mit Big höher als das Fenster: kurz ein hohes Fenster, Karte unter die Kopfleiste.
                 k = seite.locator(karte).first
-                k.scroll_into_view_if_needed()
+                seite.set_viewport_size({"width": 1280, "height": 2400})
+                k.evaluate("(el) => { el.style.scrollMarginTop = '96px';"
+                           " el.scrollIntoView({block: 'start'}); }")
+                seite.wait_for_timeout(200)
                 b = k.bounding_box()
                 rand = 16
                 seite.screenshot(path=str(pfad), clip={
                     "x": b["x"] - rand, "y": b["y"] - rand,
                     "width": b["width"] + 2 * rand, "height": b["height"] + 2 * rand})
+                seite.set_viewport_size({"width": 1280, "height": 820})
             else:
                 seite.screenshot(path=str(pfad))
             bilder.append(pfad)
@@ -308,14 +337,14 @@ def fotografieren(url: str, ziel: Path, thema: str, ersetzen: list[tuple[str, st
     return bilder
 
 
-def lauf(thema: str, wurzel: Path, ziel: Path, modell: Path) -> int:
+def lauf(thema: str, wurzel: Path, ziel: Path, modell: Path, big: Path) -> int:
     """Ein Thema in einem eigenen Prozess — erst nach dessen Ende sind Datenbank und Modell zu."""
     # Vor dem ersten Import: config liest den Ablage-Ort beim Laden.
     os.environ["POLLYSORT_HOME"] = str(wurzel / "home")
     sys.path.insert(0, str(REPO / "src"))
     from pollysort.web.server import starten
 
-    projekt = demo_anlegen(wurzel, modell, thema)
+    projekt = demo_anlegen(wurzel, modell, big, thema)
     httpd, url, dienst = starten(projekt, port=0, browser=False)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     ersetzen = []
@@ -339,19 +368,20 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ziel", default=str(REPO / "docs" / "bilder"))
     ap.add_argument("--modell", default=str(Path.home() / ".pollysort" / "modelle" / "BeeNara"))
+    ap.add_argument("--big", default=str(Path.home() / ".pollysort" / "modelle" / "BeeNara-Big"))
     ap.add_argument("--nur-hell", action="store_true")
     ap.add_argument("--lauf", nargs=2, metavar=("THEMA", "WURZEL"), help=argparse.SUPPRESS)
     args = ap.parse_args()
     ziel = Path(args.ziel)
     ziel.mkdir(parents=True, exist_ok=True)
     if args.lauf:
-        return lauf(args.lauf[0], Path(args.lauf[1]), ziel, Path(args.modell))
+        return lauf(args.lauf[0], Path(args.lauf[1]), ziel, Path(args.modell), Path(args.big))
 
     for thema in ["light"] if args.nur_hell else ["light", "dark"]:
         wurzel = Path(tempfile.mkdtemp(prefix="pollysort-bilder-"))
         try:
             code = subprocess.call([sys.executable, __file__, "--lauf", thema, str(wurzel),
-                                    "--ziel", str(ziel), "--modell", args.modell])
+                                    "--ziel", str(ziel), "--modell", args.modell, "--big", args.big])
         finally:
             # Der Prozess ist beendet, also ist nichts mehr geöffnet. Scheitert es trotzdem,
             # wenigstens sagen, wo die Demo (mit Modell-Kopie) noch liegt.
