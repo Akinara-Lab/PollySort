@@ -9,4 +9,4 @@ from importlib.metadata import version as _pkg_version
 try:
     __version__ = _pkg_version("pollysort")
 except PackageNotFoundError:      # nicht installiert → aus dem Quellbaum gestartet
-    __version__ = "0.4.0b1"
+    __version__ = "0.4.0b2"
