@@ -36,6 +36,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/Akinara-Lab/PollySort"
+Website = "https://akinara.de"
 Repository = "https://github.com/Akinara-Lab/PollySort"
 Issues = "https://github.com/Akinara-Lab/PollySort/issues"
 Changelog = "https://github.com/Akinara-Lab/PollySort/blob/main/CHANGELOG.md"
