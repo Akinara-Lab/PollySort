@@ -34,7 +34,7 @@ overwritten: files are only moved, with undo.** Everything the tool generates (i
 logs, entries, quarantine) lives in **one hidden folder, `.honig/`**, so your directory stays
 clean and only the category folders appear.
 
-_Developed by **Akinara** · Apache-2.0._
+_Developed by [**Akinara**](https://akinara.de) · Apache-2.0._
 
 > [!WARNING]
 > **Beta.** The core is well tested and stable, but commands, settings and file layout may still
@@ -875,4 +875,4 @@ app, **work mode** puts plain words first.
 
 ---
 
-_PollySort — Developed by Akinara · Apache-2.0 · beta. Feedback and issues welcome._
+_PollySort — Developed by [Akinara](https://akinara.de) · Apache-2.0 · beta. Feedback and issues welcome._
