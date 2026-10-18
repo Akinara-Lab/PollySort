@@ -1,6 +1,6 @@
 [project]
 name = "pollysort"
-version = "0.4.0b1"
+version = "0.4.0b2"
 description = "PollySort — lernender, konsolenbasierter Dokumenten-Archivar (Developed by Akinara)."
 readme = "README.md"
 requires-python = ">=3.12"

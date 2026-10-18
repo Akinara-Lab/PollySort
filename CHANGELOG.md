@@ -9,6 +9,8 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+## [0.4.0b2] — 2026-10-18 — öffentlicher Start
+
 ### Dokumentation — README für den öffentlichen Start
 - **Neue Kopfzeile:** Logo in der Pixel-Schrift des Flugbretts, Badges (CI, Lizenz, Python, Beta,
   BeeNara-Modelle). Feature- und Extras-Tabellen tragen jetzt die Pixel-Icons der App statt
@@ -19,6 +21,8 @@ sichtbar ist der Produktname PollySort.
 - **Bilder neu:** Screenshots mit Pixel-Icons und mit BeeNara Big in der Werkstatt;
   `tools/readme_bilder.py` bindet ein geladenes Big per Hardlink ein und fotografiert hohe Karten
   vollständig. Neu: `tools/readme_grafiken.py` zeichnet Logo und Icons aus `pixel.js` als SVG.
+- **Finanzierung:** Die README beschreibt jetzt PollySort Server (Arbeitstitel, eigenes Repo,
+  source-available, intern frei) statt des früheren Web-Cockpits.
 - **Realistischere Demo-Dokumente** für die Screenshots: Rechnungen, Verträge, Policen, Bescheid,
   Gehaltsabrechnungen und Kontoauszüge mit Briefkopf, Positionen und Fußzeile wie im Alltag
   (alles erfunden). BeeNara v0.3 sortiert davon 9 von 14 richtig ein und fragt bei 5 nach, zwei

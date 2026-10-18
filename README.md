@@ -773,9 +773,13 @@ What the licence does *not* cover is the name and logo: "PollySort" and "Akinara
 trademarks of Akinara. See **[`TRADEMARK.md`](TRADEMARK.md)** for what needs no permission.
 Short version: do anything you like with the code, but please fork under your own name.
 
-**So how is this funded?** Akinara is building a commercial **web cockpit** for teams on top of
-it (project management in the browser, multiple users, server deployment): a separate package
-that this repository does not need. The local tool here stays complete and free.
+**So how is this funded?** Akinara is working on **PollySort Server** (working title), a
+separate repository: the complete PollySort for teams and organisations, hosted on your own
+systems (Docker, Python package or system service), with a web interface for users and admins.
+The app here will be able to connect to it. It will be *source-available*: **free for internal
+use in any organisation, however large**; only whoever installs or runs it for others pays a
+small yearly licence. Licence and details follow with its first release. This repository does
+not need it: the local tool here stays complete, free and Apache-2.0.
 
 Contributions welcome: **[`CONTRIBUTING.md`](CONTRIBUTING.md)** ·
 Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
