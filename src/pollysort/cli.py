@@ -43,6 +43,14 @@ def _con() -> BeeConsole:
     return BeeConsole(quiet=_STATE["quiet"], plain=_STATE["plain"], no_emoji=_STATE["no_emoji"])
 
 
+def _version_zeigen(wert: bool) -> None:
+    """``--version`` sofort beantworten: Ohne ``is_eager`` verlangte Typer erst einen Befehl
+    und brach mit „Missing command“ ab (so scheiterte die Prüfung im Release-Workflow)."""
+    if wert:
+        typer.echo(f"pollysort {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     quiet: bool = typer.Option(False, "--quiet", help="Animationen & Statusmeldungen aus."),
@@ -51,11 +59,9 @@ def main(
     json_out: bool = typer.Option(False, "--json", help="Maschinen-Ausgabe (wo unterstützt)."),
     offline: bool = typer.Option(False, "--offline", "--spar",
                                  help="Sparmodus: ohne KI (Heuristik, kostenlos)."),
-    version: bool = typer.Option(False, "--version", help="Version anzeigen."),
+    version: bool = typer.Option(False, "--version", callback=_version_zeigen, is_eager=True,
+                                 help="Version anzeigen."),
 ):
-    if version:
-        typer.echo(f"pollysort {__version__}")
-        raise typer.Exit()
     _STATE.update(quiet=quiet, plain=plain, no_emoji=no_emoji, json=json_out, offline=offline)
 
 
