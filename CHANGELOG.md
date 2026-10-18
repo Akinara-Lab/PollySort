@@ -19,6 +19,10 @@ sichtbar ist der Produktname PollySort.
 - **Bilder neu:** Screenshots mit Pixel-Icons und mit BeeNara Big in der Werkstatt;
   `tools/readme_bilder.py` bindet ein geladenes Big per Hardlink ein und fotografiert hohe Karten
   vollständig. Neu: `tools/readme_grafiken.py` zeichnet Logo und Icons aus `pixel.js` als SVG.
+- **Realistischere Demo-Dokumente** für die Screenshots: Rechnungen, Verträge, Policen, Bescheid,
+  Gehaltsabrechnungen und Kontoauszüge mit Briefkopf, Positionen und Fußzeile wie im Alltag
+  (alles erfunden). BeeNara v0.3 sortiert davon 9 von 14 richtig ein und fragt bei 5 nach, zwei
+  davon passen bewusst in keinen Ordner.
 
 ### BeeNara v0.3
 - **Neues Modell:** PollySort lädt jetzt BeeNara v0.3 (Hub-Commit `8597874`, Tag `v0.3`). Auf

@@ -23,7 +23,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/vorschau-dark.png">
     <img src="docs/bilder/vorschau.png" width="880"
-         alt="PollySort's preview: every loose file with the folder it would go to, how sure PollySort is and who decided (here the local model BeeNara). 5 files would be filed, 9 go to review.">
+         alt="PollySort's preview: every loose file with the folder it would go to, how sure PollySort is and who decided (here the local model BeeNara). 9 files would be filed, 5 go to review.">
   </picture>
 </p>
 
@@ -381,14 +381,14 @@ Prefer clicking to typing? **PollySort is also an application of its own**, call
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/zuhause-dark.png">
-        <img src="docs/bilder/zuhause.png" alt="Home: the project with mode and watch status, nine loose files, nine open reviews and five files in six combs.">
+        <img src="docs/bilder/zuhause.png" alt="Home: the project with mode and watch status, five loose files, five open reviews and nine files in six combs.">
       </picture>
       <p align="center"><b>Home</b>: what is waiting, at a glance</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/bilder/rueckfragen-dark.png">
-        <img src="docs/bilder/rueckfragen.png" alt="Review: a car insurance renewal with title, summary and BeeNara's suggestion Insurance; one key per comb, Enter accepts the suggestion.">
+        <img src="docs/bilder/rueckfragen.png" alt="Review: a gym membership contract with title, summary and BeeNara's suggestion Contracts; one key per comb, Enter accepts the suggestion.">
       </picture>
       <p align="center"><b>Review</b>: keys 1–9, Enter, s, v, as in the console</p>
     </td>
