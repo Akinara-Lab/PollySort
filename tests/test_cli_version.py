@@ -7,10 +7,15 @@ die Option ausgewertet wurde.
 
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from pollysort import __version__
 from pollysort.cli import app
+
+#: Farbcodes von rich (in GitHub Actions ist die Hilfe eingefärbt).
+FARBE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def test_version_ohne_befehl():
@@ -21,4 +26,6 @@ def test_version_ohne_befehl():
 
 def test_ohne_alles_bleibt_die_hilfe():
     r = CliRunner().invoke(app, [])
-    assert "Usage" in r.output and "--version" in r.output
+    # Die Farbcodes zerreißen „--version“ in „-“ + „-version“ — erst entfernen, dann suchen.
+    text = FARBE.sub("", r.output)
+    assert "Usage" in text and "--version" in text
