@@ -1813,6 +1813,10 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "🧠 gelernt: {name}  {old} → {new}",
         "en": "🧠 learned: {name}  {old} → {new}",
     },
+    "sw.confirmed_one": {
+        "de": "✅ bestätigt: {name}  → {kat}",
+        "en": "✅ confirmed: {name}  → {kat}",
+    },
     "sw.safe": {
         "de": "Nichts wurde von uns gelöscht.",
         "en": "Nothing was deleted by us.",

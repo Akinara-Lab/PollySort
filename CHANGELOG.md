@@ -49,6 +49,13 @@ sichtbar ist der Produktname PollySort.
   dafür nichts neu ein und bleibt kostenfrei: Der Vektor bleibt stehen, nur Label und Herkunft
   ändern sich; hat die Datei keinen, passiert nichts. Ziehen & Ablegen im Flugbrett, `zuordnen`
   und Rückfragen liefen schon über die Korrektur mit neuem Vektor und bleiben, wie sie sind.
+- **Eine Rückfrage von Hand in die vorgeschlagene Wabe ziehen beantwortet sie.** Bisher passierte
+  dabei nichts: Die Datei blieb eine Rückfrage, und das Gedächtnis hielt ihren Eintrag weiter für
+  unsicher. Jetzt zählt das wie eine beantwortete Rückfrage: einsortiert (Quelle `manuell`), im
+  Gedächtnis bestätigt, und in `korrekturen.jsonl` eine Bestätigung (alte = neue Kategorie) samt
+  Feldmessung, welche Stufe richtig vorgeschlagen hatte. Dasselbe gilt im Index-Modus, wo jede
+  Kategorie nur ein Vorschlag ist. Schon einsortierte Dateien bleiben unberührt, auch wenn sie
+  innerhalb ihrer Wabe den Ort wechseln. Der Scan bettet weiter nichts neu ein.
 
 ### Feldmessung — welche Stufe lag daneben?
 - **Jede Korrektur hält fest, wer vorher entschieden hatte** und wie sicher: `quelle_vorher`
