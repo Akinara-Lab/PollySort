@@ -725,7 +725,8 @@ When you correct an assignment (`assign <id> <category>`, or by re-filing in the
 `scan` notices you moved a file **from one category folder to another by hand**, the Queen
 studies the corrections and **inscribes rules in plain language** into `.honig/wachstafel.md`
 (e.g. *"telekom → Invoices"*). `reflect` shows the derived rules and only writes them after you
-confirm.
+confirm. Dragging an open question by hand into the folder PollySort suggested counts as
+answering it: `scan` files it and the memory treats it as confirmed.
 
 On the next `sort`, those rules are applied: online they're injected into the LLM prompt as
 "learned project rules", offline they're applied directly. So each project adapts specifically

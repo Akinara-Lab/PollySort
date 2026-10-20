@@ -163,6 +163,129 @@ def test_eine_hand_verschiebung_ist_gegenstimme(tmp_path):
     assert run_cycle(ctx, mode="move").quellen == {"nummer": 1}
 
 
+MAHNUNG = "MAHNUNG Nr. {i}\nZahlungserinnerung: offener Betrag 80,00 EUR\nBitte bis Monatsende begleichen."
+
+
+class Vorschlag(FakeOllama):
+    """Schlägt für Mahnungen „rechnungen" vor, aber unsicher (0,6 < Schwelle 0,75) → Rückfrage."""
+
+    def decide(self, text: str, categories: list[str]):
+        if "mahnung" in text.lower():
+            self.decide_calls.append(text)
+            return "rechnungen", 0.6
+        return super().decide(text, categories)
+
+
+def _rueckfragen(hive: Path, n: int, client=None) -> Context:
+    seed = HiveSeed(categories=list(CATS))
+    hive.mkdir(parents=True, exist_ok=True)
+    config.write_seed(hive, seed)
+    ctx = Context.build(hive=hive, cfg=AppConfig(llm_provider="ollama"), seed=seed,
+                        client=client or Vorschlag(), console=BeeConsole(quiet=True),
+                        journal=Journal(hive))
+    for i in range(n):
+        (hive / f"m{i}.txt").write_text(MAHNUNG.format(i=i), encoding="utf-8")
+    assert run_cycle(ctx, mode="move").needs_review == n
+    return ctx
+
+
+def test_rueckfrage_in_die_vorgeschlagene_wabe_gezogen_ist_eine_bestaetigung(tmp_path):
+    """Die Rückfrage-Datei liegt lose im Projekt, ihr Vorschlag ist Rechnungen. Zieht der Nutzer
+    sie genau dorthin, hat er die Rückfrage beantwortet. Vorher blieb sie eine Rückfrage, und das
+    Gedächtnis hielt den Eintrag weiter für unsicher."""
+    hive = tmp_path / "hive"
+    ctx = _rueckfragen(hive, 1)
+    row = ctx.store.query()[0]
+    assert (row["status"], row["kategorie"], row["quelle"]) == ("needs_review", "rechnungen", "nummer")
+    assert ctx.mind.herkuenfte()[row["id"]] == ("rechnungen", "unsicher")
+    _von_hand(hive, row["path"], "rechnungen")
+
+    eingebettet = len(ctx.client.embedded)
+    report = sweep(ctx, mode="index")
+    assert len(ctx.client.embedded) == eingebettet, "der Scan darf nichts einbetten"
+    assert report.learned == 1
+
+    jetzt = ctx.store.by_id(row["id"])
+    assert (jetzt["status"], jetzt["kategorie"], jetzt["quelle"]) == ("assigned", "rechnungen", "manuell")
+    assert ctx.mind.herkuenfte()[row["id"]] == ("rechnungen", "bestaetigt")
+    assert not ctx.store.query(status=Status.NEEDS_REVIEW.value), "keine Rückfrage mehr"
+    # Wie eine beantwortete Rückfrage: Bestätigung mit alt = neu, samt Feldmessung.
+    [k] = ctx.feedback.all()
+    assert (k["quelle"], k["kategorie_alt"], k["kategorie_neu"]) == ("manuell", "rechnungen", "rechnungen")
+    assert (k["quelle_vorher"], k["konfidenz_vorher"], k["status_vorher"]) == ("nummer", 0.6, "needs_review")
+
+
+def test_zwei_bestaetigte_rueckfragen_tragen_stufe_a(tmp_path):
+    """Zwei Mahnungen von Hand nach Rechnungen gezogen: Jetzt sind es zwei bestätigte Einträge,
+    und die dritte Mahnung sortiert das Gedächtnis selbst — vorher wäre sie wieder eine
+    Rückfrage geworden."""
+    hive = tmp_path / "hive"
+    ctx = _rueckfragen(hive, 2)
+    for z in ctx.store.query():
+        _von_hand(hive, z["path"], "rechnungen")
+    assert sweep(ctx, mode="index").learned == 2
+
+    (hive / "m2.txt").write_text(MAHNUNG.format(i=2), encoding="utf-8")
+    s = run_cycle(ctx, mode="move")
+    assert s.quellen == {"gedaechtnis": 1} and s.assigned == 1
+    assert (hive / "Rechnungen" / "m2.txt").exists()
+
+
+def test_index_modus_vorschlag_selbst_einsortiert_ist_eine_bestaetigung(tmp_path):
+    """Im Index-Modus wird nichts bewegt; die Kategorie bleibt ein Vorschlag (``indexed``), auch
+    wenn sie sicher war. Legt der Nutzer die Datei selbst in diese Wabe, bestätigt er ihn."""
+    hive = tmp_path / "hive"
+    ctx = _ollama_ctx(hive)
+    _rechnungen(hive, 1)
+    run_cycle(ctx, mode="index")
+    row = ctx.store.query()[0]
+    assert (row["status"], row["kategorie"]) == ("indexed", "rechnungen")
+    _von_hand(hive, row["path"], "rechnungen")
+
+    assert sweep(ctx, mode="index").learned == 1
+    assert ctx.mind.herkuenfte()[row["id"]] == ("rechnungen", "bestaetigt")
+    jetzt = ctx.store.by_id(row["id"])
+    assert (jetzt["status"], jetzt["quelle"]) == ("assigned", "manuell")
+    [k] = ctx.feedback.all()
+    assert (k["kategorie_alt"], k["kategorie_neu"], k["status_vorher"]) == (
+        "rechnungen", "rechnungen", "indexed")
+
+
+def test_schon_einsortierte_datei_bleibt_wie_sie_ist(tmp_path):
+    """Eine automatisch einsortierte Datei, die innerhalb ihrer Wabe den Ort wechselt (hier aus
+    einem Unterordner zurück in die Wabe), bestätigt nichts — da wurde nichts beantwortet."""
+    hive = tmp_path / "hive"
+    ctx = _ollama_ctx(hive)
+    _rechnungen(hive, 1)
+    run_cycle(ctx, mode="move")
+    row = ctx.store.query()[0]
+    assert row["status"] == "assigned"
+    unter = Path(row["path"]).parent / "2026"
+    unter.mkdir()
+    shutil.move(row["path"], str(unter / Path(row["path"]).name))
+    assert sweep(ctx, mode="index").learned == 0
+    shutil.move(str(unter / Path(row["path"]).name), row["path"])
+
+    assert sweep(ctx, mode="index").learned == 0
+    assert ctx.mind.herkuenfte()[row["id"]] == ("rechnungen", "sicher")
+    jetzt = ctx.store.by_id(row["id"])
+    assert (jetzt["status"], jetzt["quelle"]) == ("assigned", row["quelle"])
+    assert ctx.feedback.all() == []
+
+
+def test_rueckfrage_in_eine_andere_wabe_bleibt_eine_korrektur(tmp_path):
+    """Gegenprobe: Zieht der Nutzer die Rückfrage woanders hin, ist das wie bisher eine
+    Korrektur vom Vorschlag zur neuen Wabe."""
+    hive = tmp_path / "hive"
+    ctx = _rueckfragen(hive, 1)
+    row = ctx.store.query()[0]
+    _von_hand(hive, row["path"], "kontoauszuege")
+    assert sweep(ctx, mode="index").learned == 1
+    assert ctx.mind.herkuenfte()[row["id"]] == ("kontoauszuege", "bestaetigt")
+    [k] = ctx.feedback.all()
+    assert (k["kategorie_alt"], k["kategorie_neu"]) == ("rechnungen", "kontoauszuege")
+
+
 def test_hand_verschiebung_ohne_vektor_merkt_nichts(tmp_path):
     """Gibt es für die Datei keinen Vektor, legt der Scan auch keinen an."""
     hive = tmp_path / "hive"

@@ -140,11 +140,18 @@ def _learn_from_move(ctx, r, new_path, report) -> None:
     sonst stützte er weiter A und stünde als Gegenstimme gegen B (seit 2026-10-20).
     Bewusst OHNE Embedding-Call — ein Scan bleibt so kostenfrei & vorhersehbar. Der alte
     Vektor bleibt stehen, nur Label und Herkunft ändern sich; ohne Vektor nichts.
+
+    Landet eine Rückfrage (oder im Index-Modus ein Vorschlag) genau in der Wabe, die der
+    Katalog schon nennt, hat der Nutzer den Vorschlag bestätigt (:func:`_bestaetigen`).
     """
     old_cat = _category_of_path(ctx, r["path"])
     new_cat = _category_of_path(ctx, new_path)
-    if not new_cat or new_cat == old_cat or new_cat == r.get("kategorie"):
+    if not new_cat or new_cat == old_cat:
         return
+    if new_cat == (r.get("kategorie") or "").strip().lower():
+        if r.get("status") in _VORSCHLAG:
+            _bestaetigen(ctx, r, new_cat, new_path, report)
+        return                        # schon einsortiert: nichts zu lernen
     from .feedback import vorher
     from .hive_mind.memory import BESTAETIGT
     from .store import bees
@@ -159,6 +166,34 @@ def _learn_from_move(ctx, r, new_path, report) -> None:
     report.learned += 1
     report.details.append(
         i18n.t("sw.learned_one", name=Path(new_path).name, old=old_cat or "—", new=new_cat))
+
+
+#: Status, in denen die Kategorie nur ein Vorschlag ist: eine Rückfrage, oder im Index-Modus
+#: jede Datei (dort wird nichts bewegt, also bleibt es beim Vorschlag).
+_VORSCHLAG = (Status.NEEDS_REVIEW.value, Status.INDEXED.value)
+
+
+def _bestaetigen(ctx, r, kat: str, new_path, report) -> None:
+    """Rückfrage beantwortet, nur von Hand: Die Datei liegt jetzt in der vorgeschlagenen Wabe.
+
+    Wie eine beantwortete Rückfrage (``review.apply_correction`` mit derselben Kategorie):
+    einsortiert, Quelle ``manuell``, im Gedächtnis bestätigt, und in ``korrekturen.jsonl`` eine
+    Bestätigung (alt = neu) samt Feldmessung — welche Stufe richtig vorgeschlagen hatte und wie
+    sicher. Vorher (bis 2026-10-20) passierte hier nichts: Die Datei blieb eine Rückfrage, und
+    das Gedächtnis hielt ihren Eintrag weiter für unsicher.
+    """
+    from .feedback import vorher
+    from .hive_mind.memory import BESTAETIGT
+    from .store import bees
+    with ctx.store.engine.begin() as c:
+        c.execute(bees.update().where(bees.c.id == r["id"]).values(
+            status=Status.ASSIGNED.value, quelle="manuell"))
+    ctx.mind.relabel(r["id"], kat, herkunft=BESTAETIGT)
+    ctx.feedback.record(bee_id=r["id"], title=r.get("title") or "",
+                        funktion=r.get("funktion") or "", kategorie_alt=kat,
+                        kategorie_neu=kat, quelle="manuell", **vorher(r))
+    report.learned += 1
+    report.details.append(i18n.t("sw.confirmed_one", name=Path(new_path).name, kat=kat))
 
 
 def _print_report(ctx: Context, r: SweepReport) -> None:
