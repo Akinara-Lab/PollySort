@@ -18,6 +18,7 @@ from .extractor import einmal_lesen, extract, gedaechtnis_text
 from .feedback import Feedback
 from .guards import IgnoreMatcher, has_landed, within_size_limit
 from .hive_mind import HiveMind, Taxonomy
+from .hive_mind.memory import SICHER, UNSICHER
 from .inspector import decide
 from .journal import Journal
 from .models import BeeEntry, Status
@@ -189,11 +190,17 @@ def reindex_memory(ctx: Context) -> tuple[int, int]:
     Bettet alle einsortierten Einträge aus ihrem GESPEICHERTEN Text neu ein (keine
     Neu-Analyse, nur Embedding-Calls), verwirft vorher die alten (fremd-dimensionalen)
     Vektoren. Robust: ein Fehler pro Eintrag bricht den Lauf nie ab. Gibt ``(ok, fehler)``.
+
+    Die Herkunft bleibt: Wer mit derselben Kategorie schon im Gedächtnis lag, behält seine;
+    sonst wird sie aus Katalog und Korrekturen bestimmt wie beim Altbestand.
     """
+    from .hive_mind.memory import herkunft_aus_katalog
     from .store import row_to_entry
 
     model = getattr(ctx.client, "embed_model", None)
     rows = ctx.store.query(status=Status.ASSIGNED.value)
+    vorher = ctx.mind.herkuenfte()
+    einstufen = herkunft_aus_katalog(rows, ctx.feedback.all(), ctx.seed.threshold_assign)
     ctx.mind.reset()                       # Alt-Vektoren verwerfen — sonst bleibt totes Gewicht
     ok = fail = 0
     con = ctx.console
@@ -205,7 +212,10 @@ def reindex_memory(ctx: Context) -> tuple[int, int]:
             try:
                 vec = ctx.client.embed(gedaechtnis_text(ctx.client, entry.path,
                                                         entry.embedding_text()))
-                ctx.mind.remember(entry.id, entry.kategorie, vec, model)
+                kat_alt, herkunft = vorher.get(entry.id, (None, None))
+                if kat_alt != entry.kategorie:
+                    herkunft = einstufen(entry.id, entry.kategorie)
+                ctx.mind.remember(entry.id, entry.kategorie, vec, model, herkunft=herkunft)
                 ok += 1
             except Exception as exc:       # KI-Schluckauf → überspringen, nicht abbrechen (§16)
                 fail += 1
@@ -355,7 +365,9 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
         entry.zustaendigkeit = ctx.taxonomy.persons_for(vorab.kategorie)
         entry.status = decide(confidence=entry.confidence, threshold=ctx.seed.threshold_assign,
                               mode=mode, extractor_status=ext_status)
-        summary.quellen[vorab.quelle] = summary.quellen.get(vorab.quelle, 0) + 1
+        entry.quelle = vorab.quelle
+        gruppe = _anzeige(vorab.quelle)
+        summary.quellen[gruppe] = summary.quellen.get(gruppe, 0) + 1
     elif ext_status == Status.INDEXED:
         if vec is None:
             vec = ctx.client.embed(gedaechtnis_text(ctx.client, f.path, entry.embedding_text()))
@@ -379,6 +391,7 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
         entry.zustaendigkeit = a.zustaendigkeit
         entry.status = decide(confidence=a.confidence, threshold=ctx.seed.threshold_assign,
                               mode=mode, extractor_status=ext_status)
+        entry.quelle = a.quelle
     else:
         entry.status = ext_status
         entry.zustaendigkeit = ctx.taxonomy.persons_for(entry.funktion.kategorie)
@@ -419,14 +432,18 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
     # -- Gedächtnis (§14): jedes erfolgreich analysierte Dokument mit eindeutigem Label
     # merken — auch wenn die Confidence noch unter der Schwelle liegt. So bootstrappt der
     # Stock aus dem Kaltstart heraus; falsche Frühlabels korrigiert 'pollysort assign' (§24).
+    # Unter der Schwelle aber als UNSICHER: Eine Vermutung darf widersprechen, nicht stützen.
     if not dry_run and vec is not None and entry.funktion.kategorie != "_unassigned":
         modell = getattr(ctx.client, "embed_model", None)
         aktuell = ctx.sicht is not None and ctx.sicht_modell == modell \
             and ctx.sicht_version == ctx.mind.version
-        ctx.mind.remember(entry.id, entry.funktion.kategorie, vec, modell)
+        sicher = (entry.status in (Status.ASSIGNED, Status.INDEXED)
+                  and (entry.confidence or 0.0) >= ctx.seed.threshold_assign)
+        herkunft = ctx.mind.remember(entry.id, entry.funktion.kategorie, vec, modell,
+                                     herkunft=SICHER if sicher else UNSICHER)
         ctx.memory_ok = None              # erster Eintrag kann den Zustand ändern
         if aktuell:                       # nachtragen statt das ganze Gedächtnis neu zu laden
-            ctx.sicht.merken(entry.id, entry.funktion.kategorie, vec)
+            ctx.sicht.merken(entry.id, entry.funktion.kategorie, vec, herkunft)
             ctx.sicht_version = ctx.mind.version
 
     # Nur heuristisch erfasst → die KI verfeinert Titel/Zusammenfassung später.
@@ -434,7 +451,7 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
         nacherfassung.vormerken(ctx.hive, [entry.id])
 
     # Wer entschieden hat — dieselbe Zählung wie in summary.quellen (None: nicht analysiert).
-    quelle = ((vorab.quelle if vorab.kategorie is not None else "analyse")
+    quelle = ((_anzeige(vorab.quelle) if vorab.kategorie is not None else "analyse")
               if ext_status == Status.INDEXED else None)
     summary.plan.append({"id": entry.id, "datei": entry.filename,
                          "kategorie": entry.funktion.kategorie,
@@ -442,6 +459,12 @@ def ingest(ctx: Context, f, *, mode: str, dry_run: bool, summary: CycleSummary,
                          "status": entry.status.value, "ziel": ziel, "quelle": quelle})
     _tally(con, entry, reason, summary)
     return entry
+
+
+def _anzeige(quelle: str) -> str:
+    """Die Lauf-Zusammenfassung zählt beide BeeNara-Modelle als „BeeNara"; nur der Katalog
+    unterscheidet sie (Feldmessung)."""
+    return "beenara" if quelle == "beenara-big" else quelle
 
 
 def _memory_ok(ctx: Context) -> bool:
@@ -469,10 +492,13 @@ def _gedaechtnis_sicht(ctx: Context) -> entscheidung.Schnappschuss:
 
 class _Behutsam:
     """BeeNara im Sortierlauf: Ein Fehler beim Rechnen wird einmal gemeldet, danach entscheidet
-    für den Rest des Laufs der bisherige Weg — eine Datei darf daran nie scheitern."""
+    für den Rest des Laufs der bisherige Weg — eine Datei darf daran nie scheitern.
 
-    def __init__(self, bee, con: BeeConsole):
-        self._bee, self._con, self.aus = bee, con, False
+    ``quelle`` (``beenara`` oder ``beenara-big``) steht später im Katalog bei jeder Datei, die
+    dieses Modell entschieden hat."""
+
+    def __init__(self, bee, con: BeeConsole, quelle: str = "beenara"):
+        self._bee, self._con, self.aus, self.quelle = bee, con, False, quelle
         # Ordnerbereich und Textlänge des Modells (BeeNara Big) — siehe entscheidung.beenara_waehlen.
         for name in ("ordner_bereich", "text_zeichen"):
             if hasattr(bee, name):
@@ -513,7 +539,8 @@ def _beenara(ctx: Context):
         ctx.console.bloom(i18n.t(f"{texte}.run.loading"), "🐝")   # klein ~3 s, Big bis ~1 min
     try:
         bee = mod.oeffnen()
-        ctx.beenara = _Behutsam(bee, ctx.console)
+        ctx.beenara = _Behutsam(bee, ctx.console,
+                                quelle="beenara-big" if modell == "big" else "beenara")
     except Exception as exc:
         ctx.console.error(i18n.t("bn.run.load_failed", err=exc))
         return None

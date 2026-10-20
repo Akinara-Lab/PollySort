@@ -20,9 +20,12 @@ from sqlalchemy import (
     create_engine,
     event,
     func,
+    inspect,
     select,
+    text,
 )
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DBAPIError
 
 from .models import BeeEntry, Content, Funktion, Status
 
@@ -47,7 +50,12 @@ bees = Table(
     Column("status", Text, default="pending"),
     Column("error_reason", Text),
     Column("scanned_at", Text),
+    Column("quelle", Text),                              # wer entschieden hat (seit 2026-10-20)
 )
+
+#: Spalten, die nach dem ersten Schema dazukamen: ``create_all`` legt nur fehlende Tabellen an,
+#: keine fehlenden Spalten — die rüstet :meth:`Store._nachruesten` nach (Altbestand: NULL).
+_NACHGERUESTET = ("quelle",)
 
 responsibilities = Table(
     "responsibilities", metadata,
@@ -84,6 +92,19 @@ class Store:
         if self.engine.dialect.name == "sqlite":
             event.listen(self.engine, "connect", _sqlite_pragmas)
         metadata.create_all(self.engine)
+        self._nachruesten()
+
+    def _spalten(self) -> set[str]:
+        return {c["name"] for c in inspect(self.engine).get_columns("bees")}
+
+    def _nachruesten(self) -> None:
+        for name in [n for n in _NACHGERUESTET if n not in self._spalten()]:
+            try:
+                with self.engine.begin() as c:
+                    c.execute(text(f"ALTER TABLE bees ADD COLUMN {name} TEXT"))
+            except DBAPIError:
+                if name not in self._spalten():   # sonst war ein zweiter Prozess schneller
+                    raise
 
     # -- Lesen ---------------------------------------------------------------
     def by_hash(self, content_hash: str) -> dict | None:
@@ -144,6 +165,7 @@ class Store:
             "status": entry.status.value,
             "error_reason": entry.error_reason,
             "scanned_at": entry.scanned_at,
+            "quelle": entry.quelle,
         }
         with self.engine.begin() as c:
             exists = c.execute(select(bees.c.id).where(bees.c.id == entry.id)).first()
@@ -277,4 +299,5 @@ def row_to_entry(row: dict) -> BeeEntry:
         status=Status(row.get("status") or "pending"),
         error_reason=row.get("error_reason"),
         scanned_at=row.get("scanned_at") or "",
+        quelle=row.get("quelle"),
     )

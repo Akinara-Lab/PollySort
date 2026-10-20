@@ -85,6 +85,11 @@ class BeeEntry(BaseModel):
     status: Status = Status.PENDING
     error_reason: str | None = None
     scanned_at: str = Field(default_factory=_now_iso)
+    #: Wer die Kategorie gesetzt hat (seit 2026-10-20, für die Feldmessung): ``gedaechtnis`` ·
+    #: ``beenara`` · ``beenara-big`` · ``nummer`` · ``label`` · ``zweitmeinung`` · ``keine``;
+    #: nach einer Korrektur deren Quelle (``review`` · ``assign`` · ``analysiere`` · ``manuell``).
+    #: ``None``: nicht analysiert oder von vor dem 2026-10-20.
+    quelle: str | None = None
 
     # -- Ableitungen -------------------------------------------------------
     @property

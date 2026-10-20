@@ -142,14 +142,15 @@ def _learn_from_move(ctx, r, new_path, report) -> None:
     new_cat = _category_of_path(ctx, new_path)
     if not new_cat or new_cat == old_cat or new_cat == r.get("kategorie"):
         return
+    from .feedback import vorher
     from .store import bees
     with ctx.store.engine.begin() as c:
         c.execute(bees.update().where(bees.c.id == r["id"]).values(
-            kategorie=new_cat, status=Status.ASSIGNED.value))
+            kategorie=new_cat, status=Status.ASSIGNED.value, quelle="manuell"))
     ctx.feedback.record(bee_id=r["id"], title=r.get("title") or "",
                         funktion=r.get("funktion") or "",
                         kategorie_alt=old_cat or r.get("kategorie") or "",
-                        kategorie_neu=new_cat, quelle="manuell")
+                        kategorie_neu=new_cat, quelle="manuell", **vorher(r))
     report.learned += 1
     report.details.append(
         i18n.t("sw.learned_one", name=Path(new_path).name, old=old_cat or "—", new=new_cat))

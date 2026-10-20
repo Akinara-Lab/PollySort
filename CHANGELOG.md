@@ -9,6 +9,39 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Gedächtnis — Herkunft je Eintrag
+- **Zwei Vermutungen sortieren kein drittes Dokument mehr ein.** Das Gedächtnis merkt sich jedes
+  analysierte Dokument mit Label, auch Rückfragen und jeden Vorschlag von BeeNara Big. Bisher
+  zählten diese Einträge wie bestätigte: Bekamen zwei ähnliche Dokumente denselben falschen,
+  unsicheren Vorschlag, sortierte das Gedächtnis ein drittes ohne Rückfrage ein (Test:
+  `tests/test_gedaechtnis_herkunft.py`). Im vollen Analyse-Weg reichte schon eine Rückfrage, um
+  die Konfidenz des nächsten Dokuments über die Schwelle zu heben.
+- Jeder Eintrag trägt jetzt seine **Herkunft**: `bestaetigt` (Rückfrage beantwortet,
+  `zuordnen`, Umsortieren nach `analysiere`, Saat aus dem Vorwärmen), `sicher` (automatisch über
+  der Schwelle) oder `unsicher` (Rückfrage). Selbst entscheiden (Stufe A), als Beispiel für die
+  Mindestzahl zählen und im Assigner die Konfidenz heben oder ein fehlendes Label ersetzen dürfen
+  nur bestätigte und sichere Einträge. Unsichere wirken weiter als **Gegenstimme**: Liegt ein
+  unsicherer Eintrag einer anderen Kategorie näher, fragt PollySort nach wie bisher.
+- Wird ein unsicherer Eintrag später bestätigt oder automatisch sicher einsortiert, steigt seine
+  Herkunft; herabgestuft wird sie nie, solange die Kategorie bleibt. `gedaechtnis neu` behält sie.
+- **Bestehende Gedächtnisse** werden beim ersten Start einmal eingestuft, aus Katalog und
+  Korrekturen: einsortiert → sicher, Rückfrage → unsicher, korrigiert → bestätigt, im Index-Modus
+  nach Konfidenz und Schwelle. Nennt der Katalog inzwischen eine andere Kategorie (von Hand
+  verschoben), gilt das alte Label als unsicher; Saat ohne Katalog-Eintrag als bestätigt.
+
+### Feldmessung — welche Stufe lag daneben?
+- **Jede Korrektur hält fest, wer vorher entschieden hatte** und wie sicher: `quelle_vorher`
+  (`gedaechtnis`, `beenara`, `beenara-big`, `nummer`, `label`, `zweitmeinung`, `keine`, oder eine
+  frühere Korrektur), `konfidenz_vorher` und `status_vorher` in `korrekturen.jsonl`.
+  `status_vorher: assigned` heißt: Die Datei war schon automatisch einsortiert, ein echter Fehler
+  dieser Stufe. So zeigt die Beta, ob BeeNaras „höchstens 1 % falsch" auch draußen hält. Es wird
+  nur gemessen; nichts regelt sich danach von selbst nach.
+- Dafür steht im Katalog jetzt bei jeder Datei, wer ihre Kategorie gesetzt hat (Spalte `quelle`,
+  wird beim ersten Start nachgerüstet; ältere Einträge bleiben ohne). In der Lauf-Zusammenfassung
+  zählen BeeNara und BeeNara Big weiter gemeinsam als „BeeNara".
+- Ältere Zeilen in `korrekturen.jsonl` bleiben gültig; Wachstafel und Few-Shots lesen sie wie
+  bisher.
+
 ## [0.4.0b2] — 2026-10-18 — öffentlicher Start
 
 ### Dokumentation — README für den öffentlichen Start

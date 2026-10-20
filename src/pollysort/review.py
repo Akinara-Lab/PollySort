@@ -19,7 +19,11 @@ from .pipeline import Context
 
 def apply_correction(ctx: Context, bee_id: str, kategorie: str, *,
                      mode: str = "move", source: str = "assign") -> str | None:
-    """Kategorie korrigieren → DB + Feedback + Zentroid-Update (+ ggf. Move) (§14.4)."""
+    """Kategorie korrigieren → DB + Feedback + Zentroid-Update (+ ggf. Move) (§14.4).
+
+    Die Antwort des Nutzers ist ab jetzt die Quelle der Kategorie (``source``) und steht im
+    Gedächtnis als bestätigt. Die Korrektur hält fest, wer vorher entschieden hatte und wie
+    sicher — die Feldmessung, welche Stufe wie oft danebenlag."""
     row = ctx.store.by_id(bee_id)
     if not row:
         return None
@@ -34,17 +38,20 @@ def apply_correction(ctx: Context, bee_id: str, kategorie: str, *,
     persons = ctx.taxonomy.persons_for(kategorie)
     with ctx.store.engine.begin() as c:
         c.execute(bees.update().where(bees.c.id == bee_id).values(
-            kategorie=kategorie, status=Status.ASSIGNED.value))
+            kategorie=kategorie, status=Status.ASSIGNED.value, quelle=source))
     _set_persons(ctx, bee_id, persons)
 
     # Feedback + Gedächtnis: Zentroid verschiebt sich nachweislich (§14.4)
     entry = row_to_entry({**row, "kategorie": kategorie})
     from .extractor import gedaechtnis_text
+    from .feedback import vorher
+    from .hive_mind.memory import BESTAETIGT
     vec = ctx.client.embed(gedaechtnis_text(ctx.client, row.get("path"), entry.embedding_text()))
-    ctx.mind.remember(bee_id, kategorie, vec, getattr(ctx.client, "embed_model", None))
+    ctx.mind.remember(bee_id, kategorie, vec, getattr(ctx.client, "embed_model", None),
+                      herkunft=BESTAETIGT)
     ctx.feedback.record(bee_id=bee_id, title=row.get("title") or "",
                         funktion=row.get("funktion") or "", kategorie_alt=old,
-                        kategorie_neu=kategorie, quelle=source)
+                        kategorie_neu=kategorie, quelle=source, **vorher(row))
 
     # Datei aus _unassigned/ in die richtige Wabe holen (falls im Stock)
     _move_into_category(ctx, bee_id, kategorie, mode=mode)
