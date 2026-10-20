@@ -540,6 +540,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                       "en": "Health check: Python, AI provider, models, database, memory"},
     "help.d.beenara": {"de": "Lokale Entscheider-Modelle: laden · an/aus · entfernen · Big · Modellwahl",
                        "en": "Local decider models: download · on/off · remove · Big · model choice"},
+    "help.d.ollama": {"de": "Gedächtnis-Modell über Ollama laden (Modus Lokal)",
+                      "en": "Download the memory model via Ollama (local mode)"},
     "help.d.language": {"de": "UI-Sprache umschalten (language / lang)",
                         "en": "Switch the UI language (sprache)"},
     "help.d.theme": {"de": "Dark/Light; 'auto' = tags dunkel, abends hell",
@@ -579,8 +581,10 @@ _CATALOG: dict[str, dict[str, str]] = {
     "doctor.models.ok": {"de": "{chat} · {embed} gezogen", "en": "{chat} · {embed} pulled"},
     "doctor.models.missing": {"de": "fehlt: {names} → {hint}", "en": "missing: {names} → {hint}"},
     "doctor.models.embed_note": {
-        "de": " (ohne Embedding-Modell lernt das Gedächtnis nichts dazu)",
-        "en": " (without the embedding model the memory learns nothing)",
+        "de": " (ohne Embedding-Modell lernt das Gedächtnis nichts dazu; auch in der Werkstatt "
+              "unter „Gedächtnis-Modell“ zu laden)",
+        "en": " (without the embedding model the memory learns nothing; it can also be "
+              "downloaded in the workshop under “Memory model”)",
     },
     "doctor.db.exists": {"de": "vorhanden", "en": "present"},
     "doctor.db.new": {"de": "wird angelegt", "en": "will be created"},
@@ -730,6 +734,51 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bn.remove.none": {"de": "BeeNara ist nicht geladen — nichts zu entfernen.",
                        "en": "BeeNara is not downloaded — nothing to remove."},
     "bn.remove.failed": {"de": "Entfernen fehlgeschlagen: {err}", "en": "Removing failed: {err}"},
+    # Gedächtnis-Modell über Ollama (ollama_laden.py) — 'ollama laden', Werkstatt
+    "om.title": {"de": "Gedächtnis-Modell (Ollama)", "en": "Memory model (Ollama)"},
+    "om.what": {
+        "de": "Im Modus Lokal liest Ollama jedes Dokument mit diesem Modell, damit das Gedächtnis "
+              "ähnliche Dokumente wiedererkennt und aus deinen Antworten lernt. Ohne das Modell "
+              "sortiert PollySort trotzdem, lernt aber nichts dazu.",
+        "en": "In local mode Ollama reads every document with this model, so the memory recognises "
+              "similar documents and learns from your answers. Without it PollySort still sorts, "
+              "but learns nothing.",
+    },
+    "om.status.offline": {
+        "de": "Ollama ist nicht erreichbar. Für den Modus Lokal Ollama installieren (ollama.com) "
+              "und starten, dann hier laden.",
+        "en": "Ollama is not reachable. For local mode, install Ollama (ollama.com) and start it, "
+              "then download here.",
+    },
+    "om.status.ready": {"de": "{modell} ist geladen.", "en": "{modell} is downloaded."},
+    "om.status.missing": {
+        "de": "{modell} fehlt — ohne das Modell lernt das Gedächtnis im Modus Lokal nichts dazu.",
+        "en": "{modell} is missing — without it the memory learns nothing in local mode.",
+    },
+    "om.usage": {"de": "Nutzung: ollama (Stand) · ollama laden · ollama laden <modell>",
+                 "en": "Usage: ollama (status) · ollama pull · ollama pull <model>"},
+    "om.checking": {"de": "Frage Ollama nach {modell} …", "en": "Asking Ollama for {modell} …"},
+    "om.start": {
+        "de": "Ollama lädt {modell}. Strg-C unterbricht, 'ollama laden' setzt später fort.",
+        "en": "Ollama is downloading {modell}. Ctrl-C pauses, 'ollama pull' resumes later.",
+    },
+    "om.progress": {"de": "{modell} laden", "en": "Downloading {modell}"},
+    "om.done": {
+        "de": "{modell} ist geladen — im Modus Lokal lernt das Gedächtnis ab dem nächsten Lauf mit.",
+        "en": "{modell} is downloaded — in local mode the memory learns from the next run on.",
+    },
+    "om.interrupted": {"de": "Download unterbrochen — 'ollama laden' setzt fort.",
+                       "en": "Download paused — 'ollama pull' resumes."},
+    "om.err.offline": {
+        "de": "Ollama ist nicht erreichbar ({url}). Starte Ollama (ollama serve) und versuche es "
+              "noch einmal.",
+        "en": "Ollama is not reachable ({url}). Start Ollama (ollama serve) and try again.",
+    },
+    "om.err.pull": {"de": "Ollama konnte das Modell nicht laden: {err}",
+                    "en": "Ollama could not download the model: {err}"},
+    "om.err.incomplete": {"de": "Ollama hat den Download nicht abgeschlossen — bitte noch einmal "
+                                "versuchen.",
+                          "en": "Ollama did not finish the download — please try again."},
     # BeeNara Big — das große Modell für ganze Ordnerbäume (beenara_big.py). Fehlt hier ein
     # Text, gilt der bn.…-Text (beenara._t).
     "bb.title": {"de": "🐝 BeeNara Big", "en": "🐝 BeeNara Big"},
@@ -2490,6 +2539,18 @@ _CATALOG: dict[str, dict[str, str]] = {
                                 "en": "It suggests folders from the next sorting run."},
     "web.toast.bb.failed": {"de": "BeeNara Big ist noch nicht bereit",
                             "en": "BeeNara Big is not ready yet"},
+    # Gedächtnis-Modell über Ollama — Werkstatt
+    "web.om.chip.checking": {"de": "wird geprüft", "en": "checking"},
+    "web.om.chip.offline": {"de": "Ollama aus", "en": "Ollama off"},
+    "web.om.chip.ready": {"de": "geladen", "en": "downloaded"},
+    "web.btn.om_check": {"de": "Erneut prüfen", "en": "Check again"},
+    "web.run.om.title": {"de": "Gedächtnis-Modell laden", "en": "Downloading the memory model"},
+    "web.toast.om.ready": {"de": "Das Gedächtnis-Modell ist geladen",
+                           "en": "The memory model is downloaded"},
+    "web.toast.om.ready.text": {"de": "Im Modus Lokal lernt das Gedächtnis ab dem nächsten Lauf mit.",
+                                "en": "In local mode the memory learns from the next run on."},
+    "web.toast.om.failed": {"de": "Das Gedächtnis-Modell ist noch nicht geladen",
+                            "en": "The memory model is not downloaded yet"},
     "web.su.bn.label": {"de": "BeeNara nach dem Einrichten mit herunterladen",
                         "en": "Also download BeeNara after setup"},
     "web.su.bn.row": {"de": "BeeNara", "en": "BeeNara"},

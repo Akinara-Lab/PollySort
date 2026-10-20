@@ -9,6 +9,20 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Gedächtnis-Modell per Knopfdruck (Ollama)
+- **Werkstatt → Gedächtnis-Modell (Ollama) → Herunterladen.** Im Modus Lokal braucht das
+  Gedächtnis das Embedding-Modell `nomic-embed-text-v2-moe`. Fehlte es, sortierte PollySort zwar,
+  lernte aber still nichts dazu; der Rat war `ollama pull …` im Terminal. Jetzt holt PollySort
+  das Modell selbst über Ollama, mit demselben Ablauf wie der BeeNara-Download: Fortschritt in
+  MB, Meldungen im Protokoll, Fehler werden gemeldet statt geworfen. Die Karte zeigt, ob Ollama
+  läuft und das Modell schon hat; den Stand lädt die Seite nach, damit die Werkstatt ohne
+  laufendes Ollama nicht hängt.
+- **Konsole:** `ollama` zeigt den Stand, `ollama laden` (`ollama pull`) lädt das Modell. Mit
+  Modellnamen lädt es ein anderes, z. B. `ollama pull qwen3.5:9b` — so klappt der Rat von
+  `doctor` auch direkt in der PollySort-Konsole. Skript-CLI: `pollysort-cli ollama [status|pull]`
+  (Exit 0 = Modell da).
+- `doctor` nennt beim fehlenden Embedding-Modell zusätzlich die Werkstatt.
+
 ### Gedächtnis — Herkunft je Eintrag
 - **Zwei Vermutungen sortieren kein drittes Dokument mehr ein.** Das Gedächtnis merkt sich jedes
   analysierte Dokument mit Label, auch Rückfragen und jeden Vorschlag von BeeNara Big. Bisher
