@@ -221,7 +221,7 @@ All of these are optional; PollySort sorts without them.
 |---|---|---|
 | <img src="docs/bilder/icons/biene.svg" width="28" alt=""> | **BeeNara**, the local sorting model (~370 MB, CPU, offline) | Tick it in the setup, use **Workshop → BeeNara → Download** in the app, or type `beenara pull` in the console. Its runtime (`onnxruntime`, `tokenizers`, `numpy`) is installed with it |
 | <img src="docs/bilder/icons/chip.svg" width="28" alt=""> | **BeeNara Big** for large folder trees (~4.7 GB, NVIDIA GPU with 8 GB or more) | **Workshop → BeeNara → BeeNara Big → Download**, or `beenara big pull` in the console. It checks the graphics card first and installs PyTorch with CUDA to match your driver |
-| <img src="docs/bilder/icons/haus.svg" width="28" alt=""> | **Ollama** for *local* mode: full AI analysis on your own machine | Install [Ollama](https://ollama.com) and pull a model, e.g. `ollama pull qwen3.5:9b`; PollySort detects it. The memory model `nomic-embed-text-v2-moe` comes with one click: **Workshop → Memory model (Ollama) → Download**, or `ollama pull` in the PollySort console |
+| <img src="docs/bilder/icons/haus.svg" width="28" alt=""> | **Ollama** for *local* mode: full AI analysis on your own machine | Install [Ollama](https://ollama.com) and start it. Both models then come with one click each: **Workshop → Ollama → Download** for the language model `qwen3.5:9b` (~6.6 GB) and the memory model (RAG) `nomic-embed-text-v2-moe` (~1 GB), or `ollama pull` in the PollySort console for whatever is missing |
 | <img src="docs/bilder/icons/route.svg" width="28" alt=""> | **OpenRouter** for *cloud* mode: best quality, paid per use | Create a key on [openrouter.ai](https://openrouter.ai) and enter it with `key set` in the console |
 
 ### Updating
@@ -289,7 +289,7 @@ Both scripts accept `--dry-run` to show what would happen without changing anyth
 | **BeeNara is downloaded but does not sort** | `beenara` (or the Workshop card) says why: switched off, an older model version, the runtime missing or outdated, or the project has fewer than 3 or more than 9 folders. `beenara pull` fixes the first three |
 | **BeeNara Big refuses to download** | It needs an NVIDIA graphics card with at least 8 GB. To run it on the CPU anyway (seconds to minutes per document), set `POLLYSORT_BEENARA_BIG_CPU=1` and pull again |
 | **BeeNara Big runs on the CPU** although there is a GPU | The Workshop shows "Runs on the CPU". Run `beenara big pull`: it replaces a CPU-only PyTorch with the CUDA build matching your driver. Then restart PollySort |
-| **Local mode sorts, but the memory learns nothing** | The embedding model is missing in Ollama (`doctor` warns). **Workshop → Memory model (Ollama) → Download**, or `ollama pull` in the PollySort console |
+| **Local mode sorts, but the memory learns nothing** | The embedding model is missing in Ollama (`doctor` warns). **Workshop → Ollama → Memory model (RAG) → Download**, or `ollama pull memory` in the PollySort console |
 | **Ollama crashes** on the GPU (driver issues) | Nothing to do: PollySort falls back to the CPU (`num_gpu: 0`) automatically, slower but working |
 | **Something else** | `pollysort-cli doctor` names what is missing. The app logs to `~/.pollysort/app.log`. Issues welcome: [GitHub Issues](https://github.com/Akinara-Lab/PollySort/issues) |
 
@@ -518,7 +518,7 @@ list the **English alias** first and the original **German** name in parentheses
 | `beenara [pull\|on\|off\|remove]` (`beenara [laden\|an\|aus\|entfernen]`) | [BeeNara](#beenara-the-local-deciders), the local decider model: download it with its runtime (~370 MB, checksum-verified, resumes after an interruption) · switch it on/off · remove it. Without an argument: is it sorting, and if not, why |
 | `beenara big [pull\|remove]` (`beenara big [laden\|entfernen]`) | [BeeNara Big](#beenara-big-whole-folder-trees): check the graphics card, download it (~4.7 GB) with PyTorch/CUDA · remove it. Without an argument: is it ready, and on the GPU or the CPU |
 | `beenara model <auto\|small\|big>` (`beenara modell <auto\|klein\|big>`) | Which model sorts when both are there: **auto** (BeeNara for 3–9 folders, Big for more) · only BeeNara · only Big |
-| `ollama [pull [model]]` (`ollama [laden [modell]]`) | The memory model for *local* mode: without an argument, is Ollama running and does it have the model · `pull` downloads it through Ollama with progress · `pull <model>` downloads another Ollama model, e.g. `ollama pull qwen3.5:9b` as `doctor` suggests |
+| `ollama [pull [language\|memory\|<model>]]` (`ollama [laden [sprache\|gedaechtnis\|<modell>]]`) | The two Ollama models for *local* mode: without an argument, is Ollama running and which of the language model and the memory model (RAG) it has · `pull` downloads what is missing, through Ollama with progress · `pull language` / `pull memory` one of them · `pull <model>` any other Ollama model, e.g. `ollama pull qwen3.5:9b` as `doctor` suggests |
 | `language <de\|en>` (`sprache`, `lang`) | Switch UI language |
 | `theme` (`thema`) · `view` (`ansicht`) | Dark/light mode · static view or classic log |
 | `help` (`hilfe`) / `exit` | This help / leave the console |

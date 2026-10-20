@@ -261,10 +261,11 @@ Schlüssel verlassen den Rechner nicht, Token/Host/Origin/JSON, keine Dateien au
 - **Wer hat entschieden:** `pipeline.quellen_text()` liefert „Entschieden: … von BeeNara" für
   Konsole und Seite; der Plan trägt je Datei die Quelle (Gedächtnis · BeeNara · KI-Kurzentscheid
   · Vollanalyse · Heuristik).
-- **Gedächtnis-Modell (Ollama):** eigene Karte unter BeeNara, gleicher Ablauf (`ollama_laden.py`,
+- **Ollama (Modus Lokal):** eigene Karte unter BeeNara mit Sprachmodell und Gedächtnis-Modell
+  (RAG), je mit Stand und Knopf, gleicher Ablauf (`ollama_laden.py`,
   `tests/test_ollama_laden.py`). Den Stand weiß nur der lokale Ollama-Server; läuft er nicht,
   dauert die Frage bis zu 1,5 s. Darum steht er nicht in `werkstatt`, sondern die Seite lädt ihn
-  nach (Ansicht `ollama_modell`, „Erneut prüfen"). Aktion `ollama_modell_laden` zieht das Modell
+  nach (Ansicht `ollama_modelle`, „Erneut prüfen"). Aktion `ollama_modell_laden` zieht das Modell
   über `POST /api/pull`; der eine Fortschrittsblock (`#lauf`) wandert dafür in diese Karte.
 - **Wächter** gegen den Bruch, der beim Zusammenführen unbemerkt blieb („Entschieden: {teile}"):
   Jeder Aufruf der Seite hat einen Endpunkt und umgekehrt, und jeder Text bekommt alle seine

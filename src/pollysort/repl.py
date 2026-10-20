@@ -393,7 +393,7 @@ class BeehiveShell(cmd.Cmd):
             ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
             ("doctor", "doctor", "help.d.doctor"),
             ("beenara [laden|big|modell]", "beenara [pull|big|model]", "help.d.beenara"),
-            ("ollama [laden]", "ollama [pull]", "help.d.ollama"),
+            ("ollama [laden [sprache|gedaechtnis]]", "ollama [pull [language|memory]]", "help.d.ollama"),
             ("sprache <de|en>", "language <de|en>", "help.d.language"),
             ("thema [dunkel|hell|auto]", "theme [dark|light|auto]", "help.d.theme"),
             ("ansicht [statisch|log]", "view [static|log]", "help.d.view"),
@@ -1049,24 +1049,21 @@ class BeehiveShell(cmd.Cmd):
     _ENTFERNEN = ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall")
 
     def do_ollama(self, arg: str) -> None:
-        """ollama [laden [modell]] — Stand des Gedächtnis-Modells in Ollama, oder es laden (Modus
-        Lokal). Mit Modellnamen lädt es dieses — so klappt auch der Rat von 'doctor'
-        („ollama pull qwen3.5:9b") hier in der Konsole."""
+        """ollama [laden [wunsch]] — Stand der Ollama-Modelle (Sprachmodell, Gedächtnis), oder laden (Modus
+        Lokal). Ohne Namen lädt es, was fehlt; ``sprache``/``gedaechtnis`` das eine Modell; mit
+        Modellnamen dieses — so klappt auch der Rat von 'doctor' („ollama pull qwen3.5:9b")."""
         from pollysort import ollama_laden
-        sub, _, modell = arg.strip().partition(" ")
+        sub, _, wunsch = arg.strip().partition(" ")
         sub = sub.lower()
         if sub in self._LADEN:
             try:
-                if modell.strip():
-                    ollama_laden.laden(self.con, modell.strip())
-                else:
-                    ollama_laden.laden(self.con)
+                ollama_laden.nach_wunsch(self.con, wunsch)
             except Exception as exc:
                 self.con.error(i18n.t("om.err.pull", err=exc))
-        elif sub in ("", "status", "info") and not modell:
+        elif sub in ("", "status", "info") and not wunsch:
             self.con.rule(i18n.t("om.title"))
-            self.con.info(i18n.t("om.what"), "🧠")
-            for art, emoji, text in ollama_laden.bericht(ollama_laden.stand()):
+            self.con.info(i18n.t("om.what"), "🦙")
+            for art, emoji, text in ollama_laden.bericht_alle(ollama_laden.staende()):
                 getattr(self.con, art)(text, emoji)
         else:
             self.con.ask(i18n.t("om.usage"))

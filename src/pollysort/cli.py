@@ -593,22 +593,23 @@ def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull | big
 
 @app.command("ollama")
 def ollama_cmd(aktion: str = typer.Argument("status", help="status | pull"),
-               modell: str = typer.Argument("", help="pull: ein anderes Ollama-Modell")):
-    """Das Gedächtnis-Modell (Ollama-Embedding für den Modus Lokal) laden oder den Stand zeigen.
-    ``ollama pull <modell>`` lädt ein anderes Modell. Exit 0 = Ollama hat das Modell."""
+               wunsch: str = typer.Argument("", help="pull: language | memory | <modell>")):
+    """Die Ollama-Modelle für den Modus Lokal (Sprachmodell, Gedächtnis-Modell) laden oder den
+    Stand zeigen. ``ollama pull`` lädt, was fehlt; ``ollama pull language|memory`` das eine
+    Modell; ``ollama pull <modell>`` ein anderes. Exit 0 = Ollama hat beide Modelle bzw. der
+    Download ist fertig."""
     con = _con()
     from . import ollama_laden
     a = aktion.strip().lower()
     if a in ("pull", "laden", "download", "update"):
-        ok = ollama_laden.laden(con, modell.strip()) if modell.strip() else ollama_laden.laden(con)
-        raise typer.Exit(0 if ok else 1)
+        raise typer.Exit(0 if ollama_laden.nach_wunsch(con, wunsch) else 1)
     if a not in ("status", ""):
-        con.error("pollysort-cli ollama <status|pull>")
+        con.error("pollysort-cli ollama <status|pull> [language|memory|<modell>]")
         raise typer.Exit(2)
-    s = ollama_laden.stand()
-    for art, emoji, text in ollama_laden.bericht(s):
+    staende = ollama_laden.staende()
+    for art, emoji, text in ollama_laden.bericht_alle(staende):
         getattr(con, art)(text, emoji)
-    raise typer.Exit(0 if s.vorhanden else 1)
+    raise typer.Exit(0 if all(s.vorhanden for s in staende) else 1)
 
 
 @app.command()

@@ -9,19 +9,22 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
-### Gedächtnis-Modell per Knopfdruck (Ollama)
-- **Werkstatt → Gedächtnis-Modell (Ollama) → Herunterladen.** Im Modus Lokal braucht das
-  Gedächtnis das Embedding-Modell `nomic-embed-text-v2-moe`. Fehlte es, sortierte PollySort zwar,
-  lernte aber still nichts dazu; der Rat war `ollama pull …` im Terminal. Jetzt holt PollySort
-  das Modell selbst über Ollama, mit demselben Ablauf wie der BeeNara-Download: Fortschritt in
-  MB, Meldungen im Protokoll, Fehler werden gemeldet statt geworfen. Die Karte zeigt, ob Ollama
-  läuft und das Modell schon hat; den Stand lädt die Seite nach, damit die Werkstatt ohne
-  laufendes Ollama nicht hängt.
-- **Konsole:** `ollama` zeigt den Stand, `ollama laden` (`ollama pull`) lädt das Modell. Mit
-  Modellnamen lädt es ein anderes, z. B. `ollama pull qwen3.5:9b` — so klappt der Rat von
-  `doctor` auch direkt in der PollySort-Konsole. Skript-CLI: `pollysort-cli ollama [status|pull]`
-  (Exit 0 = Modell da).
-- `doctor` nennt beim fehlenden Embedding-Modell zusätzlich die Werkstatt.
+### Ollama-Modelle per Knopfdruck
+- **Werkstatt → Ollama (Modus Lokal):** Der Modus Lokal braucht zwei Ollama-Modelle, das
+  **Sprachmodell** `qwen3.5:9b` (ca. 6,6 GB), das Dokumente liest und den Ordner wählt, und das
+  **Gedächtnis-Modell (RAG)** `nomic-embed-text-v2-moe` (ca. 1 GB), mit dem das Gedächtnis ähnliche
+  Dokumente wiedererkennt. Fehlte das Sprachmodell, ging der Modus Lokal gar nicht; fehlte das
+  Gedächtnis-Modell, lernte PollySort still nichts dazu. Der Rat war `ollama pull …` im Terminal.
+  Jetzt hat jedes Modell in der Karte seinen Stand und einen eigenen Knopf mit Größe. PollySort holt
+  es selbst über Ollama, mit demselben Ablauf wie der BeeNara-Download: Fortschritt in MB,
+  Meldungen im Protokoll, Fehler werden gemeldet statt geworfen. Den Stand lädt die Seite nach,
+  damit die Werkstatt ohne laufendes Ollama nicht hängt.
+- **Konsole:** `ollama` zeigt den Stand beider Modelle, `ollama laden` (`ollama pull`) lädt, was
+  fehlt, `ollama laden sprache|gedaechtnis` (`pull language|memory`, auch `rag`) das eine Modell.
+  Mit Modellnamen lädt es ein anderes, z. B. `ollama pull qwen3.5:9b` — so klappt der Rat von
+  `doctor` auch direkt in der PollySort-Konsole. Skript-CLI: `pollysort-cli ollama [status|pull]
+  [language|memory|<modell>]` (Exit 0 = beide Modelle da bzw. Download fertig).
+- `doctor` nennt bei fehlenden Modellen zusätzlich die Werkstatt.
 
 ### Gedächtnis — Herkunft je Eintrag
 - **Zwei Vermutungen sortieren kein drittes Dokument mehr ein.** Das Gedächtnis merkt sich jedes
