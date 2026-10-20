@@ -1046,6 +1046,32 @@ class Dienst:
         self.con.honey(i18n.t(f"bb.modus.{modell}"), "🔀")
         return self._beenara_big()
 
+    # -- Gedächtnis-Modell über Ollama — wie 'ollama' und 'ollama laden' -----------------
+    def _ollama_modell(self) -> dict:
+        from .. import ollama_laden
+        s = ollama_laden.stand()
+        return {"modell": s.modell, "erreichbar": s.erreichbar, "vorhanden": s.vorhanden,
+                "zeilen": [{"art": art, "emoji": emoji, "text": text}
+                           for art, emoji, text in ollama_laden.bericht(s)]}
+
+    @ansicht
+    def ollama_modell(self) -> dict:
+        """Hat Ollama das Embedding-Modell? Fragt den lokalen Server — läuft er nicht, bis zu
+        1,5 s. Darum steht das nicht in 'werkstatt'; die Seite lädt es nach."""
+        return self._ollama_modell()
+
+    @auftrag("ollama_modell_laden")
+    def ollama_modell_laden(self) -> dict:
+        """Das Embedding-Modell über Ollama holen. Lang: Fortschritt kommt in Bytes. Ein Fehler
+        wird gemeldet, nicht geworfen — der Stand danach sagt, was fehlt."""
+        from .. import ollama_laden
+        try:
+            ok = ollama_laden.laden(self.con)
+        except Exception as exc:          # wie bei BeeNara: nie die Oberfläche abreißen
+            self.con.error(i18n.t("om.err.pull", err=exc))
+            ok = False
+        return {"ok": ok, "ollama": self._ollama_modell()}
+
     # ------------------------------------------------------------------ #
     #  Projekte & Einrichtung
     # ------------------------------------------------------------------ #

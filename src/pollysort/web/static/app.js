@@ -143,6 +143,7 @@
     empfehlung: null,
     check: null,
     modi: null,
+    ollama: null,
     e: null,
   };
 
@@ -564,6 +565,11 @@
       $('#lauf-text').textContent = S.lauf.text || (big ? '' : t('bn.checking', { repo: (S.z.beenara || {}).repo || '' }));
       return;
     }
+    if (S.lauf.name === 'ollama_modell_laden') {
+      $('#lauf-titel').textContent = t('web.run.om.title');
+      $('#lauf-text').textContent = S.lauf.text || t('om.checking', { modell: (S.ollama || {}).modell || '' });
+      return;
+    }
     $('#lauf-text').textContent = S.lauf.text || t(S.lauf.name === 'vorschau' ? 'web.run.preview' : 'web.run.sort');
     $('#lauf-titel').textContent = t(S.lauf.name === 'vorschau' ? 'web.run.preview.title' : 'web.run.sort.title');
   }
@@ -926,7 +932,37 @@
   const bnHinweis = (modus) => (modus !== 'openrouter' && S.z.beenara && S.z.beenara.bereit
     ? `<small>${esc(t('web.bn.mode_note'))}</small>` : '');
 
+  // Gedächtnis-Modell (Ollama). Den Stand weiß nur der lokale Ollama-Server — läuft er nicht,
+  // dauert die Frage bis zu 1,5 s. Darum zeichnet die Werkstatt die Karte erst ohne Stand und
+  // setzt ihn nach (S.ollama); 'Erneut prüfen' und 'Verfügbarkeit prüfen' fragen neu.
+  function ollamaKarte(om) {
+    const chip = !om ? ['frage', 'web.om.chip.checking'] : !om.erreichbar ? ['aus', 'web.om.chip.offline']
+      : om.vorhanden ? ['wache', 'web.om.chip.ready'] : ['aus', 'web.bn.chip.missing'];
+    return `<section class="karte" id="om-karte" aria-labelledby="om-titel"><div class="zeile weit"><h2 id="om-titel" class="mit-symbol">${P.sprite('gehirn', 'symbol')}<span>${esc(t('om.title'))}</span></h2>
+        <span class="chip ${chip[0]}">${esc(t(chip[1]))}</span></div>
+      <p class="hinweis">${esc(t('om.what'))}</p>
+      ${om ? om.zeilen.map((z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`).join('') : ''}
+      ${om && !om.vorhanden ? `<div class="zeile abstand">
+        ${om.erreichbar ? `<button class="knopf" type="button" data-tun="om-laden">${esc(t('web.btn.bn_pull'))}</button>`
+          : `<button class="knopf zweit klein-knopf" type="button" data-tun="om-pruefen">${esc(t('web.btn.om_check'))}</button>`}
+      </div>` : ''}</section>`;
+  }
+
+  let ollamaFrage = null;
+  function ollamaNachladen() {
+    if (S.ollama || ollamaFrage) return;
+    ollamaFrage = lesen('ollama_modell').then((om) => {
+      S.ollama = om;
+      const karte = $('#om-karte');
+      if (!karte || S.lauf) return;             // Seite gewechselt oder ein Lauf zeigt hier
+      karte.outerHTML = ollamaKarte(om);
+      P.schrift($('#om-karte'));
+      stileAnwenden($('#om-karte'));
+    }).catch(() => {}).finally(() => { ollamaFrage = null; });
+  }
+
   async function seiteWerkstatt() {
+    setTimeout(ollamaNachladen);                // erst wenn die Seite steht
     const w = await lesen('werkstatt');
     const e = w.einstellungen;
     const p = w.projekt;
@@ -998,6 +1034,7 @@
               <small class="leise">${esc(t('web.ws.model_hint'))}</small></form>
           </div></section>` : ''}
         ${beenaraKarte}
+        ${ollamaKarte(S.ollama)}
         <section class="karte"><h2>${esc(t('web.ws.access'))}</h2>
           <table class="liste"><tbody>
             <tr><td class="mit-symbol">${P.sprite('schluessel', 'symbol')}<b>${esc(t('r.key.title'))}</b></td><td>${w.schluessel.quelle ? `<span class="mono">${esc(w.schluessel.maskiert)}</span> <span class="leise klein">(${esc(t('web.key.' + w.schluessel.quelle))})</span>` : `<span class="leise">${esc(t('r.key.none'))}</span>`}</td><td><code>schluessel setzen</code></td></tr>
@@ -1426,7 +1463,7 @@
     arbeitsmodus: () => einstellen({ arbeitsmodus: !einst().arbeitsmodus }),
     'wache-modus': async (el) => { try { await tun('projekt_einstellen', { wache: el.dataset.wert }); await zustandLaden(); rahmenZeichnen(); seiteZeichnen(true); } catch (e) { fehler(e); } },
     nacherfassung: async (el) => { try { await tun('projekt_einstellen', { nacherfassung: bool(el.dataset.wert) }); seiteZeichnen(true); } catch (e) { fehler(e); } },
-    'modi-pruefen': async () => { try { S.modi = await tun('modi_pruefen'); } catch (e) { fehler(e); } seiteZeichnen(true); },
+    'modi-pruefen': async () => { try { S.modi = await tun('modi_pruefen'); } catch (e) { fehler(e); } S.ollama = null; seiteZeichnen(true); },
     'stock-check': async () => { try { S.check = (await tun('stock_check')).checks; } catch (e) { fehler(e); } seiteZeichnen(true); },
     // -- BeeNara (Werkstatt) --
     'bn-laden': async () => { bnMelden(await arbeit('beenara_laden')); seiteZeichnen(true); },
@@ -1455,6 +1492,22 @@
       try { await tun('beenara_big_entfernen'); hinweis({ titel: t('bb.remove.done') }); } catch (e) { fehler(e); }
       await zustandLaden(); seiteZeichnen(true);
     },
+    // -- Gedächtnis-Modell über Ollama (Werkstatt) --
+    'om-laden': async () => {
+      // Der Fortschritt hat einen Platz auf der Seite (#lauf, in der BeeNara-Karte). Für diesen
+      // Download wandert er in die Karte des Gedächtnis-Modells — dort zeigt und sperrt er.
+      const lauf = $('#lauf');
+      const karte = $('#om-karte');
+      if (lauf && karte && !S.lauf) karte.appendChild(lauf);
+      const r = await arbeit('ollama_modell_laden');
+      if (r) {
+        S.ollama = r.ollama;
+        hinweis(r.ok ? { titel: t('web.toast.om.ready'), text: t('web.toast.om.ready.text'), art: 'erfolg' }
+          : { titel: t('web.toast.om.failed'), text: t('web.toast.bn.failed.text'), art: 'fehler' });
+      }
+      seiteZeichnen(true);
+    },
+    'om-pruefen': () => { S.ollama = null; seiteZeichnen(true); },
     wechseln: async (el) => {
       try {
         const r = await tun('wechseln', { pfad: el.dataset.pfad });

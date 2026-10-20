@@ -264,7 +264,7 @@ class BeehiveShell(cmd.Cmd):
 
     # Befehle, die auch OHNE aktives Projekt erlaubt sind.
     _NO_PROJECT_OK = {"neu", "wechsel", "ordner", "projekte", "setup",
-                      "home", "start", "zuhause", "doctor", "beenara",
+                      "home", "start", "zuhause", "doctor", "beenara", "ollama",
                       "modell", "modellwechsel", "flugrouten", "api",
                       "schluessel", "key", "apikey",
                       "thema", "theme", "farbe", "ansicht", "view",
@@ -393,6 +393,7 @@ class BeehiveShell(cmd.Cmd):
             ("person <name> <kat,..>", "person <name> <cat,..>", "help.d.person"),
             ("doctor", "doctor", "help.d.doctor"),
             ("beenara [laden|big|modell]", "beenara [pull|big|model]", "help.d.beenara"),
+            ("ollama [laden]", "ollama [pull]", "help.d.ollama"),
             ("sprache <de|en>", "language <de|en>", "help.d.language"),
             ("thema [dunkel|hell|auto]", "theme [dark|light|auto]", "help.d.theme"),
             ("ansicht [statisch|log]", "view [static|log]", "help.d.view"),
@@ -1046,6 +1047,29 @@ class BeehiveShell(cmd.Cmd):
     _LADEN = ("laden", "ziehen", "holen", "herunterladen", "aktualisieren",
               "pull", "download", "install", "update")
     _ENTFERNEN = ("entfernen", "loeschen", "löschen", "remove", "delete", "uninstall")
+
+    def do_ollama(self, arg: str) -> None:
+        """ollama [laden [modell]] — Stand des Gedächtnis-Modells in Ollama, oder es laden (Modus
+        Lokal). Mit Modellnamen lädt es dieses — so klappt auch der Rat von 'doctor'
+        („ollama pull qwen3.5:9b") hier in der Konsole."""
+        from pollysort import ollama_laden
+        sub, _, modell = arg.strip().partition(" ")
+        sub = sub.lower()
+        if sub in self._LADEN:
+            try:
+                if modell.strip():
+                    ollama_laden.laden(self.con, modell.strip())
+                else:
+                    ollama_laden.laden(self.con)
+            except Exception as exc:
+                self.con.error(i18n.t("om.err.pull", err=exc))
+        elif sub in ("", "status", "info") and not modell:
+            self.con.rule(i18n.t("om.title"))
+            self.con.info(i18n.t("om.what"), "🧠")
+            for art, emoji, text in ollama_laden.bericht(ollama_laden.stand()):
+                getattr(self.con, art)(text, emoji)
+        else:
+            self.con.ask(i18n.t("om.usage"))
 
     def do_beenara(self, arg: str) -> None:
         """beenara [laden|an|aus|entfernen] · beenara big [laden|entfernen] · beenara modell

@@ -591,6 +591,26 @@ def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull | big
     raise typer.Exit(0 if beenara.warum_nicht(cfg) is None else 1)
 
 
+@app.command("ollama")
+def ollama_cmd(aktion: str = typer.Argument("status", help="status | pull"),
+               modell: str = typer.Argument("", help="pull: ein anderes Ollama-Modell")):
+    """Das Gedächtnis-Modell (Ollama-Embedding für den Modus Lokal) laden oder den Stand zeigen.
+    ``ollama pull <modell>`` lädt ein anderes Modell. Exit 0 = Ollama hat das Modell."""
+    con = _con()
+    from . import ollama_laden
+    a = aktion.strip().lower()
+    if a in ("pull", "laden", "download", "update"):
+        ok = ollama_laden.laden(con, modell.strip()) if modell.strip() else ollama_laden.laden(con)
+        raise typer.Exit(0 if ok else 1)
+    if a not in ("status", ""):
+        con.error("pollysort-cli ollama <status|pull>")
+        raise typer.Exit(2)
+    s = ollama_laden.stand()
+    for art, emoji, text in ollama_laden.bericht(s):
+        getattr(con, art)(text, emoji)
+    raise typer.Exit(0 if s.vorhanden else 1)
+
+
 @app.command()
 def shell(hive: str | None = typer.Option(None, "--hive")):
     """Interaktive Bienenstock-Konsole (REPL) — Befehle ohne 'pollysort'-Präfix (§19.1)."""
