@@ -248,11 +248,28 @@ class HiveMind:
             return "gemischte Dimensionen"
         return None
 
-    def relabel(self, bee_id: str, kategorie: str) -> None:
-        """Kategorie eines Eintrags im Gedächtnis ändern (Migration/Korrektur, §14.3)."""
-        self._con.execute("UPDATE vectors SET kategorie=? WHERE bee_id=?", (kategorie, bee_id))
+    def relabel(self, bee_id: str, kategorie: str, herkunft: str | None = None) -> bool:
+        """Kategorie eines Eintrags im Gedächtnis ändern (Migration/Korrektur, §14.3).
+
+        Der Vektor bleibt, wie er ist — kein Embedding-Aufruf. Ohne ``herkunft`` behält der
+        Eintrag seine (Migration: ein neuer Name ändert nichts daran, wer das Label gesetzt
+        hat). Mit ``herkunft`` gilt dieselbe Regel wie bei :meth:`remember`: Bei gleicher
+        Kategorie gilt die höhere, eine andere Kategorie bringt die neue Herkunft mit.
+        Gibt zurück, ob es den Eintrag gab; ohne Vektor ändert sich nichts.
+        """
+        if herkunft is not None and herkunft not in _RANG:
+            raise ValueError(f"unbekannte Herkunft: {herkunft!r}")
+        alt = self._con.execute(
+            "SELECT kategorie, herkunft FROM vectors WHERE bee_id=?", (bee_id,)).fetchone()
+        if not alt:
+            return False
+        if herkunft is None or (alt[0] == kategorie and _RANG.get(alt[1], 0) > _RANG[herkunft]):
+            herkunft = alt[1]
+        self._con.execute("UPDATE vectors SET kategorie=?, herkunft=? WHERE bee_id=?",
+                          (kategorie, herkunft, bee_id))
         self._con.commit()
         self.version += 1
+        return True
 
     def relabel_category(self, src: str, dst: str) -> None:
         """Alle Vektoren einer Kategorie umhängen (Merge, §14.3)."""

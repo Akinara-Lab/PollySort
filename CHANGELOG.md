@@ -28,6 +28,13 @@ sichtbar ist der Produktname PollySort.
   Korrekturen: einsortiert → sicher, Rückfrage → unsicher, korrigiert → bestätigt, im Index-Modus
   nach Konfidenz und Schwelle. Nennt der Katalog inzwischen eine andere Kategorie (von Hand
   verschoben), gilt das alte Label als unsicher; Saat ohne Katalog-Eintrag als bestätigt.
+- **Von Hand verschieben korrigiert jetzt auch das Gedächtnis.** Zieht man eine Datei im
+  Dateimanager selbst von Wabe A nach B, setzte `scan` bisher nur den Katalog auf B und schrieb
+  eine Korrektur. Im Gedächtnis hieß der Eintrag weiter A: Er stützte A für ähnliche Dokumente
+  und stand als Gegenstimme gegen B. Jetzt heißt er B und gilt als bestätigt. Der Scan bettet
+  dafür nichts neu ein und bleibt kostenfrei: Der Vektor bleibt stehen, nur Label und Herkunft
+  ändern sich; hat die Datei keinen, passiert nichts. Ziehen & Ablegen im Flugbrett, `zuordnen`
+  und Rückfragen liefen schon über die Korrektur mit neuem Vektor und bleiben, wie sie sind.
 
 ### Feldmessung — welche Stufe lag daneben?
 - **Jede Korrektur hält fest, wer vorher entschieden hatte** und wie sicher: `quelle_vorher`
