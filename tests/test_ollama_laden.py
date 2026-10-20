@@ -15,7 +15,7 @@ import pytest
 from pollysort import config, i18n, ollama_laden
 from pollysort.config import AppConfig
 from pollysort.llm import client as client_mod
-from pollysort.llm.client import OLLAMA_EMBED_MODEL
+from pollysort.llm.client import OLLAMA_EMBED_MODEL, OLLAMA_MODEL
 from pollysort.web.dienst import Dienst
 
 MB = 1_000_000
@@ -176,6 +176,56 @@ def test_stand_und_bericht(monkeypatch, modelle, erreichbar, vorhanden, art):
     assert len(zeilen) == 1 and zeilen[0][0] == art
 
 
+def test_beide_rollen_mit_einer_frage(monkeypatch):
+    fragen = []
+    monkeypatch.setattr(ollama_laden, "ollama_models",
+                        lambda *a, **_k: fragen.append(a) or [f"{OLLAMA_EMBED_MODEL}:latest"])
+    sprache, gedaechtnis = ollama_laden.staende()
+    assert len(fragen) == 1
+    assert (sprache.rolle, sprache.modell, sprache.vorhanden) == ("sprache", OLLAMA_MODEL, False)
+    assert (gedaechtnis.rolle, gedaechtnis.vorhanden) == ("gedaechtnis", True)
+    assert ollama_laden.bericht(sprache) == [
+        ("ask", "🦙", i18n.t("om.missing.sprache", modell=OLLAMA_MODEL))]
+    zeilen = ollama_laden.bericht_alle([sprache, gedaechtnis])
+    assert [z[2].split(":")[0] for z in zeilen] == [i18n.t("om.rolle.sprache"),
+                                                    i18n.t("om.rolle.gedaechtnis")]
+
+
+def test_rolle_von_ist_tag_tolerant():
+    assert ollama_laden.rolle_von(OLLAMA_MODEL) == "sprache"
+    assert ollama_laden.rolle_von(f"{OLLAMA_EMBED_MODEL}:latest") == "gedaechtnis"
+    assert ollama_laden.rolle_von("qwen3.5:0.8b") is None
+
+
+def test_fertig_meldung_nach_rolle():
+    for modell, schluessel in ((OLLAMA_MODEL, "om.done.sprache"),
+                               (OLLAMA_EMBED_MODEL, "om.done.gedaechtnis"),
+                               ("qwen3.5:0.8b", "om.done")):
+        con = Con()
+        assert ollama_laden.laden(con, modell, endpoint="http://ollama", client=_ollama())
+        assert con.text("honey") == i18n.t(schluessel, modell=modell)
+
+
+def test_fehlende_laden(monkeypatch):
+    gezogen = []
+    monkeypatch.setattr(ollama_laden, "laden", lambda _con, m, **_k: gezogen.append(m) or True)
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [])
+    assert ollama_laden.fehlende_laden(Con())
+    assert gezogen == [OLLAMA_MODEL, OLLAMA_EMBED_MODEL]
+
+    gezogen.clear()
+    monkeypatch.setattr(ollama_laden, "ollama_models",
+                        lambda *_a, **_k: [OLLAMA_MODEL, OLLAMA_EMBED_MODEL])
+    con = Con()
+    assert ollama_laden.fehlende_laden(con) and gezogen == []
+    assert con.text("honey") == i18n.t("om.all_present")
+
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: None)
+    con = Con()
+    assert not ollama_laden.fehlende_laden(con, endpoint="http://x")
+    assert con.text("error") == i18n.t("om.err.offline", url="http://x")
+
+
 # --------------------------------------------------------------------------- #
 #  Konsole und Skript-CLI
 # --------------------------------------------------------------------------- #
@@ -187,15 +237,19 @@ def _shell(con):
     return sh
 
 
-def test_konsole_laedt_das_gedaechtnis_modell_oder_ein_genanntes(monkeypatch):
-    aufrufe = []
-    monkeypatch.setattr(ollama_laden, "laden", lambda _con, *a: aufrufe.append(a) or True)
+def test_konsole_laedt_was_fehlt_eine_rolle_oder_ein_genanntes(monkeypatch):
+    gezogen = []
+    monkeypatch.setattr(ollama_laden, "laden", lambda _con, m, **_k: gezogen.append(m) or True)
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [OLLAMA_MODEL])
     sh = _shell(Con())
-    for befehl in ("laden", "pull", "update"):
-        sh.do_ollama(befehl)
+    sh.do_ollama("laden")                         # fehlt nur das Gedächtnis-Modell
+    sh.do_ollama("pull sprache")
+    sh.do_ollama("laden RAG")
+    sh.do_ollama("pull language")
     # Der Rat von 'doctor' („ollama pull qwen3.5:9b") klappt auch in der Konsole
-    sh.do_ollama("pull qwen3.5:9b")
-    assert aufrufe == [(), (), (), ("qwen3.5:9b",)]
+    sh.do_ollama("pull qwen3.5:0.8b")
+    assert gezogen == [OLLAMA_EMBED_MODEL, OLLAMA_MODEL, OLLAMA_EMBED_MODEL, OLLAMA_MODEL,
+                       "qwen3.5:0.8b"]
 
 
 def test_konsole_zeigt_den_stand_und_die_nutzung(monkeypatch):
@@ -206,11 +260,17 @@ def test_konsole_zeigt_den_stand_und_die_nutzung(monkeypatch):
     _shell(con).do_ollama("quatsch")
     assert i18n.t("om.usage") in con.text("ask")
 
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [OLLAMA_EMBED_MODEL])
+    con = Con()
+    _shell(con).do_ollama("status")
+    assert i18n.t("om.missing.sprache", modell=OLLAMA_MODEL) in con.text("ask")
+    assert i18n.t("om.status.ready", modell=OLLAMA_EMBED_MODEL) in con.text("honey")
+
 
 def test_konsole_unerwarteter_fehler_wird_gemeldet(monkeypatch):
     def boom(*_a, **_k):
         raise RuntimeError("kaputt")
-    monkeypatch.setattr(ollama_laden, "laden", boom)
+    monkeypatch.setattr(ollama_laden, "nach_wunsch", boom)
     con = Con()
     _shell(con).do_ollama("laden")
     assert "kaputt" in con.text("error")
@@ -222,38 +282,49 @@ def test_skript_cli_exit_codes(monkeypatch):
     from pollysort.cli import app
     runner = CliRunner()
     monkeypatch.setattr(ollama_laden, "ollama_models",
-                        lambda *_a, **_k: [f"{OLLAMA_EMBED_MODEL}:latest"])
+                        lambda *_a, **_k: [OLLAMA_MODEL, f"{OLLAMA_EMBED_MODEL}:latest"])
     assert runner.invoke(app, ["ollama"]).exit_code == 0
-    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [])
-    assert runner.invoke(app, ["ollama", "status"]).exit_code == 1
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [OLLAMA_EMBED_MODEL])
+    assert runner.invoke(app, ["ollama", "status"]).exit_code == 1, "Sprachmodell fehlt"
     gezogen = []
-    monkeypatch.setattr(ollama_laden, "laden", lambda _con, *a: gezogen.append(a) or True)
+    monkeypatch.setattr(ollama_laden, "laden", lambda _con, m, **_k: gezogen.append(m) or True)
     assert runner.invoke(app, ["ollama", "pull"]).exit_code == 0
-    assert runner.invoke(app, ["ollama", "pull", "qwen3.5:9b"]).exit_code == 0
-    assert gezogen == [(), ("qwen3.5:9b",)]
+    assert runner.invoke(app, ["ollama", "pull", "memory"]).exit_code == 0
+    assert runner.invoke(app, ["ollama", "pull", "qwen3.5:0.8b"]).exit_code == 0
+    assert gezogen == [OLLAMA_MODEL, OLLAMA_EMBED_MODEL, "qwen3.5:0.8b"]
     assert runner.invoke(app, ["ollama", "quatsch"]).exit_code == 2
 
 
 # --------------------------------------------------------------------------- #
 #  Werkstatt (Flugbrett)
 # --------------------------------------------------------------------------- #
-def test_werkstatt_laedt_mit_fortschritt_in_mb(monkeypatch):
+@pytest.mark.parametrize("rolle, modell", [("gedaechtnis", OLLAMA_EMBED_MODEL),
+                                           ("sprache", OLLAMA_MODEL)])
+def test_werkstatt_laedt_mit_fortschritt_in_mb(monkeypatch, rolle, modell):
     echt = ollama_laden.laden
-    monkeypatch.setattr(ollama_laden, "laden",
-                        lambda con: echt(con, endpoint="http://ollama", client=_ollama()))
-    monkeypatch.setattr(ollama_laden, "ollama_models",
-                        lambda *_a, **_k: [f"{OLLAMA_EMBED_MODEL}:latest"])
+    gezogen = []
+    monkeypatch.setattr(ollama_laden, "laden", lambda con, m: gezogen.append(m) or echt(
+        con, m, endpoint="http://ollama", client=_ollama()))
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [modell])
     d = Dienst()
-    antwort = d.ollama_modell_laden()
+    antwort = d.ollama_modell_laden(rolle=rolle)
+    assert gezogen == [modell]
     assert antwort["ergebnis"]["ok"] is True
-    assert antwort["ergebnis"]["ollama"]["vorhanden"] is True
+    stand = {m["rolle"]: m for m in antwort["ergebnis"]["ollama"]["modelle"]}
+    assert stand[rolle]["vorhanden"] is True
     bytes_ = [e for e in d.bus.letzte() if e.get("einheit") == "bytes"]
     assert bytes_ and bytes_[-1]["erledigt"] == bytes_[-1]["gesamt"] == 902 * MB
-    assert any(OLLAMA_EMBED_MODEL in m["text"] for m in antwort["meldungen"])
+    assert any(modell in m["text"] for m in antwort["meldungen"])
+
+
+def test_werkstatt_kennt_nur_die_beiden_rollen():
+    from pollysort.web.dienst import Ungueltig
+    with pytest.raises(Ungueltig):
+        Dienst().ollama_modell_laden(rolle="irgendwas")
 
 
 def test_werkstatt_ausfall_reisst_nichts_ab(monkeypatch):
-    def boom(_con):
+    def boom(*_a, **_k):
         raise RuntimeError("kaputt")
     monkeypatch.setattr(ollama_laden, "laden", boom)
     monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: None)
@@ -265,11 +336,14 @@ def test_werkstatt_ausfall_reisst_nichts_ab(monkeypatch):
 
 
 def test_werkstatt_stand_ohne_projekt(monkeypatch):
-    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: ["qwen3.5:9b"])
-    stand = Dienst().ollama_modell()
-    assert stand["erreichbar"] is True and stand["vorhanden"] is False
-    assert stand["modell"] == OLLAMA_EMBED_MODEL
-    assert stand["zeilen"][0]["text"] == i18n.t("om.status.missing", modell=OLLAMA_EMBED_MODEL)
+    monkeypatch.setattr(ollama_laden, "ollama_models", lambda *_a, **_k: [OLLAMA_MODEL])
+    stand = Dienst().ollama_modelle()
+    assert stand["erreichbar"] is True
+    sprache, gedaechtnis = stand["modelle"]
+    assert (sprache["rolle"], sprache["vorhanden"], sprache["gb"]) == ("sprache", True, 6.6)
+    assert (gedaechtnis["modell"], gedaechtnis["vorhanden"]) == (OLLAMA_EMBED_MODEL, False)
+    assert gedaechtnis["zeilen"][0]["text"] == i18n.t("om.missing.gedaechtnis",
+                                                      modell=OLLAMA_EMBED_MODEL)
 
 
 def test_ollama_models_ist_der_echte_helfer():

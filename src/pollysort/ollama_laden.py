@@ -1,13 +1,16 @@
-"""Das Ollama-Embedding-Modell fürs Gedächtnis laden — per Knopfdruck statt im Terminal.
+"""Die Ollama-Modelle für den Modus Lokal laden — per Knopfdruck statt im Terminal.
 
-Im Modus Lokal bettet Ollama jedes Dokument mit :data:`~pollysort.llm.client.OLLAMA_EMBED_MODEL`
-ein. Fehlt das Modell, sortiert PollySort zwar, aber das Gedächtnis lernt still nichts dazu;
-``doctor`` warnt, und bisher hieß der Rat ``ollama pull …`` im Terminal. Hier holt PollySort das
-Modell selbst, über Ollamas eigene Schnittstelle (``POST /api/pull``), im selben Ablauf wie
-``beenara laden``: Meldungen, Fortschritt in Bytes, Fehler werden gemeldet statt geworfen. So
-sieht es in der Konsole (``ollama laden``), der Skript-CLI und der Werkstatt gleich aus.
+Der Modus Lokal braucht zwei Ollama-Modelle (:data:`ROLLEN`): das **Sprachmodell**
+(:data:`~pollysort.llm.client.OLLAMA_MODEL`), das Dokumente liest und einordnet, und das
+**Gedächtnis-Modell** (:data:`~pollysort.llm.client.OLLAMA_EMBED_MODEL`, das Embedding für das
+Gedächtnis, PollySorts RAG). Fehlt das Sprachmodell, scheitert der Modus Lokal; fehlt das
+Gedächtnis-Modell, sortiert PollySort zwar, aber das Gedächtnis lernt still nichts dazu. Bisher hieß
+der Rat ``ollama pull …`` im Terminal. Hier holt PollySort die Modelle selbst, über Ollamas eigene
+Schnittstelle (``POST /api/pull``), im selben Ablauf wie ``beenara laden``: Meldungen, Fortschritt
+in Bytes, Fehler werden gemeldet statt geworfen. So sieht es in der Konsole (``ollama laden``), der
+Skript-CLI und der Werkstatt gleich aus.
 
-Ollama legt das Modell in seinem eigenen Speicher ab; PollySort schreibt dabei nichts auf die
+Ollama legt die Modelle in seinem eigenen Speicher ab; PollySort schreibt dabei nichts auf die
 Platte. Einen abgebrochenen Download setzt Ollama beim nächsten Mal fort.
 """
 
@@ -19,7 +22,24 @@ from dataclasses import dataclass
 import httpx
 
 from . import config, i18n
-from .llm.client import OLLAMA_EMBED_MODEL, OLLAMA_ENDPOINT, ollama_has_model, ollama_models
+from .llm.client import (
+    OLLAMA_EMBED_MODEL,
+    OLLAMA_ENDPOINT,
+    OLLAMA_MODEL,
+    ollama_has_model,
+    ollama_models,
+)
+
+#: Rolle → Modell. Die Reihenfolge ist die der Werkstatt und von 'ollama'.
+ROLLEN = {"sprache": OLLAMA_MODEL, "gedaechtnis": OLLAMA_EMBED_MODEL}
+#: Ungefähre Größe in GB, für den Knopf — gemessen am 2026-10-20 (``/api/tags``).
+UNGEFAEHR_GB = {"sprache": 6.6, "gedaechtnis": 1.0}
+#: Wörter, mit denen man in Konsole und CLI eine Rolle statt eines Modellnamens meint.
+ROLLEN_WOERTER = {
+    "sprache": "sprache", "sprachmodell": "sprache", "language": "sprache", "chat": "sprache",
+    "gedaechtnis": "gedaechtnis", "gedächtnis": "gedaechtnis", "memory": "gedaechtnis",
+    "rag": "gedaechtnis", "embedding": "gedaechtnis", "embed": "gedaechtnis",
+}
 
 #: Verbinden knapp, Lesen großzügig: Beim Prüfen der Prüfsumme bleibt Ollama zwischen zwei
 #: Fortschrittszeilen eine Weile still.
@@ -32,6 +52,8 @@ class Stand:
     #: Antwortet ein Ollama-Server? Nur installiert, aber nicht gestartet, zählt als nein.
     erreichbar: bool
     vorhanden: bool
+    #: ``sprache`` · ``gedaechtnis`` · ``None`` (ein anderes Modell)
+    rolle: str | None = None
 
 
 def endpunkt() -> str:
@@ -40,11 +62,24 @@ def endpunkt() -> str:
     return base[:-3].rstrip("/") if base.endswith("/v1") else base
 
 
-def stand(modell: str = OLLAMA_EMBED_MODEL, endpoint: str | None = None) -> Stand:
-    """Ist Ollama erreichbar, und hat es ``modell`` schon? Fragt den lokalen Server — läuft er
-    nicht, dauert das bis zu ``PING_TIMEOUT``."""
+def rolle_von(modell: str) -> str | None:
+    """Welche Rolle hat ``modell`` (tag-tolerant wie ``ollama_has_model``)?"""
+    return next((r for r, m in ROLLEN.items() if ollama_has_model(m, [modell])), None)
+
+
+def staende(endpoint: str | None = None) -> list[Stand]:
+    """Stand beider Modelle mit einer Frage an den Server — läuft er nicht, dauert das bis zu
+    ``PING_TIMEOUT``."""
     models = ollama_models(endpoint or endpunkt())
-    return Stand(modell, models is not None, bool(models) and ollama_has_model(modell, models))
+    return [Stand(m, models is not None, bool(models) and ollama_has_model(m, models), r)
+            for r, m in ROLLEN.items()]
+
+
+def stand(modell: str = OLLAMA_EMBED_MODEL, endpoint: str | None = None) -> Stand:
+    """Ist Ollama erreichbar, und hat es ``modell`` schon?"""
+    models = ollama_models(endpoint or endpunkt())
+    return Stand(modell, models is not None, bool(models) and ollama_has_model(modell, models),
+                 rolle_von(modell))
 
 
 def bericht(s: Stand) -> list[tuple[str, str, str]]:
@@ -53,7 +88,29 @@ def bericht(s: Stand) -> list[tuple[str, str, str]]:
         return [("ask", "🦙", i18n.t("om.status.offline"))]
     if s.vorhanden:
         return [("honey", "✅", i18n.t("om.status.ready", modell=s.modell))]
-    return [("ask", "🧠", i18n.t("om.status.missing", modell=s.modell))]
+    if s.rolle == "sprache":
+        return [("ask", "🦙", i18n.t("om.missing.sprache", modell=s.modell))]
+    return [("ask", "🧠", i18n.t("om.missing.gedaechtnis", modell=s.modell))]
+
+
+def bericht_alle(staende_: list[Stand]) -> list[tuple[str, str, str]]:
+    """Statuszeilen für beide Modelle, je mit der Rolle davor — für Konsole und Skript-CLI.
+    Läuft Ollama nicht, reicht eine Zeile."""
+    if not staende_[0].erreichbar:
+        return bericht(staende_[0])
+    return [(art, emoji, f"{i18n.t(f'om.rolle.{s.rolle}')}: {text}")
+            for s in staende_ for art, emoji, text in bericht(s)]
+
+
+def nach_wunsch(con, wunsch: str = "", *, endpoint: str | None = None) -> bool:
+    """``ollama laden [wunsch]``: ohne Wunsch, was fehlt; eine Rolle (``sprache``,
+    ``gedaechtnis``, ``rag`` …) lädt deren Modell; sonst ist der Wunsch ein Modellname — so
+    klappt auch der Rat von ``doctor`` („ollama pull qwen3.5:9b")."""
+    wunsch = wunsch.strip()
+    if not wunsch:
+        return fehlende_laden(con, endpoint=endpoint)
+    rolle = ROLLEN_WOERTER.get(wunsch.lower())
+    return laden(con, ROLLEN[rolle] if rolle else wunsch, endpoint=endpoint)
 
 
 def laden(con, modell: str = OLLAMA_EMBED_MODEL, *, endpoint: str | None = None,
@@ -118,8 +175,26 @@ def _ziehen(con, client: httpx.Client, base: str, modell: str) -> bool:
     if not fertig:
         con.error(i18n.t("om.err.incomplete"))
         return False
-    con.honey(i18n.t("om.done", modell=modell), "✅")
+    rolle = rolle_von(modell)
+    con.honey(i18n.t(f"om.done.{rolle}" if rolle else "om.done", modell=modell), "✅")
     return True
+
+
+def fehlende_laden(con, *, endpoint: str | None = None) -> bool:
+    """Was dem Modus Lokal fehlt, nacheinander laden (``ollama laden`` ohne Namen). ``True``,
+    wenn danach beide Modelle da sind."""
+    s = staende(endpoint)
+    if not s[0].erreichbar:
+        con.error(i18n.t("om.err.offline", url=endpoint or endpunkt()))
+        return False
+    fehlt = [x for x in s if not x.vorhanden]
+    if not fehlt:
+        con.honey(i18n.t("om.all_present"), "✅")
+        return True
+    ok = True
+    for x in fehlt:
+        ok = laden(con, x.modell, endpoint=endpoint) and ok
+    return ok
 
 
 def _fehlertext(r: httpx.Response) -> str:

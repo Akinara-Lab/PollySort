@@ -1047,30 +1047,35 @@ class Dienst:
         return self._beenara_big()
 
     # -- Gedächtnis-Modell über Ollama — wie 'ollama' und 'ollama laden' -----------------
-    def _ollama_modell(self) -> dict:
+    def _ollama_modelle(self) -> dict:
         from .. import ollama_laden
-        s = ollama_laden.stand()
-        return {"modell": s.modell, "erreichbar": s.erreichbar, "vorhanden": s.vorhanden,
-                "zeilen": [{"art": art, "emoji": emoji, "text": text}
-                           for art, emoji, text in ollama_laden.bericht(s)]}
+        staende = ollama_laden.staende()
+        return {"erreichbar": staende[0].erreichbar,
+                "modelle": [{"rolle": s.rolle, "modell": s.modell, "vorhanden": s.vorhanden,
+                             "gb": ollama_laden.UNGEFAEHR_GB[s.rolle],
+                             "zeilen": [{"art": art, "emoji": emoji, "text": text}
+                                        for art, emoji, text in ollama_laden.bericht(s)]}
+                            for s in staende]}
 
     @ansicht
-    def ollama_modell(self) -> dict:
-        """Hat Ollama das Embedding-Modell? Fragt den lokalen Server — läuft er nicht, bis zu
-        1,5 s. Darum steht das nicht in 'werkstatt'; die Seite lädt es nach."""
-        return self._ollama_modell()
+    def ollama_modelle(self) -> dict:
+        """Hat Ollama das Sprach- und das Gedächtnis-Modell? Fragt den lokalen Server — läuft er
+        nicht, bis zu 1,5 s. Darum steht das nicht in 'werkstatt'; die Seite lädt es nach."""
+        return self._ollama_modelle()
 
     @auftrag("ollama_modell_laden")
-    def ollama_modell_laden(self) -> dict:
-        """Das Embedding-Modell über Ollama holen. Lang: Fortschritt kommt in Bytes. Ein Fehler
-        wird gemeldet, nicht geworfen — der Stand danach sagt, was fehlt."""
+    def ollama_modell_laden(self, rolle: str = "gedaechtnis") -> dict:
+        """Ein Ollama-Modell holen: ``sprache`` oder ``gedaechtnis``. Lang: Fortschritt kommt in
+        Bytes. Ein Fehler wird gemeldet, nicht geworfen — der Stand danach sagt, was fehlt."""
         from .. import ollama_laden
+        if rolle not in ollama_laden.ROLLEN:
+            raise Ungueltig(i18n.t("web.err.params"))
         try:
-            ok = ollama_laden.laden(self.con)
+            ok = ollama_laden.laden(self.con, ollama_laden.ROLLEN[rolle])
         except Exception as exc:          # wie bei BeeNara: nie die Oberfläche abreißen
             self.con.error(i18n.t("om.err.pull", err=exc))
             ok = False
-        return {"ok": ok, "ollama": self._ollama_modell()}
+        return {"ok": ok, "ollama": self._ollama_modelle()}
 
     # ------------------------------------------------------------------ #
     #  Projekte & Einrichtung

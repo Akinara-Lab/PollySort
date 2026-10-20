@@ -540,8 +540,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                       "en": "Health check: Python, AI provider, models, database, memory"},
     "help.d.beenara": {"de": "Lokale Entscheider-Modelle: laden · an/aus · entfernen · Big · Modellwahl",
                        "en": "Local decider models: download · on/off · remove · Big · model choice"},
-    "help.d.ollama": {"de": "Gedächtnis-Modell über Ollama laden (Modus Lokal)",
-                      "en": "Download the memory model via Ollama (local mode)"},
+    "help.d.ollama": {"de": "Ollama-Modelle für den Modus Lokal laden (Sprachmodell, Gedächtnis)",
+                      "en": "Download the Ollama models for local mode (language, memory)"},
     "help.d.language": {"de": "UI-Sprache umschalten (language / lang)",
                         "en": "Switch the UI language (sprache)"},
     "help.d.theme": {"de": "Dark/Light; 'auto' = tags dunkel, abends hell",
@@ -579,12 +579,11 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "cloud without key → low-power mode",
     },
     "doctor.models.ok": {"de": "{chat} · {embed} gezogen", "en": "{chat} · {embed} pulled"},
-    "doctor.models.missing": {"de": "fehlt: {names} → {hint}", "en": "missing: {names} → {hint}"},
+    "doctor.models.missing": {"de": "fehlt: {names} → {hint} (oder Werkstatt → Ollama)",
+                              "en": "missing: {names} → {hint} (or Workshop → Ollama)"},
     "doctor.models.embed_note": {
-        "de": " (ohne Embedding-Modell lernt das Gedächtnis nichts dazu; auch in der Werkstatt "
-              "unter „Gedächtnis-Modell“ zu laden)",
-        "en": " (without the embedding model the memory learns nothing; it can also be "
-              "downloaded in the workshop under “Memory model”)",
+        "de": " — ohne Embedding-Modell lernt das Gedächtnis nichts dazu",
+        "en": " — without the embedding model the memory learns nothing",
     },
     "doctor.db.exists": {"de": "vorhanden", "en": "present"},
     "doctor.db.new": {"de": "wird angelegt", "en": "will be created"},
@@ -734,16 +733,18 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bn.remove.none": {"de": "BeeNara ist nicht geladen — nichts zu entfernen.",
                        "en": "BeeNara is not downloaded — nothing to remove."},
     "bn.remove.failed": {"de": "Entfernen fehlgeschlagen: {err}", "en": "Removing failed: {err}"},
-    # Gedächtnis-Modell über Ollama (ollama_laden.py) — 'ollama laden', Werkstatt
-    "om.title": {"de": "Gedächtnis-Modell (Ollama)", "en": "Memory model (Ollama)"},
+    # Ollama-Modelle für den Modus Lokal (ollama_laden.py) — 'ollama laden', Werkstatt
+    "om.title": {"de": "Ollama (Modus Lokal)", "en": "Ollama (local mode)"},
     "om.what": {
-        "de": "Im Modus Lokal liest Ollama jedes Dokument mit diesem Modell, damit das Gedächtnis "
-              "ähnliche Dokumente wiedererkennt und aus deinen Antworten lernt. Ohne das Modell "
-              "sortiert PollySort trotzdem, lernt aber nichts dazu.",
-        "en": "In local mode Ollama reads every document with this model, so the memory recognises "
-              "similar documents and learns from your answers. Without it PollySort still sorts, "
-              "but learns nothing.",
+        "de": "Im Modus Lokal arbeitet PollySort mit zwei Ollama-Modellen auf deinem Rechner: Das "
+              "Sprachmodell liest die Dokumente und wählt den Ordner, das Gedächtnis-Modell (RAG) "
+              "erkennt ähnliche Dokumente wieder und lernt aus deinen Antworten.",
+        "en": "In local mode PollySort works with two Ollama models on your computer: the language "
+              "model reads the documents and picks the folder, the memory model (RAG) recognises "
+              "similar documents and learns from your answers.",
     },
+    "om.rolle.sprache": {"de": "Sprachmodell", "en": "Language model"},
+    "om.rolle.gedaechtnis": {"de": "Gedächtnis-Modell (RAG)", "en": "Memory model (RAG)"},
     "om.status.offline": {
         "de": "Ollama ist nicht erreichbar. Für den Modus Lokal Ollama installieren (ollama.com) "
               "und starten, dann hier laden.",
@@ -751,19 +752,32 @@ _CATALOG: dict[str, dict[str, str]] = {
               "then download here.",
     },
     "om.status.ready": {"de": "{modell} ist geladen.", "en": "{modell} is downloaded."},
-    "om.status.missing": {
+    "om.missing.sprache": {
+        "de": "{modell} fehlt — ohne das Modell kann der Modus Lokal keine Dokumente lesen.",
+        "en": "{modell} is missing — without it local mode cannot read documents.",
+    },
+    "om.missing.gedaechtnis": {
         "de": "{modell} fehlt — ohne das Modell lernt das Gedächtnis im Modus Lokal nichts dazu.",
         "en": "{modell} is missing — without it the memory learns nothing in local mode.",
     },
-    "om.usage": {"de": "Nutzung: ollama (Stand) · ollama laden · ollama laden <modell>",
-                 "en": "Usage: ollama (status) · ollama pull · ollama pull <model>"},
+    "om.all_present": {"de": "Beide Ollama-Modelle sind schon geladen.",
+                       "en": "Both Ollama models are already downloaded."},
+    "om.usage": {"de": "Nutzung: ollama (Stand) · ollama laden (was fehlt) · ollama laden "
+                       "sprache|gedaechtnis · ollama laden <modell>",
+                 "en": "Usage: ollama (status) · ollama pull (what is missing) · ollama pull "
+                       "language|memory · ollama pull <model>"},
     "om.checking": {"de": "Frage Ollama nach {modell} …", "en": "Asking Ollama for {modell} …"},
     "om.start": {
         "de": "Ollama lädt {modell}. Strg-C unterbricht, 'ollama laden' setzt später fort.",
         "en": "Ollama is downloading {modell}. Ctrl-C pauses, 'ollama pull' resumes later.",
     },
     "om.progress": {"de": "{modell} laden", "en": "Downloading {modell}"},
-    "om.done": {
+    "om.done": {"de": "{modell} ist geladen.", "en": "{modell} is downloaded."},
+    "om.done.sprache": {
+        "de": "{modell} ist geladen — der Modus Lokal kann jetzt Dokumente lesen.",
+        "en": "{modell} is downloaded — local mode can now read documents.",
+    },
+    "om.done.gedaechtnis": {
         "de": "{modell} ist geladen — im Modus Lokal lernt das Gedächtnis ab dem nächsten Lauf mit.",
         "en": "{modell} is downloaded — in local mode the memory learns from the next run on.",
     },
@@ -2543,18 +2557,33 @@ _CATALOG: dict[str, dict[str, str]] = {
                                 "en": "It suggests folders from the next sorting run."},
     "web.toast.bb.failed": {"de": "BeeNara Big ist noch nicht bereit",
                             "en": "BeeNara Big is not ready yet"},
-    # Gedächtnis-Modell über Ollama — Werkstatt
+    # Ollama-Modelle (Sprachmodell, Gedächtnis-Modell) — Werkstatt
     "web.om.chip.checking": {"de": "wird geprüft", "en": "checking"},
     "web.om.chip.offline": {"de": "Ollama aus", "en": "Ollama off"},
     "web.om.chip.ready": {"de": "geladen", "en": "downloaded"},
+    "web.om.chip.all": {"de": "bereit", "en": "ready"},
     "web.btn.om_check": {"de": "Erneut prüfen", "en": "Check again"},
-    "web.run.om.title": {"de": "Gedächtnis-Modell laden", "en": "Downloading the memory model"},
-    "web.toast.om.ready": {"de": "Das Gedächtnis-Modell ist geladen",
-                           "en": "The memory model is downloaded"},
-    "web.toast.om.ready.text": {"de": "Im Modus Lokal lernt das Gedächtnis ab dem nächsten Lauf mit.",
-                                "en": "In local mode the memory learns from the next run on."},
-    "web.toast.om.failed": {"de": "Das Gedächtnis-Modell ist noch nicht geladen",
-                            "en": "The memory model is not downloaded yet"},
+    "web.btn.om_pull": {"de": "Herunterladen (ca. {gb} GB)", "en": "Download (about {gb} GB)"},
+    "web.om.sprache.text": {
+        "de": "Liest die Dokumente und wählt den Ordner. Ohne das Modell funktioniert der Modus "
+              "Lokal nicht.",
+        "en": "Reads the documents and picks the folder. Without it local mode does not work.",
+    },
+    "web.om.gedaechtnis.text": {
+        "de": "Erkennt ähnliche Dokumente wieder und lernt aus deinen Antworten. Ohne das Modell "
+              "sortiert PollySort, lernt aber nichts dazu.",
+        "en": "Recognises similar documents and learns from your answers. Without it PollySort "
+              "sorts but learns nothing.",
+    },
+    "web.run.om.title": {"de": "Ollama-Modell laden", "en": "Downloading an Ollama model"},
+    "web.toast.om.ready": {"de": "{modell} ist geladen", "en": "{modell} is downloaded"},
+    "web.toast.om.ready.sprache": {"de": "Der Modus Lokal kann jetzt Dokumente lesen.",
+                                   "en": "Local mode can now read documents."},
+    "web.toast.om.ready.gedaechtnis": {
+        "de": "Im Modus Lokal lernt das Gedächtnis ab dem nächsten Lauf mit.",
+        "en": "In local mode the memory learns from the next run on."},
+    "web.toast.om.failed": {"de": "{modell} ist noch nicht geladen",
+                            "en": "{modell} is not downloaded yet"},
     "web.su.bn.label": {"de": "BeeNara nach dem Einrichten mit herunterladen",
                         "en": "Also download BeeNara after setup"},
     "web.su.bn.row": {"de": "BeeNara", "en": "BeeNara"},

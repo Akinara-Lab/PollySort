@@ -567,7 +567,7 @@
     }
     if (S.lauf.name === 'ollama_modell_laden') {
       $('#lauf-titel').textContent = t('web.run.om.title');
-      $('#lauf-text').textContent = S.lauf.text || t('om.checking', { modell: (S.ollama || {}).modell || '' });
+      $('#lauf-text').textContent = S.lauf.text || t('om.checking', { modell: ollamaZiel });
       return;
     }
     $('#lauf-text').textContent = S.lauf.text || t(S.lauf.name === 'vorschau' ? 'web.run.preview' : 'web.run.sort');
@@ -932,26 +932,41 @@
   const bnHinweis = (modus) => (modus !== 'openrouter' && S.z.beenara && S.z.beenara.bereit
     ? `<small>${esc(t('web.bn.mode_note'))}</small>` : '');
 
-  // Gedächtnis-Modell (Ollama). Den Stand weiß nur der lokale Ollama-Server — läuft er nicht,
-  // dauert die Frage bis zu 1,5 s. Darum zeichnet die Werkstatt die Karte erst ohne Stand und
-  // setzt ihn nach (S.ollama); 'Erneut prüfen' und 'Verfügbarkeit prüfen' fragen neu.
+  // Ollama (Modus Lokal): Sprachmodell und Gedächtnis-Modell (RAG). Den Stand weiß nur der lokale
+  // Ollama-Server — läuft er nicht, dauert die Frage bis zu 1,5 s. Darum zeichnet die Werkstatt die
+  // Karte erst ohne Stand und setzt ihn nach (S.ollama); 'Erneut prüfen' und 'Verfügbarkeit
+  // prüfen' fragen neu.
+  const statusZeile = (z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`;
+  const gbText = (gb) => (einst().sprache === 'en' ? String(gb) : String(gb).replace('.', ','));
+
+  function ollamaModell(m) {
+    const sprache = m.rolle === 'sprache';
+    return `<div class="abstand"><div class="zeile weit"><h3 class="mit-symbol">${P.sprite(sprache ? 'chip' : 'gehirn', 'symbol')}<span>${esc(t(sprache ? 'om.rolle.sprache' : 'om.rolle.gedaechtnis'))}</span></h3>
+        <span class="chip ${m.vorhanden ? 'wache' : 'aus'}">${esc(t(m.vorhanden ? 'web.om.chip.ready' : 'web.bn.chip.missing'))}</span></div>
+      <p class="hinweis">${esc(t(sprache ? 'web.om.sprache.text' : 'web.om.gedaechtnis.text'))}</p>
+      ${m.zeilen.map(statusZeile).join('')}
+      ${m.vorhanden ? '' : `<div class="zeile abstand"><button class="knopf" type="button" data-tun="om-laden" data-rolle="${esc(m.rolle)}" data-modell="${esc(m.modell)}">${esc(t('web.btn.om_pull', { gb: gbText(m.gb) }))}</button></div>`}</div>`;
+  }
+
   function ollamaKarte(om) {
+    const alle = om && om.erreichbar && om.modelle.every((m) => m.vorhanden);
     const chip = !om ? ['frage', 'web.om.chip.checking'] : !om.erreichbar ? ['aus', 'web.om.chip.offline']
-      : om.vorhanden ? ['wache', 'web.om.chip.ready'] : ['aus', 'web.bn.chip.missing'];
-    return `<section class="karte" id="om-karte" aria-labelledby="om-titel"><div class="zeile weit"><h2 id="om-titel" class="mit-symbol">${P.sprite('gehirn', 'symbol')}<span>${esc(t('om.title'))}</span></h2>
+      : alle ? ['wache', 'web.om.chip.all'] : ['frage', 'web.bn.chip.incomplete'];
+    const inhalt = !om ? '' : !om.erreichbar
+      ? `${om.modelle[0].zeilen.map(statusZeile).join('')}
+        <div class="zeile abstand"><button class="knopf zweit klein-knopf" type="button" data-tun="om-pruefen">${esc(t('web.btn.om_check'))}</button></div>`
+      : om.modelle.map(ollamaModell).join('');
+    return `<section class="karte" id="om-karte" aria-labelledby="om-titel"><div class="zeile weit"><h2 id="om-titel" class="mit-symbol">${P.sprite('haus', 'symbol')}<span>${esc(t('om.title'))}</span></h2>
         <span class="chip ${chip[0]}">${esc(t(chip[1]))}</span></div>
       <p class="hinweis">${esc(t('om.what'))}</p>
-      ${om ? om.zeilen.map((z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`).join('') : ''}
-      ${om && !om.vorhanden ? `<div class="zeile abstand">
-        ${om.erreichbar ? `<button class="knopf" type="button" data-tun="om-laden">${esc(t('web.btn.bn_pull'))}</button>`
-          : `<button class="knopf zweit klein-knopf" type="button" data-tun="om-pruefen">${esc(t('web.btn.om_check'))}</button>`}
-      </div>` : ''}</section>`;
+      ${inhalt}</section>`;
   }
 
   let ollamaFrage = null;
+  let ollamaZiel = '';                          // welches Modell gerade lädt (Lauftext)
   function ollamaNachladen() {
     if (S.ollama || ollamaFrage) return;
-    ollamaFrage = lesen('ollama_modell').then((om) => {
+    ollamaFrage = lesen('ollama_modelle').then((om) => {
       S.ollama = om;
       const karte = $('#om-karte');
       if (!karte || S.lauf) return;             // Seite gewechselt oder ein Lauf zeigt hier
@@ -1492,18 +1507,21 @@
       try { await tun('beenara_big_entfernen'); hinweis({ titel: t('bb.remove.done') }); } catch (e) { fehler(e); }
       await zustandLaden(); seiteZeichnen(true);
     },
-    // -- Gedächtnis-Modell über Ollama (Werkstatt) --
-    'om-laden': async () => {
+    // -- Ollama-Modelle: Sprachmodell und Gedächtnis-Modell (Werkstatt) --
+    'om-laden': async (el) => {
       // Der Fortschritt hat einen Platz auf der Seite (#lauf, in der BeeNara-Karte). Für diesen
-      // Download wandert er in die Karte des Gedächtnis-Modells — dort zeigt und sperrt er.
+      // Download wandert er in die Ollama-Karte — dort zeigt und sperrt er.
       const lauf = $('#lauf');
       const karte = $('#om-karte');
       if (lauf && karte && !S.lauf) karte.appendChild(lauf);
-      const r = await arbeit('ollama_modell_laden');
+      const { rolle, modell } = el.dataset;
+      ollamaZiel = modell;
+      const r = await arbeit('ollama_modell_laden', { rolle });
       if (r) {
         S.ollama = r.ollama;
-        hinweis(r.ok ? { titel: t('web.toast.om.ready'), text: t('web.toast.om.ready.text'), art: 'erfolg' }
-          : { titel: t('web.toast.om.failed'), text: t('web.toast.bn.failed.text'), art: 'fehler' });
+        hinweis(r.ok ? { titel: t('web.toast.om.ready', { modell }), art: 'erfolg',
+          text: t(rolle === 'sprache' ? 'web.toast.om.ready.sprache' : 'web.toast.om.ready.gedaechtnis') }
+          : { titel: t('web.toast.om.failed', { modell }), text: t('web.toast.bn.failed.text'), art: 'fehler' });
       }
       seiteZeichnen(true);
     },
