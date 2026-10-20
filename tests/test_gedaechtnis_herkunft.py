@@ -225,6 +225,28 @@ def test_herkunft_wird_hochgestuft_aber_nie_herabgestuft(tmp_path):
         mind.remember("b", "spesen", [1.0], "m", herkunft="vielleicht")
 
 
+def test_relabel_setzt_label_und_herkunft_ohne_neuen_vektor(tmp_path):
+    """Für Hand-Verschiebungen beim Scan: kein Embedding, der Vektor bleibt stehen."""
+    mind = HiveMind(tmp_path / "hive")
+    mind.remember("a", "rechnungen", [1.0, 2.0], "m", herkunft="sicher")
+    assert mind.relabel("a", "spesen", herkunft="bestaetigt") is True
+    assert mind.eintraege("m") == [("a", "spesen", [1.0, 2.0], "bestaetigt")]
+    # Gleiche Kategorie: hochstufen ja, herabstufen nie — wie bei remember.
+    assert mind.relabel("a", "spesen", herkunft="unsicher") is True
+    assert mind.herkuenfte() == {"a": ("spesen", "bestaetigt")}
+    # Ohne Herkunft (Migration) bleibt sie; eine andere Kategorie bringt die neue mit.
+    assert mind.relabel("a", "kontoauszuege") is True
+    assert mind.herkuenfte() == {"a": ("kontoauszuege", "bestaetigt")}
+    assert mind.relabel("a", "rechnungen", herkunft="unsicher") is True
+    assert mind.herkuenfte() == {"a": ("rechnungen", "unsicher")}
+    # Ohne Vektor nichts — auch kein leerer Eintrag.
+    version = mind.version
+    assert mind.relabel("fehlt", "spesen", herkunft="bestaetigt") is False
+    assert "fehlt" not in mind.herkuenfte() and mind.version == version
+    with pytest.raises(ValueError):
+        mind.relabel("a", "spesen", herkunft="vielleicht")
+
+
 def test_saat_bleibt_bestaetigt_wenn_der_lauf_unsicher_ist(tmp_path):
     """Vorwärmen legt die Saat unter der ID ab, die der echte Eintrag bekommt."""
     from pollysort import vorwaermen as vw

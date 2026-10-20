@@ -136,17 +136,22 @@ def _learn_from_move(ctx, r, new_path, report) -> None:
     Hat der Nutzer eine Datei von Hand aus Wabe A in Wabe B gezogen, ist das eine
     Zuordnungs-Korrektur A→B: Kategorie/Status nachziehen und als Nektar-Feedback
     (`quelle: manuell`) festhalten, damit die Königin daraus Wachstafel-Regeln ableiten
-    kann. Bewusst OHNE Embedding-Call — ein Scan bleibt so kostenfrei & vorhersehbar.
+    kann. Auch das Gedächtnis zieht nach: Der Eintrag heißt jetzt B und gilt als bestätigt —
+    sonst stützte er weiter A und stünde als Gegenstimme gegen B (seit 2026-10-20).
+    Bewusst OHNE Embedding-Call — ein Scan bleibt so kostenfrei & vorhersehbar. Der alte
+    Vektor bleibt stehen, nur Label und Herkunft ändern sich; ohne Vektor nichts.
     """
     old_cat = _category_of_path(ctx, r["path"])
     new_cat = _category_of_path(ctx, new_path)
     if not new_cat or new_cat == old_cat or new_cat == r.get("kategorie"):
         return
     from .feedback import vorher
+    from .hive_mind.memory import BESTAETIGT
     from .store import bees
     with ctx.store.engine.begin() as c:
         c.execute(bees.update().where(bees.c.id == r["id"]).values(
             kategorie=new_cat, status=Status.ASSIGNED.value, quelle="manuell"))
+    ctx.mind.relabel(r["id"], new_cat, herkunft=BESTAETIGT)
     ctx.feedback.record(bee_id=r["id"], title=r.get("title") or "",
                         funktion=r.get("funktion") or "",
                         kategorie_alt=old_cat or r.get("kategorie") or "",
