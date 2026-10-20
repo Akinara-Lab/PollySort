@@ -30,9 +30,12 @@ class FakeMind:
 
     def __init__(self) -> None:
         self.gespeichert: list[tuple[str, str, list[float], str | None]] = []
+        self.herkunft: list[str] = []
 
-    def remember(self, bee_id, kategorie, vec, model=None):
+    def remember(self, bee_id, kategorie, vec, model=None, herkunft="sicher"):
         self.gespeichert.append((bee_id, kategorie, vec, model))
+        self.herkunft.append(herkunft)
+        return herkunft
 
 
 def probe(nr: int, kategorie: str, titel: str = "") -> tuple:
@@ -108,6 +111,14 @@ def test_modellname_wird_mitgeschrieben():
     vorwaermen([probe(1, "rechnungen")], ["rechnungen"], mind=mind,
                embed=lambda _t: [0.5], embed_model="nomic-embed-text-v2-moe")
     assert mind.gespeichert[0][3] == "nomic-embed-text-v2-moe"
+
+
+def test_saat_zaehlt_als_bestaetigt():
+    """Der Nutzer hat die Kategorien eben selbst angenommen (Herkunft, 2026-10-20)."""
+    mind = FakeMind()
+    vorwaermen([probe(1, "rechnungen"), probe(2, "spesen")], ["rechnungen", "spesen"],
+               mind=mind, embed=lambda _t: [1.0])
+    assert mind.herkunft == ["bestaetigt", "bestaetigt"]
 
 
 def test_rueckgabe_zaehlt_je_kategorie():

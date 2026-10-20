@@ -58,6 +58,11 @@ def test_manual_move_between_categories_is_learned(tmp_path):
     corrections = ctx.feedback.all()
     assert any(c.get("quelle") == "manuell" and c.get("kategorie_neu") == target
                for c in corrections)
+    # Feldmessung (2026-10-20): wer vorher entschieden hatte — und jetzt: der Nutzer von Hand.
+    c = next(c for c in corrections if c.get("quelle") == "manuell")
+    assert row["quelle"] and c["quelle_vorher"] == row["quelle"]
+    assert (c["konfidenz_vorher"], c["status_vorher"]) == (row["confidence"], row["status"])
+    assert updated["quelle"] == "manuell"
 
 
 def test_move_within_same_category_is_not_learned(tmp_path):

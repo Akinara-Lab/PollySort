@@ -18,6 +18,11 @@ dort ein spezifischer Fachbegriff („Reisekostenabrechnung", „Kontoauszug"), 
 Raten — dieselbe Heuristik entscheidet im Offline-Modus jeden Lauf. Sie greift nur bei
 einem unbrauchbaren Label, verändert also nie eine Zuordnung, die das Modell getroffen hat,
 und wird als Quelle ausgewiesen.
+
+**Herkunft** (seit 2026-10-20): Abgestimmt wird mit allen Nachbarn — auch ein Eintrag, der selbst
+nur eine Rückfrage war, darf widersprechen. Bestätigen (die Konfidenz heben) und ein fehlendes
+Label ersetzen darf das Gedächtnis aber nur mit bestätigten oder sicheren Einträgen
+(:data:`~pollysort.hive_mind.memory.BELASTBAR`).
 """
 
 from __future__ import annotations
@@ -26,7 +31,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from .heuristics import classify_scored, snap_category
-from .hive_mind import HiveMind, Taxonomy
+from .hive_mind import HiveMind, Neighbor, Taxonomy
+from .hive_mind.memory import BELASTBAR
 
 K = 7
 BASE_KNOWN = 0.80         # ein eindeutiges Extractor-Label ist von sich aus vertrauenswürdig
@@ -50,8 +56,20 @@ class Assignment:
     quelle: str = "label"
 
 
-def _knn(embedding: list[float], hive: HiveMind) -> tuple[str | None, float]:
-    """kNN-Gewinnerkategorie + Stärke (Stimmenanteil × mittlere Ähnlichkeit)."""
+def _staerke(stimmen: list[Neighbor], total: float) -> float:
+    """Stimmenanteil × mittlere Ähnlichkeit der ``stimmen`` an allen Stimmen (``total``)."""
+    sims = [max(n.score, 0.0) for n in stimmen]
+    if not sims:
+        return 0.0
+    share = sum(sims) / total
+    mean_cos = sum(sims) / len(sims)
+    return round(share * min(mean_cos, 1.0), 4)
+
+
+def _knn(embedding: list[float], hive: HiveMind) -> tuple[str | None, float, float]:
+    """kNN-Gewinnerkategorie + Stärke (Stimmenanteil × mittlere Ähnlichkeit) — einmal mit allen
+    Stimmen des Gewinners, einmal nur mit seinen belastbaren. Der Anteil wird beide Male an
+    allen Stimmen gemessen: Unsichere Einträge anderer Kategorien schwächen den Gewinner."""
     neighbors = hive.neighbors(embedding, k=K)
     votes: dict[str, float] = defaultdict(float)
     for n in neighbors:
@@ -59,12 +77,11 @@ def _knn(embedding: list[float], hive: HiveMind) -> tuple[str | None, float]:
             votes[n.kategorie] += max(n.score, 0.0)
     total = sum(votes.values())
     if total <= 0:
-        return None, 0.0
+        return None, 0.0, 0.0
     winner = max(votes, key=votes.get)
-    share = votes[winner] / total
-    sims = [max(n.score, 0.0) for n in neighbors if n.kategorie == winner]
-    mean_cos = sum(sims) / len(sims) if sims else 0.0
-    return winner, round(share * min(mean_cos, 1.0), 4)
+    stimmen = [n for n in neighbors if n.kategorie == winner]
+    belastbar = [n for n in stimmen if n.herkunft in BELASTBAR]
+    return winner, _staerke(stimmen, total), _staerke(belastbar, total)
 
 
 def zweitmeinung(analysis_text: str, categories: list[str]) -> str | None:
@@ -100,7 +117,8 @@ def assign(*, embedding: list[float], llm_kategorie: str,
         zweite = zweitmeinung(analysis_text, taxonomy.categories)
         if zweite is not None:
             llm_kategorie, quelle = zweite, "zweitmeinung"
-    knn_winner, knn_score = _knn(embedding, hive) if use_memory else (None, 0.0)
+    knn_winner, knn_score, knn_belastbar = (_knn(embedding, hive) if use_memory
+                                            else (None, 0.0, 0.0))
     llm_known = llm_kategorie != "_unassigned"
 
     if llm_known:
@@ -108,17 +126,18 @@ def assign(*, embedding: list[float], llm_kategorie: str,
             # Kein aussagekräftiges Gedächtnis → dem klaren Label vertrauen (sortieren).
             kategorie, confidence = llm_kategorie, BASE_KNOWN
         elif knn_winner == llm_kategorie:
-            # Gedächtnis bestätigt → noch sicherer.
-            kategorie, confidence = llm_kategorie, min(1.0, BASE_KNOWN + 0.20 * knn_score)
+            # Gedächtnis bestätigt → noch sicherer — aber nur so weit, wie es selbst belastbar
+            # ist: Rückfragen mit demselben Vorschlag bestätigen nichts.
+            kategorie, confidence = llm_kategorie, min(1.0, BASE_KNOWN + 0.20 * knn_belastbar)
         else:
             # Label und Gedächtnis uneinig → mehrdeutig, nachfragen (Label bleibt Vorschlag).
             kategorie, confidence = llm_kategorie, CONFLICT
     else:
-        # Kein Label vom Extractor → nur das Gedächtnis kann eine Kategorie liefern.
-        if knn_winner is not None and knn_score >= MIN_KNN_TRUST:
-            kategorie, confidence, quelle = knn_winner, knn_score, "gedaechtnis"
+        # Kein Label vom Extractor → nur das belastbare Gedächtnis kann eine Kategorie liefern.
+        if knn_winner is not None and knn_belastbar >= MIN_KNN_TRUST:
+            kategorie, confidence, quelle = knn_winner, knn_belastbar, "gedaechtnis"
         else:
-            kategorie, confidence, quelle = "_unassigned", knn_score, "keine"
+            kategorie, confidence, quelle = "_unassigned", knn_belastbar, "keine"
 
     return Assignment(
         kategorie=kategorie,

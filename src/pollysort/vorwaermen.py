@@ -76,7 +76,11 @@ def vorwaermen(proben: Iterable[tuple], kategorien: list[str], *,
     Jedes Dokument ist für sich isoliert: Scheitert eine Einbettung (Provider weg, Modell
     fehlt), wird sie übersprungen. Vorwärmen ist eine Verbesserung, kein Muss — es darf
     die Einrichtung unter keinen Umständen abbrechen.
+
+    Die Saat zählt als bestätigt: Der Nutzer hat die Kategorien eben selbst angenommen. Ein
+    späterer unsicherer Lauf derselben Datei stuft sie nicht herab (``HiveMind.remember``).
     """
+    from .hive_mind.memory import BESTAETIGT
     from .models import embedding_text_for
     from .pipeline import bee_id
 
@@ -93,7 +97,8 @@ def vorwaermen(proben: Iterable[tuple], kategorien: list[str], *,
         if not vec:
             continue
         try:
-            mind.remember(bee_id(finding.content_hash), kategorie, vec, embed_model)
+            mind.remember(bee_id(finding.content_hash), kategorie, vec, embed_model,
+                          herkunft=BESTAETIGT)
         except Exception:
             continue
         gesaet[kategorie] = gesaet.get(kategorie, 0) + 1

@@ -42,7 +42,9 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import NamedTuple
 
+from .hive_mind.memory import BELASTBAR, SICHER
 from .models import BeeAnalysis, Status
 
 #: Ähnlichkeit zum nächsten bekannten Dokument, ab der das Gedächtnis allein entscheidet.
@@ -108,7 +110,8 @@ class Vorab:
     #: Fest entschiedene Kategorie (Stufe A/B). ``None`` → der Assigner entscheidet wie bisher.
     kategorie: str | None = None
     confidence: float | None = None
-    #: ``gedaechtnis`` · ``nummer`` · ``analyse`` — erscheint in der Lauf-Zusammenfassung.
+    #: ``gedaechtnis`` · ``nummer`` · ``beenara`` · ``beenara-big`` · ``analyse`` — erscheint in
+    #: der Lauf-Zusammenfassung (beide BeeNara als „BeeNara") und steht im Katalog.
     quelle: str = "analyse"
     #: Titel/Zusammenfassung nur heuristisch → zur Nacherfassung vormerken.
     kurz: bool = False
@@ -154,19 +157,36 @@ def ordner_namen(kategorien: list[str]) -> list[str]:
     return [c for c in kategorien if c and c.strip().lower() != "_unassigned"]
 
 
+def gedeckelt(kat: str, conf: float, beste: dict[str, float],
+              belastbar: dict[str, float] | None = None) -> float:
+    """Sieht das Gedächtnis eine ANDERE Kategorie deutlich näher, ist der Fall mehrdeutig — wie
+    im Assigner lieber nachfragen: ``conf`` höchstens ``CONFLICT``.
+
+    Gegenstimme darf jeder Eintrag sein, auch ein unsicherer (``beste``: alle Einträge); stützen
+    darf die eigene Kategorie nur ein belastbarer (``belastbar``, ohne Angabe ``beste``)."""
+    from .assigner import CONFLICT
+    belastbar = beste if belastbar is None else belastbar
+    eigene = belastbar.get(kat, 0.0)
+    gegen = max((v for k, v in beste.items() if k != kat), default=0.0)
+    return min(conf, CONFLICT) if gegen >= AEHNLICH and gegen > eigene else conf
+
+
 def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, float], *,
-                    sprache: str = "de") -> tuple[str, float] | None:
+                    sprache: str = "de",
+                    belastbar: dict[str, float] | None = None) -> tuple[str, float] | None:
     """Stufe B mit BeeNara: ``(kategorie, konfidenz)`` oder ``None`` (trägt hier nicht).
 
     * sicher (Regel :data:`BEENARA_REGEL`: Konfidenz über der Risiko-Schwelle) → dieser Ordner
       mit seiner kalibrierten Wahrscheinlichkeit; widerspricht das Gedächtnis deutlich,
-      gedeckelt wie im Assigner.
+      gedeckelt wie im Assigner (:func:`gedeckelt`).
     * „keiner passt" vorn → ``_unassigned`` mit 0 → Rückfrage.
     * unsicher zwischen Ordnern → Favorit als Vorschlag, gedeckelt → Rückfrage.
 
-    ``bee.decide`` darf ``None`` liefern (ausgefallen, siehe pipeline); dann ``None``.
-    Ordnerbereich und Textlänge bringt das Modell mit (``ordner_bereich``, ``text_zeichen`` —
-    BeeNara Big liest 3–500 Ordner und mehr Text); ohne sie gelten die Werte von BeeNara.
+    ``beste``/``belastbar``: die Nähe je Kategorie über alle bzw. nur über belastbare Einträge
+    (:class:`Naehe`). ``bee.decide`` darf ``None`` liefern (ausgefallen, siehe pipeline); dann
+    ``None``. Ordnerbereich und Textlänge bringt das Modell mit (``ordner_bereich``,
+    ``text_zeichen`` — BeeNara Big liest 3–500 Ordner und mehr Text); ohne sie gelten die Werte
+    von BeeNara.
     """
     from .assigner import CONFLICT
     from .beenara_laufzeit import NONE
@@ -181,10 +201,7 @@ def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, floa
         return None
     if d.category is not None:
         kat = d.category.strip().lower()
-        eigene = beste.get(kat, 0.0)
-        gegen = max((v for k, v in beste.items() if k != kat), default=0.0)
-        conf = min(d.confidence, CONFLICT) if gegen >= AEHNLICH and gegen > eigene else d.confidence
-        return kat, round(conf, 4)
+        return kat, round(gedeckelt(kat, d.confidence, beste, belastbar), 4)
     favorit = max(d.distribution, key=d.distribution.get)
     if favorit == NONE:
         return "_unassigned", 0.0
@@ -194,17 +211,47 @@ def beenara_waehlen(bee, text: str, kategorien: list[str], beste: dict[str, floa
 # --------------------------------------------------------------------------- #
 #  Stufe A — das Gedächtnis
 # --------------------------------------------------------------------------- #
-def beste_je_kategorie(vec: list[float], eintraege) -> dict[str, float]:
-    """Für jede Kategorie die Ähnlichkeit ihres nächsten Dokuments (ein Durchlauf)."""
-    from .hive_mind.memory import _cosine
-    beste: dict[str, float] = {}
-    for _bid, kat, v in eintraege:
+class Naehe(NamedTuple):
+    """Für jede Kategorie die Ähnlichkeit ihres nächsten Dokuments — zweimal gezählt.
+
+    ``alle`` über jeden Eintrag, auch die unsicheren: So weit reicht eine Gegenstimme.
+    ``belastbar`` nur über bestätigte und sichere (:data:`~pollysort.hive_mind.memory.BELASTBAR`):
+    Nur sie dürfen eine Kategorie stützen — in Stufe A und in der Konflikt-Deckelung.
+    """
+
+    alle: dict[str, float]
+    belastbar: dict[str, float]
+
+
+def _herkunft(eintrag) -> str:
+    """Herkunft eines Eintrags ``(bee_id, kategorie, vec[, herkunft])``. Ohne Angabe (Aufrufer
+    von vor dem 2026-10-20, Tests) zählt er wie früher jeder Eintrag: als sicher."""
+    return eintrag[3] if len(eintrag) > 3 else SICHER
+
+
+def _sammeln(treffer) -> Naehe:
+    """``treffer``: ``(kategorie, herkunft, ähnlichkeit)`` je Eintrag → :class:`Naehe`."""
+    alle: dict[str, float] = {}
+    belastbar: dict[str, float] = {}
+    for kat, herkunft, s in treffer:
         if kat == "_unassigned":
             continue
-        s = _cosine(vec, v)
-        if s > beste.get(kat, -1.0):
-            beste[kat] = s
-    return beste
+        if s > alle.get(kat, -1.0):
+            alle[kat] = s
+        if herkunft in BELASTBAR and s > belastbar.get(kat, -1.0):
+            belastbar[kat] = s
+    return Naehe(alle, belastbar)
+
+
+def naehe(vec: list[float], eintraege) -> Naehe:
+    """Für jede Kategorie die Ähnlichkeit ihres nächsten Dokuments (ein Durchlauf)."""
+    from .hive_mind.memory import _cosine
+    return _sammeln((e[1], _herkunft(e), _cosine(vec, e[2])) for e in eintraege)
+
+
+def beste_je_kategorie(vec: list[float], eintraege) -> dict[str, float]:
+    """Wie :func:`naehe`, nur ``alle``."""
+    return naehe(vec, eintraege).alle
 
 
 def _numpy():
@@ -224,13 +271,17 @@ class Schnappschuss:
     so muss nicht jede Datei das ganze Gedächtnis neu aus der Datenbank laden (vorher ~50 ms je
     Datei bei 57 Einträgen, wachsend mit dem Archiv).
 
-    Mit numpy rechnet ``beste_je_kategorie`` alle Ähnlichkeiten als eine Matrix-Multiplikation
-    (float32, Abweichung zur reinen Python-Rechnung < 1e-6); ohne numpy wie bisher.
+    Mit numpy rechnet ``naehe`` alle Ähnlichkeiten als eine Matrix-Multiplikation (float32,
+    Abweichung zur reinen Python-Rechnung < 1e-6); ohne numpy wie bisher.
+
+    Einträge sind ``(bee_id, kategorie, vec, herkunft)`` wie aus ``HiveMind.eintraege``; ohne
+    Herkunft zählen sie als sicher.
     """
 
     def __init__(self, eintraege):
-        self._eintraege = list(eintraege)
-        self._anzahl = Counter(kat for _b, kat, _v in self._eintraege)
+        self._eintraege = [(e[0], e[1], e[2], _herkunft(e)) for e in eintraege]
+        #: Nur belastbare Einträge je Kategorie — das zählt für MINDEST.
+        self._anzahl = Counter(kat for _b, kat, _v, h in self._eintraege if h in BELASTBAR)
         # Normierte Vektoren als Matrix mit Reserve-Zeilen (erst bei Bedarf gebaut): Neu
         # Gelerntes wird hineingeschrieben, statt die Matrix je Datei neu aufzubauen.
         self._matrix = None
@@ -243,46 +294,50 @@ class Schnappschuss:
         return v / n if n else v                  # Nullvektor: Ähnlichkeit 0 wie bei _cosine
 
     def _matrix_bauen(self, np) -> bool:
-        if len({len(v) for _b, _k, v in self._eintraege}) != 1:
+        if len({len(e[2]) for e in self._eintraege}) != 1:
             return False                          # gemischte Dimensionen: wie bisher rechnen
         dim = len(self._eintraege[0][2])
         m = np.zeros((len(self._eintraege) + 64, dim), dtype=np.float32)
-        for i, (_b, _k, v) in enumerate(self._eintraege):
-            m[i] = self._normiert(np, v)
+        for i, e in enumerate(self._eintraege):
+            m[i] = self._normiert(np, e[2])
         # Erst die Zeilenzahl, dann die Matrix — ein paralleler Leser (Ultra Swarm) sieht
         # entweder keine Matrix (und baut selbst) oder eine vollständige.
         self._zeilen = len(self._eintraege)
         self._matrix = m
         return True
 
-    def beste_je_kategorie(self, vec: list[float]) -> dict[str, float]:
+    def naehe(self, vec: list[float]) -> Naehe:
         np = _numpy()
         if np is None or not self._eintraege:
-            return beste_je_kategorie(vec, self._eintraege)
+            return naehe(vec, self._eintraege)
         if self._matrix is None and not self._matrix_bauen(np):
-            return beste_je_kategorie(vec, self._eintraege)
+            return naehe(vec, self._eintraege)
         q = np.asarray(vec, dtype=np.float32)
         nq = float(np.linalg.norm(q))
         if q.shape[0] != self._matrix.shape[1] or nq == 0:
-            return beste_je_kategorie(vec, self._eintraege)
+            return naehe(vec, self._eintraege)
         aehnlich = (self._matrix[:self._zeilen] @ (q / nq)).tolist()
-        beste: dict[str, float] = {}
-        for (_bid, kat, _v), s in zip(self._eintraege, aehnlich):
-            if kat != "_unassigned" and s > beste.get(kat, -1.0):
-                beste[kat] = s
-        return beste
+        return _sammeln((e[1], e[3], s) for e, s in zip(self._eintraege, aehnlich))
 
-    def merken(self, bee_id: str, kategorie: str, vec: list[float]) -> None:
+    def beste_je_kategorie(self, vec: list[float]) -> dict[str, float]:
+        """Wie :meth:`naehe`, nur ``alle``."""
+        return self.naehe(vec).alle
+
+    def merken(self, bee_id: str, kategorie: str, vec: list[float],
+               herkunft: str = SICHER) -> None:
         """Was der Lauf gerade gelernt hat, auch hier nachtragen (wie ``HiveMind.remember``:
-        ein Eintrag je Datei, ein zweites Mal ersetzt den ersten)."""
-        for i, (bid, kat, _v) in enumerate(self._eintraege):
+        ein Eintrag je Datei, ein zweites Mal ersetzt den ersten). ``herkunft`` ist die, die
+        ``remember`` zurückgegeben hat."""
+        for i, (bid, kat, _v, h) in enumerate(self._eintraege):
             if bid == bee_id:                     # selten (Wiederholung nach Fehler): neu bauen
-                self._anzahl[kat] -= 1
+                if h in BELASTBAR:
+                    self._anzahl[kat] -= 1
                 del self._eintraege[i]
                 self._matrix = None
                 break
-        self._eintraege.append((bee_id, kategorie, vec))
-        self._anzahl[kategorie] += 1
+        self._eintraege.append((bee_id, kategorie, vec, herkunft))
+        if herkunft in BELASTBAR:
+            self._anzahl[kategorie] += 1
         m = self._matrix
         if m is None:
             return
@@ -298,16 +353,26 @@ class Schnappschuss:
         self._zeilen += 1
 
     def count(self, kategorie: str) -> int:
+        """Belastbare (bestätigte oder sichere) Einträge der Kategorie — die Zählung für MINDEST."""
         return self._anzahl.get(kategorie, 0)
 
 
-def aus_gedaechtnis(beste: dict[str, float], zaehle, kategorien: list[str]) -> tuple[str, float] | None:
-    """Stufe A: ``(kategorie, ähnlichkeit)``, wenn das Gedächtnis allein entscheiden darf."""
-    if not beste:
+def aus_gedaechtnis(beste: dict[str, float], zaehle, kategorien: list[str], *,
+                    belastbar: dict[str, float] | None = None) -> tuple[str, float] | None:
+    """Stufe A: ``(kategorie, ähnlichkeit)``, wenn das Gedächtnis allein entscheiden darf.
+
+    Entscheiden darf nur eine Kategorie, die ``belastbar`` gestützt ist (bestätigte oder sichere
+    Einträge; ohne Angabe ``beste``). Den Abstand misst sie gegen ``beste``: Jede andere
+    Kategorie zählt als Gegenstimme, auch eine, die nur unsichere Einträge hat. ``zaehle`` soll
+    ebenso nur belastbare Einträge zählen (:meth:`Schnappschuss.count`) — zwei Rückfragen mit
+    demselben Vorschlag sind keine zwei Beispiele.
+    """
+    belastbar = beste if belastbar is None else belastbar
+    if not belastbar:
         return None
     erlaubt = {k.strip().lower() for k in kategorien if k}
-    kat = max(beste, key=beste.get)
-    s = beste[kat]
+    kat = max(belastbar, key=belastbar.get)
+    s = belastbar[kat]
     fremd = max((v for k, v in beste.items() if k != kat), default=0.0)
     if kat in erlaubt and s >= AEHNLICH and s - fremd >= ABSTAND and zaehle(kat) >= MINDEST:
         return kat, round(s, 4)
@@ -336,10 +401,11 @@ def analysieren(client, f, *, max_file_mb: int, kategorien: list[str], gedaechtn
                 memory_ok: bool, beenara=None, sprache: str = "de") -> Vorab | None:
     """Eine Datei dreistufig analysieren.
 
-    ``gedaechtnis`` braucht ``beste_je_kategorie(vec)`` und ``count(kategorie)`` — ein
+    ``gedaechtnis`` braucht ``naehe(vec)`` und ``count(kategorie)`` — ein
     :class:`Schnappschuss` mit den Vektoren des aktuellen Modells (``HiveMind.eintraege``).
     ``memory_ok=False`` schaltet Stufe A ganz ab. ``beenara``: das geöffnete Modell, dann
-    entscheidet es Stufe B statt des Sprachmodells (wo es trägt).
+    entscheidet es Stufe B statt des Sprachmodells (wo es trägt); als Quelle steht dann sein
+    ``quelle`` (``beenara`` oder ``beenara-big``, siehe ``pipeline._Behutsam``).
 
     ``None`` heißt: Dieser Weg trägt hier nicht (kein lokaler Text, etwa bei Bildern; zu
     groß) — der Aufrufer analysiert wie bisher vollständig.
@@ -369,25 +435,27 @@ def analysieren(client, f, *, max_file_mb: int, kategorien: list[str], gedaechtn
         vec = client.embed(text)
     except LLMError as exc:
         return fehler(exc)
-    beste = gedaechtnis.beste_je_kategorie(vec) if memory_ok else {}
+    n = gedaechtnis.naehe(vec) if memory_ok else Naehe({}, {})
 
     # Stufe A — außer, eine gelernte Wachstafel-Regel trifft: Dann soll das Modell sie
     # sehen (sie steht in seinem Prompt), statt dass das Gedächtnis an ihr vorbeientscheidet.
     # Dasselbe gilt für BeeNara: Es kennt die Regeln nicht.
     regeln = parse_rules(getattr(client, "_wachstafel", "") or "")
     if not (regeln and _apply_wachstafel(text.lower(), regeln) is not None):
-        treffer = aus_gedaechtnis(beste, gedaechtnis.count, kategorien)
+        treffer = aus_gedaechtnis(n.alle, gedaechtnis.count, kategorien, belastbar=n.belastbar)
         if treffer:
             kat, s = treffer
             return Vorab(kurz_analyse(f.path, text, kat), Status.INDEXED, None, vec,
                          kategorie=kat, confidence=s, quelle="gedaechtnis", kurz=True)
         # Stufe B mit BeeNara — wo es nicht trägt (Ordnerzahl), wählt das Sprachmodell.
-        wahl = (beenara_waehlen(beenara, voll.strip(), kategorien, beste, sprache=sprache)
+        wahl = (beenara_waehlen(beenara, voll.strip(), kategorien, n.alle, sprache=sprache,
+                                belastbar=n.belastbar)
                 if beenara is not None else None)
         if wahl is not None:
             kat, conf = wahl
             return Vorab(kurz_analyse(f.path, text, kat), Status.INDEXED, None, vec,
-                         kategorie=kat, confidence=conf, quelle="beenara", kurz=True)
+                         kategorie=kat, confidence=conf,
+                         quelle=getattr(beenara, "quelle", "beenara"), kurz=True)
 
     # Stufe B — das Sprachmodell
     try:
@@ -401,15 +469,9 @@ def analysieren(client, f, *, max_file_mb: int, kategorien: list[str], gedaechtn
         return Vorab(analysis, status, reason, vec if status == Status.INDEXED else None)
 
     kat, p = wahl
-    if kat == "_unassigned":
-        conf = 0.0                     # „keine passt" → Stufe C, die Rückfrage
-    else:
-        # Sieht das Gedächtnis eine ANDERE Kategorie deutlich näher, ist der Fall
-        # mehrdeutig — wie im Assigner lieber nachfragen.
-        from .assigner import CONFLICT
-        eigene = beste.get(kat, 0.0)
-        gegen = max((v for k, v in beste.items() if k != kat), default=0.0)
-        conf = min(p, CONFLICT) if gegen >= AEHNLICH and gegen > eigene else p
+    # „keine passt" → Stufe C, die Rückfrage. Sonst: Sieht das Gedächtnis eine ANDERE Kategorie
+    # deutlich näher, ist der Fall mehrdeutig — wie im Assigner lieber nachfragen.
+    conf = 0.0 if kat == "_unassigned" else gedeckelt(kat, p, n.alle, n.belastbar)
     return Vorab(kurz_analyse(f.path, text, kat), Status.INDEXED, None, vec,
                  kategorie=kat, confidence=round(conf, 4), quelle="nummer", kurz=True)
 
@@ -441,8 +503,9 @@ def spar_mit_beenara(bee, client, f, vorab: Vorab, *, kategorien: list[str], ged
     if regeln and _apply_wachstafel(f"{f.path.stem} {text}".lower(), regeln) is not None:
         return vorab
     vec = client.embed(gedaechtnis_text(client, f.path, embedding_text_for(vorab.analysis)))
-    wahl = beenara_waehlen(bee, text.strip(), kategorien, gedaechtnis.beste_je_kategorie(vec),
-                           sprache=sprache)
+    n = gedaechtnis.naehe(vec)
+    wahl = beenara_waehlen(bee, text.strip(), kategorien, n.alle, sprache=sprache,
+                           belastbar=n.belastbar)
     if wahl is None:
         return vorab
     kat, conf = wahl
@@ -450,5 +513,5 @@ def spar_mit_beenara(bee, client, f, vorab: Vorab, *, kategorien: list[str], ged
         update={"kategorie": kat, "funktion_aufgabe": "" if kat == "_unassigned" else kat})
     # vec=None: Der Eintragstext enthält die Aufgabe, und die ist jetzt eine andere —
     # ingest bettet ihn deshalb neu ein (offline kostet das nichts).
-    return replace(vorab, analysis=analysis, kategorie=kat, confidence=conf, quelle="beenara",
-                   vec=None)
+    return replace(vorab, analysis=analysis, kategorie=kat, confidence=conf,
+                   quelle=getattr(bee, "quelle", "beenara"), vec=None)

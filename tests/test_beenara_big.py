@@ -125,6 +125,20 @@ def test_sortierlauf_oeffnet_big_bei_vielen_ordnern(tmp_path, monkeypatch):
     assert s.quellen == {"beenara": 1} and s.needs_review == 1, "Big sortiert nie selbst"
 
 
+def test_big_steht_im_katalog_als_beenara_big_und_im_gedaechtnis_als_unsicher(tmp_path, monkeypatch):
+    """Feldmessung (2026-10-20): Der Katalog unterscheidet die beiden Modelle, die Lauf-
+    Zusammenfassung zählt beide als BeeNara. Big-Vorschläge sind immer Rückfragen — im
+    Gedächtnis also unsicher."""
+    _bereit(monkeypatch)
+    hive = tmp_path / "hive"
+    ctx = _ctx(hive, OfflineClient(VIELE), kats=VIELE)
+    _datei(hive, "r.txt", RECHNUNG.format(i=1))
+    s = run_cycle(ctx, mode="move")
+    zeile = ctx.store.query()[0]
+    assert zeile["quelle"] == "beenara-big" and s.plan[0]["quelle"] == "beenara"
+    assert ctx.mind.herkuenfte() == {zeile["id"]: ("rechnungen", "unsicher")}
+
+
 def test_sortierlauf_nimmt_bei_wenigen_ordnern_das_kleine(tmp_path, monkeypatch):
     geoeffnet = _bereit(monkeypatch)
     pipeline._beenara(_ctx(tmp_path / "hive", OfflineClient(CATS)))
