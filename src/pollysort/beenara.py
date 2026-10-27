@@ -46,6 +46,9 @@ REPO = "Kwokou/BeeNara"
 #: diesen Wert anhebt, prüft vorher die Laufzeit gegen das neue Modell (Stufe-0, Paritätstest) —
 #: sonst entscheidet PollySort mit einer Kalibrierung, für die seine Laufzeit nicht gebaut ist.
 REVISION = "d3813713fcd4beec90b317f79be1dab5ec61cac8"
+#: Der Versions-Tag dieses Commits auf dem Hub. Ein höherer Tag dort wird nur gemeldet, nie geladen
+#: (:mod:`pollysort.modell_update`).
+VERSION = "v0.4"
 
 #: Die Laufzeit-Pakete — genau das Extra ``[beenara]`` aus pyproject.toml.
 PAKETE = ("onnxruntime>=1.30", "tokenizers>=0.20", "numpy>=1.26")
@@ -365,8 +368,9 @@ def bericht(cfg, hive: Path | None = None) -> list[tuple[str, str, str]]:
             else:
                 zeilen.append(("info", "📂", i18n.t("bn.project.ok", name=name)))
     elif grund == "version":
-        zeilen.append(("ask", "❓", i18n.t("bn.active.version", have=s.version,
-                                           need=REVISION[:7])))
+        from . import modell_update
+        key = "bn.active.updating" if modell_update.laeuft() else "bn.active.version"
+        zeilen.append(("ask", "❓", i18n.t(key, have=s.version, need=REVISION[:7])))
     elif grund == "laufzeit":
         zeilen.append(("ask", "❓", i18n.t("bn.active.laufzeit",
                                            pakete=", ".join(laufzeit_fehlt()))))
@@ -374,6 +378,24 @@ def bericht(cfg, hive: Path | None = None) -> list[tuple[str, str, str]]:
         zeilen.append(("info", "💤", i18n.t("bn.active.aus")))
     elif s.vollstaendig or s.angefangen:
         zeilen.append(("info", "⬇️", i18n.t("bn.active.modell")))
+    zeilen += _update_zeilen(cfg, "klein")
+    return zeilen
+
+
+def _update_zeilen(cfg, modell: str) -> list[tuple[str, str, str]]:
+    """Was das automatische Update zu sagen hat (für :func:`bericht` und den von Big): ein neuerer
+    Tag auf dem Hub, oder dass es ausgeschaltet ist. Ohne Netz — nur das letzte Prüfergebnis."""
+    from . import beenara_big, modell_update
+    if not (stand() if modell == "klein" else beenara_big.stand()).vollstaendig:
+        return []
+    zeilen = []
+    neu = modell_update.neuere().get(modell)
+    if neu:
+        ist = VERSION if modell == "klein" else beenara_big.VERSION
+        key = "bn.newer" if modell == "klein" else "bb.newer"
+        zeilen.append(("info", "🆕", i18n.t(key, neu=neu, ist=ist)))
+    if modell == "klein" and not getattr(cfg, "beenara_auto_update", True):
+        zeilen.append(("info", "⏸️", i18n.t("bn.auto.status.off")))
     return zeilen
 
 
@@ -526,9 +548,32 @@ def laden(con, *, client: httpx.Client | None = None) -> bool:
     return ok
 
 
+_LADEN: dict[Path, threading.Lock] = {}
+_LADEN_SPERRE = threading.Lock()
+
+
+def _ladesperre(d: Path) -> threading.Lock:
+    """Eine Sperre je Download-Ordner: Startet das automatische Update (:mod:`pollysort.modell_update`)
+    und jemand drückt dazu „Herunterladen“, schrieben sonst zwei Downloads in dieselben ``.part``-Dateien."""
+    with _LADEN_SPERRE:
+        return _LADEN.setdefault(d.resolve(), threading.Lock())
+
+
 def laden_quelle(con, q: Quelle, d: Path, *, client: httpx.Client | None = None) -> bool:
     """Die Dateien der Quelle ``q`` nach ``d`` laden, fortsetzen oder aktualisieren — siehe
-    :func:`laden`. Gemeldet wird mit den Texten der Quelle (``q.texte``)."""
+    :func:`laden`. Gemeldet wird mit den Texten der Quelle (``q.texte``). Läuft für ``d`` schon ein
+    Download, wird das gemeldet und nichts angefasst."""
+    sperre = _ladesperre(d)
+    if not sperre.acquire(blocking=False):
+        con.info(_t(q, "busy"), "⏳")
+        return False
+    try:
+        return _laden_quelle(con, q, d, client=client)
+    finally:
+        sperre.release()
+
+
+def _laden_quelle(con, q: Quelle, d: Path, *, client: httpx.Client | None = None) -> bool:
     if stand_in(d, q).passend:
         # Der Commit ist fest — liegt er vollständig da, gibt es nichts nachzufragen (auch offline).
         con.honey(_t(q, "current", version=q.revision[:7], path=d), "✅")

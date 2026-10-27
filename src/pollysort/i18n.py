@@ -647,6 +647,39 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "Not sorting: version {have} is downloaded, this PollySort needs {need} — "
               "'beenara pull' fetches it.",
     },
+    "bn.active.updating": {
+        "de": "Sortiert gerade nicht mit: Die neue Version {need} wird automatisch geladen (bisher {have}).",
+        "en": "Not sorting right now: the new version {need} is being downloaded automatically "
+              "(was {have}).",
+    },
+    "bn.newer": {
+        "de": "Auf Hugging Face gibt es BeeNara {neu}; dieses PollySort nutzt {ist}. Die neue Version "
+              "kommt mit dem nächsten PollySort-Update.",
+        "en": "BeeNara {neu} is on Hugging Face; this PollySort uses {ist}. The new version comes "
+              "with the next PollySort update.",
+    },
+    "bn.auto.status.off": {
+        "de": "Automatisches Update ist aus — 'beenara autoupdate an' schaltet es ein.",
+        "en": "Automatic updates are off — 'beenara autoupdate on' switches them on.",
+    },
+    "bn.auto.on": {
+        "de": "Automatisches Update an: Passt ein geladenes Modell nach einem PollySort-Update nicht mehr, "
+              "lädt die App beim Start die neue Version.",
+        "en": "Automatic updates on: when a downloaded model no longer fits after a PollySort update, "
+              "the app downloads the new version at start.",
+    },
+    "bn.auto.off": {
+        "de": "Automatisches Update aus — eine neue Version holt 'beenara laden' von Hand.",
+        "en": "Automatic updates off — 'beenara pull' fetches a new version by hand.",
+    },
+    "bn.busy": {"de": "Dieser Download läuft schon — einen Moment.",
+                "en": "This download is already running — one moment."},
+    "mu.start": {"de": "Neue Version von {modell} wird geladen ({alt} → {neu}) — dieses PollySort "
+                       "braucht sie.",
+                 "en": "Downloading the new version of {modell} ({alt} → {neu}) — this PollySort "
+                       "needs it."},
+    "mu.err": {"de": "Automatisches Update von {modell} gescheitert: {err}",
+               "en": "Automatic update of {modell} failed: {err}"},
     "bn.active.laufzeit": {
         "de": "Sortiert noch nicht mit: Die Laufzeit fehlt ({pakete}) — 'beenara laden' "
               "installiert sie.",
@@ -670,9 +703,9 @@ _CATALOG: dict[str, dict[str, str]] = {
                    "en": "BeeNara off — it stays downloaded but does not sort."},
     # Keine eckigen Klammern: rich läse „[laden | entfernen]" als Markup und verschluckte es.
     "bn.usage": {"de": "Nutzung: beenara (Stand) · beenara laden · beenara an · beenara aus · "
-                       "beenara entfernen",
+                       "beenara entfernen · beenara autoupdate an|aus",
                  "en": "Usage: beenara (status) · beenara pull · beenara on · beenara off · "
-                       "beenara remove"},
+                       "beenara remove · beenara autoupdate on|off"},
     # Laufzeit (onnxruntime, tokenizers, numpy)
     "bn.rt.installing": {"de": "Installiere die Laufzeit ({pakete}) …",
                          "en": "Installing the runtime ({pakete}) …"},
@@ -825,6 +858,17 @@ _CATALOG: dict[str, dict[str, str]] = {
               "'beenara big laden' holt sie.",
         "en": "Not suggesting: version {have} is downloaded, this PollySort needs {need} — "
               "'beenara big pull' fetches it.",
+    },
+    "bb.active.updating": {
+        "de": "Arbeitet gerade nicht mit: Die neue Version {need} wird automatisch geladen (bisher {have}).",
+        "en": "Not working right now: the new version {need} is being downloaded automatically "
+              "(was {have}).",
+    },
+    "bb.newer": {
+        "de": "Auf Hugging Face gibt es BeeNara Big {neu}; dieses PollySort nutzt {ist}. Die neue Version "
+              "kommt mit dem nächsten PollySort-Update.",
+        "en": "BeeNara Big {neu} is on Hugging Face; this PollySort uses {ist}. The new version comes "
+              "with the next PollySort update.",
     },
     "bb.active.laufzeit": {
         "de": "Schlägt noch nicht vor: Die Laufzeit fehlt ({pakete}) — 'beenara big laden' "
@@ -2557,6 +2601,21 @@ _CATALOG: dict[str, dict[str, str]] = {
                                 "en": "It suggests folders from the next sorting run."},
     "web.toast.bb.failed": {"de": "BeeNara Big ist noch nicht bereit",
                             "en": "BeeNara Big is not ready yet"},
+    # Automatisches Update der Modelle (pollysort.modell_update)
+    "web.bn.auto": {"de": "Automatisch aktualisieren", "en": "Update automatically"},
+    "web.bn.auto.text": {
+        "de": "Passt ein geladenes Modell nach einem PollySort-Update nicht mehr, lädt die App beim Start "
+              "die neue Version. Einmal am Tag fragt sie Hugging Face, ob es neuere Modelle gibt — ohne "
+              "Dokumentdaten; die kommen aber erst mit dem nächsten PollySort-Update.",
+        "en": "When a downloaded model no longer fits after a PollySort update, the app downloads the "
+              "new version at start. Once a day it asks Hugging Face whether newer models exist — with "
+              "no document data; those only come with the next PollySort update.",
+    },
+    "web.run.update.title": {"de": "Modelle aktualisieren", "en": "Updating models"},
+    "web.toast.update.done": {"de": "Modelle aktualisiert", "en": "Models updated"},
+    "web.toast.update.done.text": {"de": "BeeNara ist auf dem Stand, den dieses PollySort braucht.",
+                                   "en": "BeeNara is at the version this PollySort needs."},
+    "web.toast.update.failed": {"de": "Modell-Update nicht fertig", "en": "Model update not finished"},
     # Ollama-Modelle (Sprachmodell, Gedächtnis-Modell) — Werkstatt
     "web.om.chip.checking": {"de": "wird geprüft", "en": "checking"},
     "web.om.chip.offline": {"de": "Ollama aus", "en": "Ollama off"},

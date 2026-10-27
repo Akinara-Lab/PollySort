@@ -471,7 +471,32 @@
       spaeterAuffrischen(200);
       return;
     }
+    // Das automatische Update startet der Server selbst (beim Start der App) — die Seite zeigt es
+    // wie eine eigene lange Aktion an und sagt am Ende, ob die Modelle jetzt passen.
+    if (e.art === 'auftrag' && e.name === 'modelle_aktualisieren') {
+      if (e.zustand === 'start') {
+        hintergrundZeigen();
+      } else if (S.lauf && S.lauf.hintergrund) {
+        S.lauf = null;
+        zustandLaden().then(() => {
+          const bn = S.z.beenara || {};
+          const ok = e.zustand === 'ende' && (!bn.vorhanden || bn.passend);
+          hinweis(ok ? { titel: t('web.toast.update.done'), text: t('web.toast.update.done.text'), art: 'erfolg' }
+            : { titel: t('web.toast.update.failed'), text: t('web.toast.bn.failed.text'), art: 'fehler' });
+          rahmenZeichnen(); seiteZeichnen(true);
+        });
+      }
+      return;
+    }
     if (e.art === 'auftrag' && e.zustand !== 'start' && !S.lauf) spaeterAuffrischen(400);
+  }
+
+  // Läuft das automatische Update schon, wenn die Seite (neu) lädt, hat sie den Start verpasst.
+  function hintergrundZeigen() {
+    if (S.lauf) return;
+    S.lauf = { name: 'modelle_aktualisieren', erledigt: 0, gesamt: 0, text: '', hintergrund: true };
+    rahmenZeichnen();
+    laufZeichnen();
   }
 
   async function stromVerbinden() {
@@ -563,6 +588,11 @@
       const big = S.lauf.name === 'beenara_big_laden';
       $('#lauf-titel').textContent = t(big ? 'web.run.bb.title' : 'web.run.beenara.title');
       $('#lauf-text').textContent = S.lauf.text || (big ? '' : t('bn.checking', { repo: (S.z.beenara || {}).repo || '' }));
+      return;
+    }
+    if (S.lauf.name === 'modelle_aktualisieren') {
+      $('#lauf-titel').textContent = t('web.run.update.title');
+      $('#lauf-text').textContent = S.lauf.text || '';
       return;
     }
     if (S.lauf.name === 'ollama_modell_laden') {
@@ -1015,6 +1045,8 @@
         ${bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
         ${bn.vorhanden || bn.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bn-entfernen" data-mb="${esc(bn.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
       </div>
+      ${bn.vorhanden || bb.vorhanden ? `<div class="feld abstand"><span>${esc(t('web.bn.auto'))}</span>${schalter('bn-auto', [[true, 'nx.on'], [false, 'nx.off']], bn.auto_update)}
+        <small class="leise">${esc(t('web.bn.auto.text'))}</small></div>` : ''}
       ${bigTeil}
       ${laufBlock()}</section>`;
     const checks = S.check ? `<table class="liste"><tbody>${S.check.map((c) => `<tr><td>${P.sprite(c.status === 'ok' ? 'haken' : c.status === 'warn' ? 'warnung' : 'kreuz', 'symbol')}<span class="sr-only">${esc(c.status)}</span></td>
@@ -1258,6 +1290,7 @@
     try {
       S.z = await lesen('zustand');
       einstellungenAnwenden();
+      if (S.z.beenara && S.z.beenara.aktualisiert) hintergrundZeigen();
     } catch (e) {
       if (e.status === 401) {
         $('#inhalt').innerHTML = `<div class="seite"><section class="karte">${leer(P.sprite('frage'), t('web.err.token'))}</section></div>`;
@@ -1484,6 +1517,10 @@
     'bn-laden': async () => { bnMelden(await arbeit('beenara_laden')); seiteZeichnen(true); },
     'bn-schalten': async (el) => {
       try { await tun('beenara_schalten', { an: bool(el.dataset.wert) }); } catch (e) { fehler(e); }
+      await zustandLaden(); seiteZeichnen(true);
+    },
+    'bn-auto': async (el) => {
+      try { await tun('beenara_auto_update', { an: bool(el.dataset.wert) }); } catch (e) { fehler(e); }
       await zustandLaden(); seiteZeichnen(true);
     },
     'bn-entfernen': async (el) => {

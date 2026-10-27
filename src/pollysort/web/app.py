@@ -207,6 +207,7 @@ def oeffnen(hive: Path | None, *, fenster: str = "auto", port: int | None = 0) -
     httpd, url, dienst = starten(hive, port=port, browser=False)
     faden = threading.Thread(target=httpd.serve_forever, name="flugbrett", daemon=True)
     faden.start()
+    dienst.hintergrund_aktualisieren()      # passt ein Modell nicht mehr: im Hintergrund nachladen
     bus = dienst.bus
     try:
         wege = {"nativ": [("nativ", lambda: fenster_nativ(url))],

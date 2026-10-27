@@ -240,14 +240,15 @@ class Dienst:
     def _beenara(self, *, zeilen: bool = True) -> dict:
         """Der Stand von BeeNara — für Kopfzeile, Assistent und Werkstatt. Rein lokal, kein Netz.
         ``zeilen``: dieselben Statuszeilen wie ``beenara`` in der Konsole (beenara.bericht)."""
-        from .. import beenara
+        from .. import beenara, modell_update
         cfg = config.load_config()
         s = beenara.stand()
         grund = beenara.warum_nicht(cfg)
         info = {"bereit": grund is None, "grund": grund, "an": bool(cfg.beenara),
                 "vorhanden": s.vollstaendig, "angefangen": s.angefangen, "passend": s.passend,
                 "version": s.version, "mb": s.mb, "ungefaehr_mb": beenara.UNGEFAEHR_MB,
-                "repo": beenara.REPO}
+                "repo": beenara.REPO, "auto_update": bool(cfg.beenara_auto_update),
+                "aktualisiert": modell_update.laeuft()}
         if zeilen:
             hive = self.hive if self.hive and config.is_setup(self.hive) else None
             info["zeilen"] = [{"art": art, "emoji": emoji, "text": text}
@@ -1034,6 +1035,51 @@ class Dienst:
             raise Ungueltig(i18n.t("bn.remove.failed", err=exc))
         self.con.honey(i18n.t("bb.remove.done"), "🗑️")
         return self._beenara_big()
+
+    # -- Automatisches Update (pollysort.modell_update) — wie 'beenara autoupdate an|aus' -------
+    @auftrag("modelle_aktualisieren")
+    def modelle_aktualisieren(self) -> dict:
+        """Veraltete, schon geladene Modelle auf den Commit dieses PollySort bringen. Hält die Sperre
+        wie 'Herunterladen': Bis die neue Version da ist, sortiert BeeNara ohnehin nicht mit."""
+        from .. import modell_update
+        ergebnis = modell_update.aktualisieren(self.con)
+        return {"ergebnis": ergebnis, "ok": all(ergebnis.values()),
+                "beenara": self._beenara(), "beenara_big": self._beenara_big()}
+
+    @auftrag("beenara_auto_update", sperre=False)
+    def beenara_auto_update(self, an: bool = True) -> dict:
+        cfg = config.load_config()
+        cfg.beenara_auto_update = bool(an)
+        config.save_config(cfg)
+        self.con.honey(i18n.t("bn.auto.on" if an else "bn.auto.off"), "🔄")
+        return self._beenara()
+
+    def hintergrund_aktualisieren(self) -> threading.Thread | None:
+        """Beim Start der App: veraltete Modelle im Hintergrund nachladen und einmal am Tag den Hub nach
+        neueren Versionen fragen (Einstellung ``beenara_auto_update``). Ob es etwas zu tun gibt, wird
+        hier sofort entschieden — ohne geladenes Modell startet kein Faden und geht nichts ins Netz."""
+        from .. import modell_update
+        if not getattr(config.load_config(), "beenara_auto_update", True) or not modell_update.geladen():
+            return None
+        veraltet = modell_update.veraltet()
+
+        def lauf() -> None:
+            try:
+                modell_update.neuere_pruefen()
+            except Exception:                    # ein Hinweis darf den Start nie stören
+                pass
+            for _ in range(20):                  # läuft gerade eine andere Aktion: später noch einmal
+                if not veraltet:
+                    return
+                try:
+                    self.modelle_aktualisieren()
+                    return
+                except Beschaeftigt:
+                    time.sleep(30)
+
+        faden = threading.Thread(target=lauf, name="modelle-aktualisieren", daemon=True)
+        faden.start()
+        return faden
 
     @auftrag("beenara_modell", sperre=False)
     def beenara_modell(self, modell: str = "auto") -> dict:

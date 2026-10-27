@@ -646,6 +646,12 @@ open (Apache-2.0) on Hugging Face:
   verifies every file and installs the runtime (`onnxruntime`, `tokenizers`, `numpy`) into the
   environment PollySort runs in. `beenara off` switches it off without deleting it. It uses up
   to 6 CPU threads; `POLLYSORT_BEENARA_THREADS` overrides that.
+- **Stays up to date by itself.** Every PollySort version uses exactly one tested model version.
+  When a PollySort update needs a newer one, the app downloads it in the background at start —
+  only models you already have, from a fixed commit, with checksums. Once a day it asks Hugging
+  Face whether newer models exist (no document data is sent) and only tells you; untested versions
+  are never used and come with the next PollySort update. `beenara autoupdate off` (or **Workshop →
+  BeeNara → Update automatically**) switches both off.
 
 ### BeeNara Big: whole folder trees
 
