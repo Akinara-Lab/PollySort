@@ -65,10 +65,13 @@ BEENARA_ENDE = 0.3
 #: Wann BeeNara selbst einsortiert. ``risk`` (v0.3): nur wenn die kalibrierte Konfidenz die
 #: Risiko-Schwelle der Ordnerzahl erreicht — höchstens 1 % der automatischen Entscheidungen falsch
 #: (δ = 0,1). Stufe-0 am 2026-10-08: fehlt der richtige Ordner, 0 statt 4 von 70 falsch
-#: einsortiert (``conformal``, wie v0.2), dafür 7–15 Punkte öfter eine Rückfrage.
+#: einsortiert (``conformal``, wie v0.2), dafür 7–15 Punkte öfter eine Rückfrage. v0.4 am 2026-10-27:
+#: 4 von 70 (alle vier Versicherungsscheine → „vertraege“, wenn „versicherung“ fehlt), mit
+#: Beschreibungen 0; auf dem v0.4-Benchmark 59 % selbst einsortiert, davon 0,3 % falsch.
 BEENARA_REGEL = "risk"
 #: BeeNara Big (:mod:`pollysort.beenara_big`) ist auf 3–300 Ordner trainiert, in 5 % der
-#: Aufgaben bis 500. In v0.3 macht es nur Vorschläge (keine Risiko-Schwelle zertifizierbar).
+#: Aufgaben bis 500. Selbst einsortiert wird nur mit Risiko-Schwelle: in v0.4 bei 3–9 Ordnern
+#: (v0.3 nirgends); darüber macht es Vorschläge.
 BIG_MIN, BIG_MAX = 3, 500
 #: Werte der Einstellung ``beenara_modell``: welches Modell sortiert, wenn beide da sind.
 MODELLE = ("auto", "klein", "big")

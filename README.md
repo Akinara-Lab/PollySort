@@ -597,12 +597,12 @@ are calibrated, and are far better than small LLMs at noticing that **no** folde
 open (Apache-2.0) on Hugging Face:
 [**BeeNara collection**](https://huggingface.co/collections/Kwokou/beenara-local-document-sorting).
 
-| | <img src="docs/bilder/icons/biene.svg" width="28" alt=""> [**BeeNara**](https://huggingface.co/Kwokou/BeeNara) v0.3 | <img src="docs/bilder/icons/chip.svg" width="28" alt=""> [**BeeNara Big**](https://huggingface.co/Kwokou/BeeNara-Big) v0.3 *(preview)* |
+| | <img src="docs/bilder/icons/biene.svg" width="28" alt=""> [**BeeNara**](https://huggingface.co/Kwokou/BeeNara) v0.4 | <img src="docs/bilder/icons/chip.svg" width="28" alt=""> [**BeeNara Big**](https://huggingface.co/Kwokou/BeeNara-Big) v0.4 |
 |---|---|---|
 | **For** | 3 to 9 folders | whole folder trees, 3 to about 300 folders (trained up to 500) |
 | **Runs on** | any CPU, about 0.2–0.3 s per document on a laptop | an NVIDIA GPU with 8 GB or more |
 | **Download** | ~370 MB (ONNX, 8-bit) | ~4.7 GB (adapter 164 MB + base model 4.6 GB) |
-| **Files on its own** | yes, when it is calibrated to be wrong in at most 1 % of such cases | no: in v0.3 every answer is a **suggestion** in review |
+| **Files on its own** | yes, when it is calibrated to be wrong in at most 1 % of such cases | the same, but only in trees of 3–9 folders; with more folders every answer is a **suggestion** in review |
 | **Built on** | [mmBERT-base](https://huggingface.co/jhu-clsp/mmBERT-base) | [Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) with LoRA |
 
 <p align="center">
@@ -628,14 +628,15 @@ open (Apache-2.0) on Hugging Face:
 
 ### BeeNara: 3 to 9 folders, on the CPU
 
-- **Files only what it is sure of.** BeeNara v0.3 sorts a document on its own only above a
+- **Files only what it is sure of.** BeeNara v0.4 sorts a document on its own only above a
   **risk threshold**: with 90 % confidence, at most 1 % of the documents it files automatically
   land in a wrong folder (Learn-then-Test). Everything else is a review with its suggestion.
 - **Measured** ([model card](https://huggingface.co/Kwokou/BeeNara)): on a benchmark with folder
-  trees and names it has never seen, its answer is right in **84–85 %** of the tasks (v0.2:
-  69 %). It files **39 %** of the 3–9-folder tasks automatically, and **0.9 %** of those were
-  wrong. On PollySort's own 70 test documents with the right folder missing, it filed **0**
-  documents wrongly (with the previous rule: 4); in exchange it asks more often.
+  trees and names it has never seen, its answer is right in **91.5 %** of the tasks (v0.3 on the
+  same tasks: 85.5 %). It files **59 %** of these tasks automatically, and **0.3 %** of those
+  were wrong (v0.3: 21.5 % and 2.5 %). On PollySort's own 70 test documents with the right folder
+  missing, it filed 4 insurance certificates into *vertraege* (contracts) when *versicherung* was
+  missing; with folder descriptions, none.
 - **Reads the start and the end** of long documents, where totals, signatures and closing lines
   are.
 - **Concrete folder names work best.** *Invoices*, *Payslips* or *Insurance* are recognised
@@ -649,12 +650,13 @@ open (Apache-2.0) on Hugging Face:
 ### BeeNara Big: whole folder trees
 
 - **Sees the whole tree at once.** One pass over up to ~300 folders, with the start and end of
-  the document (up to 2,048 tokens). On held-out trees it finds the right folder in **92 %**
-  (3–9 folders), **88–90 %** (10–49) and **79–83 %** (50–299) of the cases, **85 %** overall
-  ([model card](https://huggingface.co/Kwokou/BeeNara-Big)).
-- **Suggestions only in v0.3.** Its calibration found no threshold that keeps automatic
-  decisions at ≤ 1 % wrong, so every answer becomes a review with its favourite. The next
-  version is meant to file on its own.
+  the document (up to 2,048 tokens). On held-out trees it finds the right folder in **92–94 %**
+  (3–24 folders), **89 %** (25–49), **82–84 %** (50–199) and **66 %** (200 and more) of the
+  cases, **84 %** overall ([model card](https://huggingface.co/Kwokou/BeeNara-Big)).
+- **Files on its own only in small trees.** v0.4 is the first version with a risk threshold:
+  with 3–9 folders it files **57 %** of the tasks automatically, **0.9 %** of those wrong. For
+  larger trees its calibration found no threshold that keeps automatic decisions at ≤ 1 % wrong,
+  so every answer there becomes a review with its favourite.
 - **Needs a graphics card.** `beenara big pull` (or the Workshop) first checks for an NVIDIA GPU
   with at least 8 GB, then downloads the adapter and the base model from fixed commits with
   checksums, and installs PyTorch with CUDA to match your driver. In a short test on a laptop
@@ -869,8 +871,9 @@ trees) wants an NVIDIA GPU with 8 GB or more; local mode with Ollama is faster w
 
 **Why does a file stay in the inbox?**
 PollySort was not sure enough, or no folder fits. It waits in **Review** with a suggestion;
-your answer files it and teaches the memory. Nothing is filed on a guess: BeeNara v0.3 asks
-rather than risk more than 1 % wrong automatic decisions, and BeeNara Big only suggests.
+your answer files it and teaches the memory. Nothing is filed on a guess: BeeNara asks rather
+than risk more than 1 % wrong automatic decisions, and BeeNara Big does the same in trees of 3–9
+folders and only suggests in larger ones.
 
 **What's the bee theme about (`.honig`, "combs", "the Queen")?**
 Flavour. Internally the tool uses a beehive metaphor; it doesn't affect how you use it. In the

@@ -9,6 +9,21 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### BeeNara v0.4 und BeeNara Big v0.4
+- **Neue Modellversionen** (Hugging Face, Tag `v0.4`): PollySort lädt BeeNara aus
+  `Kwokou/BeeNara@d381371` und BeeNara Big aus `Kwokou/BeeNara-Big@575cd42`. Wer v0.3 geladen hat,
+  bekommt in der Werkstatt und bei `beenara`/`beenara big` den Hinweis, die neue Version zu laden.
+- **BeeNara (3–9 Ordner):** Auf ungesehenen Ordnerbäumen und Namen trifft es 91,5 % (v0.3: 85,5 %)
+  und sortiert 59 % der Aufgaben selbst ein, davon 0,3 % falsch (v0.3: 21,5 % und 2,5 %, also über
+  der 1-%-Grenze). Im eigenen Test mit 70 Dokumenten landen bei fehlendem Ordner *versicherung*
+  vier Versicherungsscheine selbstständig in *vertraege*; mit Ordnerbeschreibungen keiner.
+- **BeeNara Big sortiert bei 3–9 Ordnern selbst ein**, wenn es sicher genug ist (57 %, davon
+  0,9 % falsch). Bei größeren Bäumen bleibt jede Antwort ein Vorschlag mit Rückfrage. Relevant in
+  der Modellwahl „Nur BeeNara Big“; automatisch sortiert bei 3–9 Ordnern weiter das kleine BeeNara.
+- **Risiko-Schwellen je Listengröße aus der Kalibrierdatei:** Beide Laufzeiten lesen die Buckets
+  jetzt aus der Kalibrierung (v0.4 fasst große Bäume zu „200+“ zusammen); ältere Kalibrierungen
+  ohne Buckets verhalten sich wie bisher.
+
 ### Ollama-Modelle per Knopfdruck
 - **Werkstatt → Ollama (Modus Lokal):** Der Modus Lokal braucht zwei Ollama-Modelle, das
   **Sprachmodell** `qwen3.5:9b` (ca. 6,6 GB), das Dokumente liest und den Ordner wählt, und das

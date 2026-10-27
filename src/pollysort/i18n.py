@@ -815,10 +815,10 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bb.status.partial": {"de": "Unvollständig — 'beenara big laden' setzt den Download fort.",
                           "en": "Incomplete — 'beenara big pull' resumes the download."},
     "bb.active.ja": {
-        "de": "Bereit: schlägt Ordner vor, wo es laut Modellwahl dran ist. Jeder Vorschlag wird "
-              "eine Rückfrage.",
-        "en": "Ready: suggests folders where the model choice puts it in charge. Every suggestion "
-              "becomes a review.",
+        "de": "Bereit: entscheidet, wo es laut Modellwahl dran ist. Bei 3 bis 9 Ordnern sortiert es "
+              "selbst ein, wenn es sicher genug ist; bei mehr Ordnern wird jeder Vorschlag eine Rückfrage.",
+        "en": "Ready: decides where the model choice puts it in charge. With 3 to 9 folders it files "
+              "on its own when it is sure enough; with more folders every suggestion becomes a review.",
     },
     "bb.active.version": {
         "de": "Schlägt nicht vor: Geladen ist Version {have}, dieses PollySort braucht {need} — "
@@ -860,8 +860,8 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bb.modus.klein": {"de": "Modellwahl: nur BeeNara — BeeNara Big bleibt geladen, sortiert aber nicht.",
                        "en": "Model choice: BeeNara only — BeeNara Big stays downloaded but does not sort."},
     "bb.modus.big": {
-        "de": "Modellwahl: nur BeeNara Big — auch bei 3 bis 9 Ordnern, dann nur Vorschläge.",
-        "en": "Model choice: BeeNara Big only — also with 3 to 9 folders, then suggestions only.",
+        "de": "Modellwahl: nur BeeNara Big — auch bei 3 bis 9 Ordnern.",
+        "en": "Model choice: BeeNara Big only — also with 3 to 9 folders.",
     },
     "bb.usage": {"de": "Nutzung: beenara big (Stand) · beenara big laden · beenara big entfernen · "
                        "beenara modell auto|klein|big",
