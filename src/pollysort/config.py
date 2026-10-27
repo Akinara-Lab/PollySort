@@ -152,6 +152,10 @@ class AppConfig(BaseModel):
     beenara: bool = True                                      # 'beenara aus' schaltet es ab
     # Welches BeeNara sortiert, wenn beide da sind: auto (klein für 3–9 Ordner, sonst Big) | klein | big
     beenara_modell: str = "auto"
+    # Passt ein geladenes Modell nach einem PollySort-Update nicht mehr, holt die App die neue Version
+    # beim Start; einmal am Tag fragt sie den Hub nach neueren Versionen (nur Hinweis).
+    # 'beenara autoupdate aus' schaltet beides ab.
+    beenara_auto_update: bool = True
 
 
 @dataclass

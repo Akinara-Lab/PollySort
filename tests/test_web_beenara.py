@@ -208,7 +208,9 @@ def test_jeder_aufruf_der_seite_hat_einen_endpunkt_und_umgekehrt():
     assert gelesen <= ansichten, f"Seite liest, was der Dienst nicht anbietet: {gelesen - ansichten}"
     assert getan <= auftraege, f"Seite ruft Aktionen, die es nicht gibt: {getan - auftraege}"
     assert not ansichten - gelesen, f"Ansicht ohne Seite: {ansichten - gelesen}"
-    assert not auftraege - getan, f"Aktion ohne Knopf: {auftraege - getan}"
+    # Startet der Server selbst (beim Start der App); die Seite zeigt nur den Fortschritt.
+    vom_server = {"modelle_aktualisieren"}
+    assert not auftraege - getan - vom_server, f"Aktion ohne Knopf: {auftraege - getan - vom_server}"
 
 
 def test_jeder_text_bekommt_alle_seine_platzhalter():

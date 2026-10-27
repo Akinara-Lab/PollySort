@@ -332,6 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     hive = Path(args.pfad).expanduser().resolve() if args.pfad else startziel()
     httpd, url, dienst = starten(hive, port=args.port, browser=not args.kein_browser)
+    dienst.hintergrund_aktualisieren()      # passt ein Modell nicht mehr: im Hintergrund nachladen
     print(f"🐝  {i18n.t('web.cli.open', url=url)}", flush=True)
     print(f"🐝  {i18n.t('web.cli.stop')}", flush=True)
     try:

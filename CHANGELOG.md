@@ -9,10 +9,27 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Modelle aktualisieren sich selbst
+- **Nach einem PollySort-Update sortiert BeeNara ohne Zutun weiter.** Jede PollySort-Version ist an
+  genau eine geprüfte Modellversion gebunden. Bisher sortierte ein schon geladenes, älteres BeeNara
+  nach dem Update gar nicht mehr mit, bis man in der Werkstatt von Hand neu lud. Jetzt holt die App
+  die passende Version beim Start im Hintergrund: nur für Modelle, die schon da sind (Big also nur,
+  wenn Big geladen ist), über denselben Download wie „Herunterladen“ (fester Commit, Prüfsummen,
+  Fortsetzen, Tausch erst am Ende), mit Fortschritt in der Werkstatt und Meldung im Protokoll.
+  Pakete installiert das Update nicht; fehlt eine Laufzeit, sagt das der Stand wie bisher.
+- **Neuere Modelle werden gemeldet, nicht geladen.** Einmal am Tag fragt die App Hugging Face nach
+  den Versions-Tags der geladenen Modelle (ohne Dokumentdaten). Gibt es einen neueren als den, den
+  dieses PollySort kennt, steht ein Hinweis in Werkstatt und `beenara`; ungeprüfte Modelle sortieren
+  nie.
+- **Schalter:** Werkstatt → BeeNara → „Automatisch aktualisieren“ (Standard: an), in der Konsole
+  `beenara autoupdate an|aus`, Skript-CLI `pollysort-cli beenara autoupdate on|off`.
+- Startet jemand „Herunterladen“, während das Update denselben Ordner lädt, meldet PollySort das,
+  statt zwei Downloads in dieselben Dateien schreiben zu lassen.
+
 ### BeeNara v0.4 und BeeNara Big v0.4
 - **Neue Modellversionen** (Hugging Face, Tag `v0.4`): PollySort lädt BeeNara aus
   `Kwokou/BeeNara@d381371` und BeeNara Big aus `Kwokou/BeeNara-Big@575cd42`. Wer v0.3 geladen hat,
-  bekommt in der Werkstatt und bei `beenara`/`beenara big` den Hinweis, die neue Version zu laden.
+  bekommt die neue Version beim nächsten Start der App automatisch (siehe oben).
 - **BeeNara (3–9 Ordner):** Auf ungesehenen Ordnerbäumen und Namen trifft es 91,5 % (v0.3: 85,5 %)
   und sortiert 59 % der Aufgaben selbst ein, davon 0,3 % falsch (v0.3: 21,5 % und 2,5 %, also über
   der 1-%-Grenze). Im eigenen Test mit 70 Dokumenten landen bei fehlendem Ordner *versicherung*

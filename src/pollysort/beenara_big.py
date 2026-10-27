@@ -41,6 +41,8 @@ REPO = "Kwokou/BeeNara-Big"
 #: Wer diesen Wert anhebt, prüft vorher die Laufzeit gegen das neue Modell (Paritätstest) — wie bei
 #: BeeNara.
 REVISION = "575cd4263a9750470f1326720923911d24095c8f"
+#: Der Versions-Tag dieses Commits auf dem Hub (siehe :data:`pollysort.beenara.VERSION`).
+VERSION = "v0.4"
 BASIS_REPO = "Qwen/Qwen3.5-2B-Base"
 #: Genau die Basis, auf der Big trainiert wurde (steht auch in ``big_config.json``).
 BASIS_REVISION = "b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
@@ -379,11 +381,13 @@ def bericht(cfg) -> list[tuple[str, str, str]]:
         zeilen.append(("honey", "⚡", i18n.t("bb.active.ja")))
         zeilen.append(("info", "⚙️", i18n.t("bb.geraet.gpu" if auf_gpu() else "bb.geraet.cpu")))
     elif grund == "version":
-        zeilen.append(("ask", "❓", i18n.t("bb.active.version", have=s.version, need=REVISION[:7])))
+        from . import modell_update
+        key = "bb.active.updating" if modell_update.laeuft() else "bb.active.version"
+        zeilen.append(("ask", "❓", i18n.t(key, have=s.version, need=REVISION[:7])))
     elif grund == "laufzeit":
         zeilen.append(("ask", "❓", i18n.t("bb.active.laufzeit", pakete=", ".join(laufzeit_fehlt()))))
     elif grund == "aus":
         zeilen.append(("info", "💤", i18n.t("bn.active.aus")))
     modus = getattr(cfg, "beenara_modell", "auto")
     zeilen.append(("info", "🔀", i18n.t(f"bb.modus.{modus}")))
-    return zeilen
+    return zeilen + beenara._update_zeilen(cfg, "big")

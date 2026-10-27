@@ -1070,13 +1070,17 @@ class BeehiveShell(cmd.Cmd):
 
     def do_beenara(self, arg: str) -> None:
         """beenara [laden|an|aus|entfernen] · beenara big [laden|entfernen] · beenara modell
-        [auto|klein|big] — BeeNara und BeeNara Big, die lokalen Entscheider-Modelle."""
+        [auto|klein|big] · beenara autoupdate [an|aus] — BeeNara und BeeNara Big, die lokalen
+        Entscheider-Modelle."""
         sub, _, rest = arg.strip().lower().partition(" ")
         if sub == "big":
             self._big(rest.strip())
             return
         if sub in ("modell", "model"):
             self._beenara_modell(rest.strip())
+            return
+        if sub in ("autoupdate", "auto-update"):
+            self._beenara_auto_update(rest.strip())
             return
         sub = arg.strip().lower()
         if sub in self._LADEN:
@@ -1162,6 +1166,23 @@ class BeehiveShell(cmd.Cmd):
             self.con.info(i18n.t("bb.usage"), "🐝")
         else:
             self.con.ask(i18n.t("bb.usage"))
+
+    def _beenara_auto_update(self, wahl: str) -> None:
+        """Ob die App veraltete Modelle beim Start selbst nachlädt (Einstellung ``beenara_auto_update``).
+        In der Konsole lädt ``beenara laden`` eine neue Version — hier wird nur umgeschaltet."""
+        cfg = config.load_config()
+        if wahl == "":
+            self.con.info(i18n.t("bn.auto.on" if cfg.beenara_auto_update else "bn.auto.off"), "🔄")
+            return
+        if wahl in ("an", "ein", "on", "enable"):
+            cfg.beenara_auto_update = True
+        elif wahl in ("aus", "off", "disable"):
+            cfg.beenara_auto_update = False
+        else:
+            self.con.ask(i18n.t("bn.usage"))
+            return
+        config.save_config(cfg)
+        self.con.honey(i18n.t("bn.auto.on" if cfg.beenara_auto_update else "bn.auto.off"), "🔄")
 
     def _beenara_modell(self, wahl: str) -> None:
         """Welches BeeNara sortiert, wenn beide da sind (Einstellung ``beenara_modell``)."""

@@ -549,11 +549,13 @@ def doctor(hive: str | None = typer.Option(None, "--hive")):
 
 
 @app.command("beenara")
-def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull | big | modell"),
-                wert: str = typer.Argument("", help="big: status | pull · modell: auto | klein | big")):
+def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull | big | modell | autoupdate"),
+                wert: str = typer.Argument("", help="big: status | pull · modell: auto | klein | big · "
+                                                    "autoupdate: on | off")):
     """BeeNara (lokales Entscheider-Modell) samt Laufzeit laden oder den Stand zeigen.
     ``beenara big [pull]``: dasselbe für BeeNara Big; ``beenara modell <auto|klein|big>``: welches
-    Modell sortiert. Exit 0 = das Modell ist bereit."""
+    Modell sortiert; ``beenara autoupdate <on|off>``: ob die App veraltete Modelle beim Start selbst
+    nachlädt. Exit 0 = das Modell ist bereit."""
     con = _con()
     from . import beenara
     a, w = aktion.strip().lower(), wert.strip().lower()
@@ -580,10 +582,23 @@ def beenara_cmd(aktion: str = typer.Argument("status", help="status | pull | big
             config.save_config(cfg)
         con.honey(i18n.t(f"bb.modus.{cfg.beenara_modell}"), "🔀")
         raise typer.Exit(0)
+    if a in ("autoupdate", "auto-update"):
+        cfg = config.load_config()
+        if w in ("on", "an"):
+            cfg.beenara_auto_update = True
+        elif w in ("off", "aus"):
+            cfg.beenara_auto_update = False
+        elif w not in ("status", ""):
+            con.error("pollysort-cli beenara autoupdate <on|off>")
+            raise typer.Exit(2)
+        if w:
+            config.save_config(cfg)
+        con.honey(i18n.t("bn.auto.on" if cfg.beenara_auto_update else "bn.auto.off"), "🔄")
+        raise typer.Exit(0)
     if a in laden:
         raise typer.Exit(0 if beenara.einrichten(con) else 1)
     if a not in ("status", ""):
-        con.error("pollysort-cli beenara <status|pull|big|modell>")
+        con.error("pollysort-cli beenara <status|pull|big|modell|autoupdate>")
         raise typer.Exit(2)
     cfg = config.load_config()
     for art, emoji, text in beenara.bericht(cfg):
