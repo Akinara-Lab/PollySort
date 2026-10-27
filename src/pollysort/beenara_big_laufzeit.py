@@ -1,7 +1,8 @@
 """BeeNara-Big-Laufzeit — torch + transformers + peft, kein Trainingscode.
 
 Kopie von ``beenara_big.py`` aus https://huggingface.co/Kwokou/BeeNara-Big (v0.3; geprüft am
-2026-10-08: auf denselben Eingaben bitgleich mit dem Trainingscode, CPU fp32). Änderungen gehören
+2026-10-08: auf denselben Eingaben bitgleich mit dem Trainingscode, CPU fp32; v0.4 am 2026-10-27:
+Buckets aus der Kalibrierdatei, auf CPU dieselbe Wahl wie die GPU-Bewertung). Änderungen gehören
 zuerst dorthin, mit Paritätstest, und werden dann hierher übernommen. PollySort lädt bewusst
 keinen Code vom Hub. Abweichungen vom Original:
 
@@ -35,12 +36,15 @@ LOG_K_MAX = math.log(300)
 BUCKETS = ((3, 9), (10, 24), (25, 49), (50, 99), (100, 199), (200, 299), (300, None))
 
 
-def bucket(n: int) -> str:
-    """List-size bucket of the risk thresholds: "3-9", "10-24" … "300+"."""
-    for lo, hi in BUCKETS:
+def bucket(n: int, buckets=None) -> str:
+    """List-size bucket of the risk thresholds: "3-9", "10-24" … "300+" (fewer than 3 counts as "3-9").
+    ``buckets``: the calibration file's own buckets (v0.4 writes them, e.g. ending in "200+")."""
+    bs = [(int(lo), None if hi is None else int(hi)) for lo, hi in buckets] if buckets else BUCKETS
+    for lo, hi in bs:
         if hi is None or n <= hi:
             return f"{lo}+" if hi is None else f"{lo}-{hi}"
-    return "300+"
+    lo, hi = bs[-1]
+    return f"{lo}+" if hi is None else f"{lo}-{hi}"
 
 
 @dataclass
@@ -247,7 +251,7 @@ class BeeNaraBig:
         vert = self.distribution(logits, none)
         dist = dict(zip(folders, vert[:-1])) | {NONE: vert[-1]}
         ranking = sorted(zip(folders, vert[:-1]), key=lambda x: -x[1])
-        lam = (self.cal.get("risiko", {}).get(bucket(len(folders))) or {}).get("lambda")
+        lam = (self.cal.get("risiko", {}).get(bucket(len(folders), self.cal.get("buckets"))) or {}).get("lambda")
         best, p_best = ranking[0]
         sure = lam is not None and p_best >= lam and p_best > vert[-1]
         return Suggestion(suggestions=ranking[:top_k], none=vert[-1], distribution=dist,
@@ -256,8 +260,8 @@ class BeeNaraBig:
     def decide(self, text: str, categories: list[str], *, descriptions: dict[str, str] | None = None,
                language: str = "de", question: str | None = None, rule: str = "risk") -> Decision:
         """Wie ``BeeNara.decide``: ``category`` nur, wenn eine Risiko-Schwelle das erlaubt — in
-        v0.3 nie, Big macht nur Vorschläge (``ask`` immer ``True``). ``rule`` ist der
-        Gleichförmigkeit halber da; Big kennt nur die Risiko-Regel."""
+        v0.4 bei 3 bis 9 Ordnern, darüber nie (dann ``ask``). ``rule`` ist der Gleichförmigkeit
+        halber da; Big kennt nur die Risiko-Regel."""
         s = self.suggest(text, categories, descriptions=descriptions, language=language, question=question)
         best = max(s.distribution, key=s.distribution.get)
         return Decision(category=s.category, confidence=s.distribution[best], ask=s.ask,

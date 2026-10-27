@@ -3,7 +3,8 @@
 Kopie von ``beenara.py`` aus https://huggingface.co/Kwokou/BeeNara (Stand der v0.3-Laufzeit;
 auf dem v0.2-Modell entscheidet sie Zeile für Zeile wie die ausgelieferte Fassung, geprüft am
 2026-10-02 mit Stufe-0: 420/420; auf dem v0.3-Modell am 2026-10-08 dieselben Treffer wie die
-Bewertung im Trainingspaket, Stufe-0 C1/C2/C3 100 / 92,9–94,3 / 100 %). Änderungen gehören
+Bewertung im Trainingspaket, Stufe-0 C1/C2/C3 100 / 92,9–94,3 / 100 %; v0.4 am 2026-10-27:
+Buckets aus der Kalibrierdatei, ONNX und PyTorch-Bewertung wählen 199/200 gleich). Änderungen gehören
 zuerst dorthin, mit Paritätstest, und werden dann hierher übernommen. PollySort lädt bewusst
 keinen Code vom Hub; deshalb liegt die Laufzeit hier im Paket. Zwei Abweichungen vom Original:
 
@@ -36,12 +37,15 @@ OPTION_MAX = 40        # tokens per option, name plus short description
 BUCKETS = ((3, 9), (10, 24), (25, 49), (50, 99), (100, 199), (200, 299), (300, None))
 
 
-def bucket(n: int) -> str:
-    """Option-count bucket of the risk thresholds: "3-9", "10-24" … "300+" (fewer than 3 counts as "3-9")."""
-    for lo, hi in BUCKETS:
+def bucket(n: int, buckets=None) -> str:
+    """Option-count bucket of the risk thresholds: "3-9", "10-24" … "300+" (fewer than 3 counts as "3-9").
+    ``buckets``: the calibration file's own buckets (v0.4 writes them, e.g. ending in "200+")."""
+    bs = [(int(lo), None if hi is None else int(hi)) for lo, hi in buckets] if buckets else BUCKETS
+    for lo, hi in bs:
         if hi is None or n <= hi:
             return f"{lo}+" if hi is None else f"{lo}-{hi}"
-    return "300+"
+    lo, hi = bs[-1]
+    return f"{lo}+" if hi is None else f"{lo}-{hi}"
 
 
 @dataclass
@@ -150,7 +154,8 @@ class BeeNara:
         best = max(range(len(vert)), key=vert.__getitem__)
         sure = len(pset) == 1 and pset[0] != NONE
         if rule == "risk":
-            lam = (self.cal.get("risk", {}).get(bucket(len(logits))) or {}).get("lambda")
+            b = bucket(len(logits), self.cal.get("buckets"))
+            lam = (self.cal.get("risk", {}).get(b) or {}).get("lambda")
             sure = lam is not None and names[best] != NONE and vert[best] >= lam
         return Decision(category=names[best] if sure else None, confidence=vert[best], ask=not sure,
                         distribution=dict(zip(names, vert)), prediction_set=pset)

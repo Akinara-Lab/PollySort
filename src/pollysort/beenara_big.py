@@ -1,10 +1,10 @@
 """BeeNara Big — das große Entscheider-Modell für ganze Ordnerbäume: holen, prüfen, öffnen.
 
-BeeNara Big (https://huggingface.co/Kwokou/BeeNara-Big, v0.3, Vorschau) liest den ganzen
-Ordnerbaum — 3 bis etwa 300 Ordner, trainiert bis 500 — und schlägt den passenden Ordner vor.
-Es ist Qwen3.5-2B-Base mit LoRA und einem kleinen Entscheidungskopf und braucht eine NVIDIA-GPU
-mit mindestens 8 GB. In v0.3 ist es nur für Vorschläge kalibriert: Was Big entscheidet, wird
-immer eine Rückfrage mit seinem Favoriten.
+BeeNara Big (https://huggingface.co/Kwokou/BeeNara-Big, v0.4) liest den ganzen Ordnerbaum — 3 bis
+etwa 300 Ordner, trainiert bis 500 — und schlägt den passenden Ordner vor. Es ist Qwen3.5-2B-Base
+mit LoRA und einem kleinen Entscheidungskopf und braucht eine NVIDIA-GPU mit mindestens 8 GB. Selbst
+einsortieren darf es nur, wo seine Kalibrierung eine Risiko-Schwelle hat — in v0.4 bei 3 bis 9
+Ordnern; sonst wird, was Big entscheidet, eine Rückfrage mit seinem Favoriten.
 
 Zwei Teile, beide auf festem Commit und mit Prüfsumme geladen — dieselbe Logik wie BeeNara
 (:func:`pollysort.beenara.laden_quelle`):
@@ -36,11 +36,11 @@ from . import beenara, config, i18n
 from .beenara import Quelle, Stand, stand_in
 
 REPO = "Kwokou/BeeNara-Big"
-#: BeeNara Big v0.3 (Hub-Commit vom 2026-10-08, mit Lader und Quickstart). Die Modelldateien sind
-#: dieselben wie in 91e082d und in d453bef (Tag ``v0.3``, dort nur der Lader für die GPU
-#: korrigiert — PollySort lädt keinen Code vom Hub). Wer diesen Wert anhebt, prüft vorher die
-#: Laufzeit gegen das neue Modell (Paritätstest) — wie bei BeeNara.
-REVISION = "64266f0783557431f6e2d5bcf06e00bd8631f4d6"
+#: BeeNara Big v0.4 (Hub-Commit vom 2026-10-27, Tag ``v0.4``; v0.3 war 64266f0). Ab v0.4 sortiert
+#: Big bei 3–9 Ordnern selbst ein, darüber schlägt es vor; die Buckets stehen in der Kalibrierung.
+#: Wer diesen Wert anhebt, prüft vorher die Laufzeit gegen das neue Modell (Paritätstest) — wie bei
+#: BeeNara.
+REVISION = "575cd4263a9750470f1326720923911d24095c8f"
 BASIS_REPO = "Qwen/Qwen3.5-2B-Base"
 #: Genau die Basis, auf der Big trainiert wurde (steht auch in ``big_config.json``).
 BASIS_REVISION = "b1485b2fa6dfa1287294f269f5fb618e03d52d7c"
