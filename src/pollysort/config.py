@@ -4,7 +4,8 @@ Grundprinzip: **Das Arbeitsverzeichnis bleibt sauber.** Alles, was das Tool gene
 (Datenbank, Logs, Gedächtnis, Einträge, Quarantäne, Config), liegt in genau EINEM
 versteckten Ordner ``<hive>/.honig/``. Sichtbar entstehen nur die Kategorie-Ordner.
 
-- ``~/.beehive/credentials``  — OpenRouter-Key (chmod 600), außerhalb des Arbeitsordners
+- ``~/.pollysort/credentials`` — OpenRouter-Key: liegt im Tresor des Betriebssystems, hier steht
+  dann nur ein Platzhalter (ohne Tresor der Key selbst, chmod 600); außerhalb des Arbeitsordners
 - ``<hive>/.honig/hive.toml`` — Einstellungen (Kategorien, Schwelle, Zuständigkeit)
 """
 
@@ -237,23 +238,78 @@ def save_config(cfg: AppConfig) -> None:
     CONFIG_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+#: Der Umzug des Klartext-Schlüssels in den Tresor wird je Programmlauf nur einmal versucht.
+_UMZUG_VERSUCHT = False
+
+
+def _credentials_roh() -> str:
+    """Was in ``credentials`` steht: der Schlüssel im Klartext, der Platzhalter oder nichts."""
+    try:
+        return CREDENTIALS_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def load_credentials() -> str | None:
-    """Key aus Env (Vorrang, für CI/Container) oder ``~/.beehive/credentials`` (§15)."""
+    """Der OpenRouter-Schlüssel: Env (Vorrang, für CI/Container), sonst der gespeicherte (§15).
+
+    Gespeichert wird im Tresor des Betriebssystems (:mod:`pollysort.tresor`); in
+    ``~/.pollysort/credentials`` steht dann nur der Platzhalter. Liegt dort noch ein Schlüssel
+    im Klartext und gibt es einen Tresor, zieht er beim ersten Lesen um.
+    """
+    from . import tresor
     env = os.environ.get("OPENROUTER_API_KEY")
     if env:
         return env.strip()
-    if CREDENTIALS_PATH.exists():
-        return CREDENTIALS_PATH.read_text(encoding="utf-8").strip() or None
-    return None
+    roh = _credentials_umziehen()
+    if roh == tresor.IM_TRESOR:
+        return tresor.lesen(tresor.OPENROUTER)
+    return roh or None
+
+
+def _credentials_umziehen() -> str:
+    """Einen Klartext-Schlüssel in den Tresor umziehen, wenn es einen gibt — einmal je Lauf.
+
+    Gibt den Datei-Inhalt von **vor** dem Umzug zurück (Schlüssel, Platzhalter oder ``""``).
+    """
+    global _UMZUG_VERSUCHT
+    from . import tresor
+    roh = _credentials_roh()
+    if roh and roh != tresor.IM_TRESOR and not _UMZUG_VERSUCHT and tresor.verfuegbar():
+        _UMZUG_VERSUCHT = True
+        try:
+            save_credentials(roh)
+        except OSError:
+            pass                           # Datei nicht schreibbar → sie bleibt, wie sie ist
+    return roh
 
 
 def save_credentials(key: str) -> None:
+    """Den Schlüssel ablegen — im Tresor, wenn es einen gibt, sonst wie bisher in der Datei."""
+    from . import tresor
     POLLYSORT_HOME.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_PATH.write_text(key.strip(), encoding="utf-8")
+    CREDENTIALS_PATH.write_text(tresor.ablegen(tresor.OPENROUTER, key.strip()), encoding="utf-8")
     try:
         os.chmod(CREDENTIALS_PATH, 0o600)  # best effort; auf Windows teils No-Op
     except OSError:
         pass
+
+
+def delete_credentials() -> None:
+    """Den gespeicherten Schlüssel entfernen — aus dem Tresor und aus der Datei."""
+    from . import tresor
+    tresor.loeschen(tresor.OPENROUTER)
+    try:
+        CREDENTIALS_PATH.unlink()
+    except OSError:
+        pass
+
+
+def credentials_ort() -> str:
+    """Wo der gespeicherte Schlüssel liegt: ``tresor`` · ``datei`` · ``unlesbar`` · ``""``."""
+    from . import tresor
+    _credentials_umziehen()                # erst umziehen, dann nachsehen — sonst meldet die
+    return tresor.ablageort(_credentials_roh(), tresor.OPENROUTER)   # Anzeige „Klartext" zu Unrecht
 
 
 # ---------------------------------------------------------------------------

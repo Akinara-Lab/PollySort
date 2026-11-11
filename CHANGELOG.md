@@ -9,6 +9,27 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Zugangsdaten im Tresor des Betriebssystems
+- 🔒 **Schlüssel und Passwörter liegen nicht mehr im Klartext auf der Platte.** Der
+  OpenRouter-Schlüssel, das Discord-Bot-Token und das E-Mail-Passwort stehen jetzt in der
+  Windows-Anmeldeinformationsverwaltung (macOS: Schlüsselbund, Linux: Schlüsselbund des Desktops).
+  In `~/.pollysort/credentials` und `flugrouten.toml` bleibt nur der Platzhalter `@tresor`; Adresse,
+  Mailserver und Channel stehen weiter lesbar dort.
+- **Bestehende Einträge ziehen von selbst um**, beim ersten Start nach dem Update, ohne dass man
+  etwas neu eintippt. Der Klartext verschwindet erst aus der Datei, wenn der Wert nachweislich
+  wieder aus dem Tresor herauskommt. Der alte Ordner `~/.beehive` aus Zeiten vor der Umbenennung
+  wird dabei nicht angefasst; liegen dort noch Zugangsdaten, kann man ihn von Hand löschen.
+- **Ohne Tresor bleibt alles wie bisher, und PollySort sagt es dazu.** Auf Servern und in
+  Containern gibt es keinen solchen Speicher; mit `POLLYSORT_TRESOR=aus` lässt er sich auch
+  abschalten. Dann stehen die Zugangsdaten weiter in der Datei, und `schluessel`, `flugrouten`,
+  `doctor` und die Werkstatt nennen Ort und Grund. Umgebungsvariablen haben weiter Vorrang und
+  werden nie gespeichert.
+- Jede Ablage (`POLLYSORT_HOME`) hat ihre eigenen Einträge im Tresor. `schluessel entfernen` und
+  `flugrouten aus` räumen sie dort auch wieder weg.
+- Neue Abhängigkeit im Kern: `keyring` (reines Python). Wer danach auf eine ältere
+  PollySort-Version zurückgeht, trägt Schlüssel und Flugrouten dort neu ein — sie liest den
+  Tresor nicht.
+
 ### Benachrichtigungen (Flugrouten) repariert
 - **Ansehen verhindert den Versand nicht mehr.** Bisher galt eine Deadline schon als „gemeldet“,
   wenn man `kalender` nur ansah oder die Wache ohne Flugrouten lief. Wer danach Discord oder

@@ -22,7 +22,8 @@ Dadurch ist der komplette Ablauf ohne echtes Terminal testbar — vorher steckte
 untestbar in der REPL.
 
 🔒 Wachssiegel: Der API-Key wird nur über die hereingereichte ``save_key``-Funktion
-weitergegeben (die ihn nach ``~/.beehive/credentials``, chmod 600, schreibt). Er wird hier
+weitergegeben (die ihn in den Tresor des Betriebssystems legt, ohne Tresor nach
+``~/.pollysort/credentials``, chmod 600). Er wird hier
 nie geloggt, nie ausgegeben und nie in einen Prompt geschrieben.
 """
 

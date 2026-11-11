@@ -32,7 +32,8 @@ matter most to us:
   moves files — a bug that breaks this is treated as a security issue, not a normal bug.
 - **Secret leakage.** API keys, SMTP or Discord credentials, or licence keys appearing in
   `log.jsonl`, in the console, in an LLM prompt, or in a file inside the project folder.
-  These are supposed to stay in `~/.beehive/` (chmod 600), masked wherever they surface.
+  These are supposed to stay in the operating system's credential store (or, where there is
+  none, in `~/.pollysort/` with chmod 600), masked wherever they surface.
 - **Unintended data egress.** Document content leaving the machine in `offline` or `ollama`
   mode. In those modes nothing may be sent anywhere. Only `openrouter` mode transmits
   content for analysis, and only after the user has chosen it.

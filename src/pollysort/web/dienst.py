@@ -439,14 +439,20 @@ class Dienst:
     @ansicht
     def werkstatt(self) -> dict:
         """Einstellungen & Zugänge — Schlüssel und Flugrouten nur maskiert."""
-        from ..flugrouten import load_flugrouten, mask
+        from .. import tresor
+        from ..flugrouten import ablage, default_path, load_flugrouten, mask
         cfg = config.load_config()
         env = os.environ.get("OPENROUTER_API_KEY")
         gespeichert = config.CREDENTIALS_PATH.exists() and config.load_credentials()
+        # „tresor" = Anmeldeinformationsverwaltung des Betriebssystems, „datei" = Klartext-Datei.
+        ort = "tresor" if config.credentials_ort() == "tresor" else "datei"
         schluessel = ({"quelle": "env", "maskiert": mask(env)} if env else
-                      {"quelle": "datei", "maskiert": mask(gespeichert)} if gespeichert else
+                      {"quelle": ort, "maskiert": mask(gespeichert)} if gespeichert else
                       {"quelle": None, "maskiert": ""})
         fr = load_flugrouten()
+        # Liegt ein Geheimnis der Flugrouten nicht im Tresor, sagt die Werkstatt das dazu.
+        lagen = ablage().values()
+        offen = next((la for la in tresor.LAGEN[:2] if la in lagen), "")
         projekt = None
         if self.hive and config.is_setup(self.hive):
             seed = config.load_seed(self.hive)
@@ -455,6 +461,7 @@ class Dienst:
         return {"einstellungen": self._einstellungen(cfg), "projekt": projekt,
                 "schluessel": schluessel,
                 "flugrouten": {"discord": fr.discord.enabled, "email": fr.email.enabled},
+                "flugrouten_hinweis": tresor.lage_text(offen, default_path()),
                 "modell": cfg.llm_model,
                 "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()],
                 "beenara": self._beenara(), "beenara_big": self._beenara_big()}

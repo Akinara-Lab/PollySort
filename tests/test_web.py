@@ -184,6 +184,27 @@ def test_schluessel_verlassen_den_rechner_nie(tmp_path):
     assert d.werkstatt()["schluessel"]["maskiert"] == "****abcd"
 
 
+def test_werkstatt_sagt_wo_zugangsdaten_liegen(tmp_path, tresor_im_speicher, monkeypatch):
+    """Im Tresor: „geschützt". Ohne Tresor: Klartext-Datei, bei den Flugrouten mit Grund."""
+    from pollysort import tresor
+    from pollysort.flugrouten import DiscordConfig, Flugrouten, save_flugrouten
+    geheim = "discord-token-supergeheim-9999"
+    config.save_credentials("sk-or-v1-supergeheim-1234567890abcd")
+    save_flugrouten(Flugrouten(discord=DiscordConfig(enabled=True, bot_token=geheim, channel_id="1")))
+    d, _ = _eingerichtet(tmp_path)
+    w = d.werkstatt()
+    assert w["schluessel"] == {"quelle": "tresor", "maskiert": "****abcd"}
+    assert w["flugrouten_hinweis"] == "", "alles im Tresor — nichts zu melden"
+
+    monkeypatch.setattr(tresor, "_pruefen", lambda: (None, "kein_speicher"))
+    config.save_credentials("sk-or-v1-supergeheim-1234567890abcd")
+    save_flugrouten(Flugrouten(discord=DiscordConfig(enabled=True, bot_token=geheim, channel_id="1")))
+    w = d.werkstatt()
+    assert w["schluessel"]["quelle"] == "datei"
+    assert "flugrouten.toml" in w["flugrouten_hinweis"]
+    assert geheim not in json.dumps(w, ensure_ascii=False)
+
+
 def test_einstellungen_und_arbeitsmodus(tmp_path):
     d = Dienst()
     e = d.einstellungen(arbeitsmodus=True)["ergebnis"]
@@ -312,7 +333,7 @@ def test_jeder_text_der_seite_existiert_in_beiden_sprachen():
     keys = set(re.findall(r"\bt\('([a-zA-Z0-9_.]+)'", js)) | set(re.findall(r"'(web\.[a-zA-Z0-9_.]+)'", js))
     # Zusammengesetzte Schlüssel (t('mode.' + modus)) mit allen Werten, die vorkommen können:
     dynamisch = {"mode.": ("offline", "ollama", "openrouter"), "su.watch.": ("off", "notify", "move"),
-                 "web.watchmode.": ("off", "notify", "move"), "web.key.": ("env", "datei"),
+                 "web.watchmode.": ("off", "notify", "move"), "web.key.": ("env", "datei", "tresor"),
                  "web.routes.": ("discord", "email"),
                  "web.recommend.": ("para", "johnny", "dewey")}
     assert {k for k in keys if k.endswith(".")} <= set(dynamisch), "neuer dynamischer Schlüssel?"

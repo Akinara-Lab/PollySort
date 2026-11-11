@@ -206,11 +206,26 @@ def _beenara_big_check(_hive: Path | None) -> Check | None:
     return (label, "ok", i18n.t("doctor.bn.ok", version=s.version, mb=s.mb))
 
 
+def _tresor_check(_hive: Path | None) -> Check | None:
+    """Wo liegen die gespeicherten Zugangsdaten? Gewarnt wird, wenn eines im Klartext in einer
+    Datei steht oder im Tresor erwartet wird, dort aber fehlt. Ist nichts hinterlegt, trifft
+    der Check nicht zu."""
+    from . import flugrouten, tresor
+    label = i18n.t("doctor.tresor")
+    lagen = [(config.credentials_ort(), config.CREDENTIALS_PATH)]
+    lagen += [(lage, flugrouten.default_path()) for lage in flugrouten.ablage().values()]
+    for gesucht in tresor.LAGEN:                     # das Dringendste zuerst
+        for lage, datei in lagen:
+            if lage == gesucht:
+                return (label, "ok" if lage == "tresor" else "warn", tresor.lage_text(lage, datei))
+    return None
+
+
 def run_checks(hive: Path | None) -> list[Check]:
     """Alle Health-Checks ausführen. Jeder Check ist isoliert (ein Fehler kippt nie alles);
     ``None`` heißt „trifft auf diese Umgebung nicht zu" und wird ausgelassen."""
     checks = (_py_check, _provider_check, _models_check, _gpu_check, _db_check, _extras_check,
-              _memory_check, _beenara_check, _beenara_big_check)
+              _memory_check, _beenara_check, _beenara_big_check, _tresor_check)
     out: list[Check] = []
     for fn in checks:
         try:
