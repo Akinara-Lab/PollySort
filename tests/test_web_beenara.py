@@ -210,7 +210,8 @@ def test_jeder_aufruf_der_seite_hat_einen_endpunkt_und_umgekehrt():
     # Das Formular für die Flugrouten in der Werkstatt ist noch nicht gebaut; der Dienst dahinter
     # ist fertig. Wer das Formular baut, streicht die Namen hier — sonst schlägt die letzte Zeile an.
     formular_fehlt = {"flugrouten_stand", "flugrouten_speichern", "flugrouten_schalten",
-                      "flugrouten_entfernen", "flugrouten_testen"}
+                      "flugrouten_entfernen", "flugrouten_testen",
+                      "postfach_stand", "postfach_einstellen", "postfach_ordner", "postfach_abholen"}
     ohne_seite = ansichten - gelesen - formular_fehlt
     assert not ohne_seite, f"Ansicht ohne Seite: {ohne_seite}"
     # Startet der Server selbst (beim Start der App); die Seite zeigt nur den Fortschritt.

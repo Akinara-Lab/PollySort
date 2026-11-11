@@ -324,6 +324,12 @@ umgedreht.
   `flugrouten_testen` tun, was sie sagen. Ein leeres Geheimnis lässt das gespeicherte stehen.
   Fehlermeldungen kommen fertig übersetzt als HTTP 400. Sobald `app.js` diese Aufrufe benutzt,
   die Ausnahme `formular_fehlt` in `tests/test_web_beenara.py` streichen.
+- **Postfach in der Werkstatt: noch zu bauen.** Auch hier ist der Dienst fertig:
+  `postfach_stand` (Ordner des Projekts, ob der E-Mail-Zugang bereit ist, letzter Abruf, Anzahl),
+  `postfach_ordner` (Ordner des Postfachs zur Auswahl), `postfach_einstellen` (`ordner`, leer =
+  aus) und `postfach_abholen` (legt neue Anhänge in den Eingang und nennt sie). Der Zugang kommt
+  aus der E-Mail-Flugroute; bei `custom` nimmt `flugrouten_speichern` dafür zusätzlich
+  `imap_host`/`imap_port`. Auch diese vier Namen stehen in `formular_fehlt`.
 - **OpenRouter-Schlüssel im Browser:** bewusst noch nicht — weiter über `schluessel setzen`.
 - **Logo & Markenfarben:** Die Pixel-Biene ist ein Vorschlag. Sobald es ein offizielles Logo
   gibt, ersetzt es `Pixel.biene()` im Kopf und `favicon.svg`.

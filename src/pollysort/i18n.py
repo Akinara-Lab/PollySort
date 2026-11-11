@@ -530,6 +530,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                    "en": "Check / renew / remove the OpenRouter key"},
     "help.d.routes": {"de": "Discord/E-Mail der Wächterbienen (opt-in)",
                       "en": "Discord / e-mail notifications (opt-in)"},
+    "help.d.mailbox": {"de": "Anhänge aus einem E-Mail-Ordner in den Eingang holen",
+                       "en": "Fetch attachments from a mail folder into the inbox"},
     "help.d.reflect": {"de": "Meta-Learning: Regeln ableiten / zeigen / leeren",
                        "en": "Meta-learning: derive / show / clear rules"},
     "help.d.memory": {"de": "Kategorien/Vorschläge · 'neu' = Reindex nach Modellwechsel",
@@ -1692,6 +1694,97 @@ _CATALOG: dict[str, dict[str, str]] = {
     "r.routes.smtp": {
         "de": "      SMTP-Server: ",
         "en": "      SMTP server: ",
+    },
+    "r.routes.imap": {
+        "de": "      Posteingangsserver (IMAP) zum Abholen von Anhängen [leer = nicht abholen]: ",
+        "en": "      Incoming server (IMAP) for fetching attachments [empty = don't fetch]: ",
+    },
+    # Postfach: Anhänge aus einem E-Mail-Ordner in den Eingang holen
+    "pf.title": {"de": "Postfach", "en": "Mailbox"},
+    "pf.account": {"de": "Konto: {addr} · Server {host}", "en": "Account: {addr} · server {host}"},
+    "pf.folder": {
+        "de": "Ordner für dieses Projekt: {folder} — die Wache sieht alle {min} Minuten nach.",
+        "en": "Folder for this project: {folder} — the watch checks every {min} minutes.",
+    },
+    "pf.last": {
+        "de": "Zuletzt nachgesehen: {when} (Weltzeit) · bisher {n} Anhänge geholt",
+        "en": "Last checked: {when} (UTC) · {n} attachments fetched so far",
+    },
+    "pf.never": {"de": "Noch nie nachgesehen.", "en": "Never checked yet."},
+    "pf.usage": {
+        "de": "Jetzt holen: 'postfach abholen' · Ordner zeigen: 'postfach liste' · "
+              "ändern: 'postfach ordner <Name>' · abschalten: 'postfach aus'",
+        "en": "Fetch now: 'mailbox fetch' · show folders: 'mailbox list' · "
+              "change: 'mailbox folder <name>' · switch off: 'mailbox off'",
+    },
+    "pf.none": {
+        "de": "Für dieses Projekt ist kein Postfach-Ordner eingestellt. 'postfach liste' zeigt "
+              "die Ordner, 'postfach ordner <Name>' legt einen fest.",
+        "en": "No mail folder is set for this project. 'mailbox list' shows the folders, "
+              "'mailbox folder <name>' sets one.",
+    },
+    "pf.nozugang": {
+        "de": "Der E-Mail-Zugang fehlt noch (Adresse, Passwort, Posteingangsserver). "
+              "'flugrouten setup' richtet ihn ein.",
+        "en": "The e-mail account is not set up yet (address, password, incoming server). "
+              "'routes setup' sets it up.",
+    },
+    "pf.set": {
+        "de": "Postfach-Ordner für dieses Projekt: {folder}. 'postfach abholen' holt die Anhänge "
+              "jetzt; im Postfach wird dabei nichts verändert.",
+        "en": "Mail folder for this project: {folder}. 'mailbox fetch' fetches the attachments "
+              "now; nothing in the mailbox is changed.",
+    },
+    "pf.off": {
+        "de": "Für dieses Projekt werden keine Anhänge mehr abgeholt.",
+        "en": "No attachments are fetched for this project any more.",
+    },
+    "pf.folders": {"de": "Ordner im Postfach", "en": "Folders in the mailbox"},
+    "pf.pick": {
+        "de": "Festlegen mit: postfach ordner <Name>   (Name genau wie oben)",
+        "en": "Set with: mailbox folder <name>   (name exactly as above)",
+    },
+    "pf.fetching": {
+        "de": "Sammelbienen sehen im Ordner „{folder}“ nach …",
+        "en": "Checking the folder “{folder}” …",
+    },
+    "pf.got": {
+        "de": "{n} Anhang/Anhänge in den Eingang gelegt: {names}",
+        "en": "{n} attachment(s) placed in the inbox: {names}",
+    },
+    "pf.nothing": {"de": "Keine neuen Anhänge.", "en": "No new attachments."},
+    "pf.known": {
+        "de": "{n} Anhang/Anhänge waren schon einmal da und wurden nicht noch einmal geholt.",
+        "en": "{n} attachment(s) had been fetched before and were not fetched again.",
+    },
+    "pf.toobig": {
+        "de": "Nicht geholt, weil größer als {mb} MB: {names}",
+        "en": "Not fetched because larger than {mb} MB: {names}",
+    },
+    "pf.mail_gross": {"de": "eine E-Mail mit {mb} MB", "en": "an e-mail of {mb} MB"},
+    "pf.rest": {
+        "de": "{n} weitere Nachrichten kommen beim nächsten Abruf dran.",
+        "en": "{n} more messages will be handled on the next fetch.",
+    },
+    "postfach.err.netz": {
+        "de": "Das Postfach ist nicht erreichbar ({typ}) — Server und Internetverbindung prüfen",
+        "en": "The mailbox cannot be reached ({typ}) — check the server and your connection",
+    },
+    "postfach.err.anmeldung": {
+        "de": "Das Postfach lehnt die Anmeldung ab — Adresse und Passwort prüfen.",
+        "en": "The mailbox rejects the sign-in — check address and password.",
+    },
+    "postfach.err.ordner": {
+        "de": "Den Ordner „{ordner}“ gibt es im Postfach nicht. 'postfach liste' zeigt die Ordner",
+        "en": "The folder “{ordner}” does not exist in the mailbox. 'mailbox list' shows the folders",
+    },
+    "postfach.err.antwort": {
+        "de": "Das Postfach hat unerwartet geantwortet — später erneut versuchen",
+        "en": "The mailbox answered unexpectedly — try again later",
+    },
+    "postfach.err.schreiben": {
+        "de": "Ein Anhang ließ sich nicht in den Eingang schreiben ({typ})",
+        "en": "An attachment could not be written to the inbox ({typ})",
     },
     "r.projects.pick": {
         "de": "  Nummer, Name oder Pfad: ",

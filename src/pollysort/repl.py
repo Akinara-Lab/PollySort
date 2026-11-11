@@ -387,6 +387,8 @@ class BeehiveShell(cmd.Cmd):
             ("modell [name|liste]", "model [name|list]", "help.d.model"),
             ("schluessel [test|setzen|entfernen]", "key [test|set|remove]", "help.d.key"),
             ("flugrouten [setup|test]", "routes [setup|test]", "help.d.routes"),
+            ("postfach [abholen|liste|ordner <name>]", "mailbox [fetch|list|folder <name>]",
+             "help.d.mailbox"),
             ("reflektiere · wachstafel [leeren]", "reflect · rules [clear]", "help.d.reflect"),
             ("gedaechtnis [approve|neu]", "memory [approve|rebuild]", "help.d.memory"),
             ("nacherfassen [an|aus|jetzt]", "enrich [on|off|now]", "help.d.enrich"),
@@ -686,6 +688,7 @@ class BeehiveShell(cmd.Cmd):
                  else i18n.t("r.watch.poll", s=poll))
         self.con.honey(i18n.t("r.watch.on", mode=modus, action=verb), "🟢")
         self._deadlines_wachen()          # beim Start einmal die Deadlines prüfen
+        self._postfach_wachen()           # … und im Postfach nachsehen (falls eingestellt)
         seen = {str(p) for p in self._inbox_paths()}
         try:
             while True:
@@ -705,6 +708,7 @@ class BeehiveShell(cmd.Cmd):
                         self.con.ask(i18n.t("r.watch.new", ts=ts, n=len(new)))
                 seen = {str(p) for p in self._inbox_paths()}
                 self._deadlines_wachen()   # Wächterbienen behalten auch Deadlines im Blick
+                self._postfach_wachen()    # neue Anhänge fallen beim nächsten Takt als „neu" auf
         except KeyboardInterrupt:
             self.con.raw("")
             self.con.info(i18n.t("r.watch.stop"), "🐝")
@@ -723,6 +727,114 @@ class BeehiveShell(cmd.Cmd):
             Waechterbiene(self._ctx()).deadlines_pruefen(innerhalb_tage=7)
         except Exception:
             pass          # der Terminwächter darf die Eingangs-Wache nie stören
+
+    def _postfach_wachen(self) -> None:
+        """Alle paar Minuten Anhänge aus dem Postfach-Ordner des Projekts holen (falls eingestellt)."""
+        try:
+            from pollysort import postfach
+            seed = config.load_seed(self.hive)
+            ergebnis, fehler = postfach.automatisch(
+                self.hive, ordner=seed.postfach_ordner, max_mb=seed.max_file_mb,
+                journal=self._ctx().journal if seed.postfach_ordner else None)
+            if fehler:
+                self.con.error(fehler)
+            elif ergebnis is not None and (ergebnis.geholt or ergebnis.zu_gross):
+                postfach.melden(self.con, ergebnis, max_mb=seed.max_file_mb)
+        except Exception:
+            pass          # das Postfach darf die Eingangs-Wache nie stören
+
+    # ------------------------------------------------------------------ #
+    #  Postfach — Anhänge aus einem E-Mail-Ordner in den Eingang holen
+    # ------------------------------------------------------------------ #
+    def do_postfach(self, arg: str) -> None:
+        """postfach [abholen|liste|ordner <name>|aus] — Anhänge aus einem E-Mail-Ordner holen.
+
+        Im Postfach wird nichts verändert: nur lesen, nichts löschen, nichts als gelesen markieren.
+        """
+        teile = arg.strip().split(" ", 1)
+        sub = teile[0].lower()
+        rest = teile[1].strip().strip('"') if len(teile) > 1 else ""
+        if sub in ("abholen", "holen", "fetch"):
+            self._postfach_abholen()
+        elif sub in ("liste", "list", "folders"):
+            self._postfach_liste()
+        elif sub in ("ordner", "folder") and rest:
+            self._update_seed(postfach_ordner=rest)
+            self.con.honey(i18n.t("pf.set", folder=rest), "📧")
+        elif sub in ("ordner", "folder"):
+            self._postfach_liste()
+        elif sub in ("aus", "off"):
+            self._update_seed(postfach_ordner="")
+            self.con.info(i18n.t("pf.off"), "📧")
+        else:
+            self._postfach_status()
+
+    do_mailbox = do_postfach
+
+    def _postfach_zugang(self):
+        """Der Zugang zum Postfach — oder ``None`` mit einem Hinweis, was fehlt."""
+        from pollysort import postfach
+        from pollysort.flugrouten import load_flugrouten
+        z = postfach.zugang(load_flugrouten())
+        if z is None:
+            self.con.ask(i18n.t("pf.nozugang"))
+        return z
+
+    def _postfach_status(self) -> None:
+        from pollysort import postfach
+        from pollysort.flugrouten import load_flugrouten
+        seed = config.load_seed(self.hive)
+        self.con.rule(i18n.t("pf.title"))
+        z = postfach.zugang(load_flugrouten())
+        if z is None:
+            self.con.ask(i18n.t("pf.nozugang"))
+        else:
+            self.con.info(i18n.t("pf.account", addr=z.adresse, host=z.host), "📧")
+        if not seed.postfach_ordner:
+            self.con.info(i18n.t("pf.none"), "🐝")
+            return
+        st = postfach.stand(self.hive)
+        self.con.info(i18n.t("pf.folder", folder=seed.postfach_ordner,
+                             min=postfach.PAUSE // 60), "📧")
+        if st["letzter_abruf"] and st["ordner"] == seed.postfach_ordner:
+            self.con.info(i18n.t("pf.last", when=st["letzter_abruf"][:16].replace("T", " "),
+                                 n=st["geholt"]), "🐝")
+        else:
+            self.con.info(i18n.t("pf.never"), "🐝")
+        self.con.info(i18n.t("pf.usage"), "🐝")
+
+    def _postfach_liste(self) -> None:
+        from pollysort import postfach
+        z = self._postfach_zugang()
+        if z is None:
+            return
+        try:
+            ordner = postfach.ordner_liste(z)
+        except postfach.PostfachFehler as exc:
+            self.con.error(str(exc))
+            return
+        self.con.rule(i18n.t("pf.folders"))
+        for name in ordner:
+            self.con.raw(f"   {name}")
+        self.con.info(i18n.t("pf.pick"), "🐝")
+
+    def _postfach_abholen(self) -> None:
+        from pollysort import postfach
+        seed = config.load_seed(self.hive)
+        if not seed.postfach_ordner:
+            self.con.info(i18n.t("pf.none"), "🐝")
+            return
+        z = self._postfach_zugang()
+        if z is None:
+            return
+        self.con.bloom(i18n.t("pf.fetching", folder=seed.postfach_ordner), "🐝")
+        try:
+            ergebnis = postfach.abholen(self.hive, z, seed.postfach_ordner, max_mb=seed.max_file_mb)
+        except postfach.PostfachFehler as exc:
+            self.con.error(str(exc))
+            return
+        postfach.protokollieren(self._ctx().journal, ergebnis)
+        postfach.melden(self.con, ergebnis, max_mb=seed.max_file_mb)
 
     # ------------------------------------------------------------------ #
     #  Anzeigen
@@ -1681,7 +1793,7 @@ class BeehiveShell(cmd.Cmd):
             self.con.raw(f"      [{len(kuerzel) + 1}] {i18n.t('r.routes.custom')}")
             wahl = self._ask(i18n.t("r.routes.choice")).strip() or "1"
             nr = int(wahl) if wahl.isdigit() else 1
-            host, port = "", ""
+            host, port, imap = "", "", ""
             if 1 <= nr <= len(kuerzel):
                 provider = kuerzel[nr - 1]
                 if EMAIL_ANBIETER[provider].hinweis:
@@ -1690,12 +1802,13 @@ class BeehiveShell(cmd.Cmd):
                 provider = "custom"
                 host = self._ask(i18n.t("r.routes.smtp")).strip()
                 port = self._ask("      Port [587]: ").strip() or "587"   # 465 = sofort verschlüsselt
+                imap = self._ask(i18n.t("r.routes.imap")).strip()
             address = self._ask(i18n.t("r.routes.address")).strip()
             password = self._ask(i18n.t("r.routes.password")).strip()
             recipient = self._ask(i18n.t("r.routes.recipient")).strip()
             try:
                 email_setzen(fr, provider, adresse=address, passwort=password, host=host,
-                             port=port, empfaenger=recipient)
+                             port=port, empfaenger=recipient, imap_host=imap)
                 self.con.honey(i18n.t("r.routes.email_ok", provider=provider,
                                       host=fr.email.smtp_host, port=fr.email.smtp_port), "🐝")
             except FlugroutenFehler as exc:
