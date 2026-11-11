@@ -1,8 +1,9 @@
-"""Bienen-Kalender (gemockt) — Deadlines & Benachrichtigungs-Trigger der Wächterbienen (§v0.3).
+"""Bienen-Kalender — Deadlines & Benachrichtigungs-Trigger der Wächterbienen (§v0.3).
 
 Termine liegen als JSON-Lines in ``.honig/kalender.jsonl``. Es gibt hier **keinen** externen
-API-Call: das echte Synchronisieren/Versenden ist eine bewusst deaktivierte Anschlussstelle
-(siehe ``waechterbiene.py`` und TODO v0.3). So verlässt kein Termin unbemerkt den Bienenstock.
+API-Call: verschickt wird ausschließlich über die Flugrouten (``waechterbiene.py``,
+``kanaele.py``), und nur, wenn der Nutzer welche eingerichtet hat. ``gemeldet`` heißt
+„wirklich verschickt". So verlässt kein Termin unbemerkt den Bienenstock.
 """
 
 from __future__ import annotations
@@ -86,6 +87,16 @@ class Kalender:
             if t.id == tid:
                 t.gemeldet = True
         self._write(termine)
+
+    def gemeldet_abgleichen(self, belegt: set[str]) -> int:
+        """``gemeldet`` zurücknehmen, wo kein Versand belegt ist. Gibt die Anzahl zurück."""
+        termine = self._all()
+        zurueck = [t for t in termine if t.gemeldet and t.id not in belegt]
+        for t in zurueck:
+            t.gemeldet = False
+        if zurueck:
+            self._write(termine)
+        return len(zurueck)
 
     def erledigen(self, tid: str) -> bool:
         termine = self._all()

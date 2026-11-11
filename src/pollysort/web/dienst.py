@@ -400,7 +400,9 @@ class Dienst:
         fr = load_flugrouten()
         return {**st, "gewohnheiten": [{"wabe": self._wabe(k), "ort": v}
                                        for k, v in (st.get("gewohnheiten") or {}).items()],
-                "termine": termine, "flugrouten": fr.any_enabled()}
+                "termine": termine, "flugrouten": fr.any_enabled(),
+                # Von selbst prüft nur die laufende Wache die Deadlines — die Seite sagt es dazu.
+                "wache": self.wache.status()["aktiv"]}
 
     @ansicht
     def wachstafel(self) -> dict:
@@ -452,8 +454,7 @@ class Dienst:
                        "nacherfassung": seed.nacherfassung, "schwelle": seed.threshold_assign}
         return {"einstellungen": self._einstellungen(cfg), "projekt": projekt,
                 "schluessel": schluessel,
-                "flugrouten": {"discord": fr.discord.enabled, "email": fr.email.enabled,
-                               "kalender": fr.calendar.enabled},
+                "flugrouten": {"discord": fr.discord.enabled, "email": fr.email.enabled},
                 "modell": cfg.llm_model,
                 "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()],
                 "beenara": self._beenara(), "beenara_big": self._beenara_big()}

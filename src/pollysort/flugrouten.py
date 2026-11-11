@@ -4,8 +4,9 @@
 Diese Datei hält Zugangsdaten (Discord-Bot-Token, E-Mail-Adresse/-Passwort). Sie liegt
 **global** in ``~/.beehive/flugrouten.toml`` (chmod 600 best-effort), NIE im Projekt-``.honig/``,
 und wird **niemals** in einen LLM-Prompt/-Payload eingebaut oder im Klartext geloggt.
-Secrets sind zusätzlich per Umgebungsvariable überschreibbar (``BEEHIVE_DISCORD_TOKEN``,
-``BEEHIVE_EMAIL_PASSWORD``) und werden dann nie auf Platte geschrieben.
+Secrets sind zusätzlich per Umgebungsvariable überschreibbar (``POLLYSORT_DISCORD_TOKEN``,
+``POLLYSORT_EMAIL_PASSWORD``; die Altnamen ``BEEHIVE_…`` gelten weiter) und werden dann nie
+auf Platte geschrieben.
 """
 
 from __future__ import annotations
@@ -66,7 +67,7 @@ class EmailConfig:
 @dataclass
 class CalendarConfig:
     enabled: bool = False
-    kind: str = "ical"           # Platzhalter — Sync-Anbindung folgt später
+    kind: str = "ical"           # ohne Funktion; bleibt nur, damit alte Dateien lesbar sind
 
 
 @dataclass
@@ -87,12 +88,21 @@ def default_path() -> Path:
 # ---------------------------------------------------------------------------
 # Effektive Secrets (Env hat Vorrang und wird nie persistiert)
 # ---------------------------------------------------------------------------
+def _aus_umgebung(name: str, gespeichert: str) -> str:
+    """``POLLYSORT_<name>`` vor dem Altnamen ``BEEHIVE_<name>`` vor dem gespeicherten Wert."""
+    for praefix in ("POLLYSORT_", "BEEHIVE_"):
+        wert = os.environ.get(praefix + name, "").strip()
+        if wert:
+            return wert
+    return gespeichert.strip()
+
+
 def discord_token(fr: Flugrouten) -> str:
-    return os.environ.get("BEEHIVE_DISCORD_TOKEN", fr.discord.bot_token).strip()
+    return _aus_umgebung("DISCORD_TOKEN", fr.discord.bot_token)
 
 
 def email_password(fr: Flugrouten) -> str:
-    return os.environ.get("BEEHIVE_EMAIL_PASSWORD", fr.email.password).strip()
+    return _aus_umgebung("EMAIL_PASSWORD", fr.email.password)
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +150,7 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
     content = (
         "# PollySort — Flugrouten der Wächterbienen (§v0.3)\n"
         "# 🔒 Wachssiegel: Zugangsdaten. Wird NIE an ein LLM übergeben oder im Klartext geloggt.\n"
-        "# Secrets via Env überschreibbar: BEEHIVE_DISCORD_TOKEN, BEEHIVE_EMAIL_PASSWORD.\n\n"
+        "# Secrets via Env überschreibbar: POLLYSORT_DISCORD_TOKEN, POLLYSORT_EMAIL_PASSWORD.\n\n"
         "[discord]\n"
         f"enabled    = {_toml_val(d.enabled)}\n"
         f"bot_token  = {_toml_val(d.bot_token)}\n"

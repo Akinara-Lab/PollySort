@@ -2,8 +2,10 @@
 
 Erweitert die bisherige „Wache" um Termin-Wachdienst mit **echten** Benachrichtigungen:
 Bei fälligen Deadlines fliegen die Wächterbienen über die konfigurierten Flugrouten aus
-(Discord/E-Mail). Ohne konfigurierte Flugrouten bleibt es beim gemockten Melden (Journal +
-Konsole).
+(Discord/E-Mail). Ohne konfigurierte Flugrouten melden sie nur hier (Journal + Konsole).
+
+``gemeldet`` heißt: **wirklich verschickt**. Ansehen oder ein Lauf ohne Flugrouten setzt den
+Merker nicht — sonst bliebe ein Termin stumm, sobald später Flugrouten eingerichtet werden.
 
 🔒 Wachssiegel: Der Melde-Weg ist vollständig von der LLM-Generierung getrennt. Ins Journal
 (``log.jsonl``) gehen nur Metadaten (Kanal-Name, Erfolg, Termin-ID) — nie Credentials.
@@ -11,8 +13,22 @@ Konsole).
 
 from __future__ import annotations
 
+import json
+import time
+
 from .. import i18n
 from .kalender import Kalender, Termin
+
+#: Die Wache prüft alle paar Sekunden. Was sie dabei schon hier angezeigt hat, merkt sich der
+#: Prozess — sonst stünde dieselbe Deadline bei jedem Takt neu in Konsole und Protokoll.
+_LOKAL_GEZEIGT: set[tuple[str, str]] = set()
+#: Wann die Wache zuletzt einen Versand versucht hat. Scheitert er (Netz weg, Token falsch),
+#: probiert sie es erst nach ``VERSUCH_PAUSE`` wieder statt bei jedem Takt.
+_LETZTER_VERSUCH: dict[tuple[str, str], float] = {}
+VERSUCH_PAUSE = 15 * 60
+
+#: Marke in ``.honig/``: der einmalige Abgleich alter ``gemeldet``-Merker ist gelaufen.
+ABGLEICH_MARKE = "kalender.gemeldet-v2"
 
 
 class Waechterbiene:
@@ -34,16 +50,67 @@ class Waechterbiene:
                           nur_neue: bool = True) -> list[Termin]:
         """Fällige/überfällige Deadlines finden und melden.
 
-        ``senden=None`` → automatisch (echte Kanäle, wenn konfiguriert). ``nur_neue``
+        ``senden=None`` → automatisch (die Wache): verschickt, wenn Flugrouten da sind, sonst
+        zeigt sie jede Deadline einmal je Programmlauf hier an. ``senden=True`` → ausdrücklich
+        verschicken (``kalender melden``). ``senden=False`` → nur anzeigen. ``nur_neue``
         verhindert Doppel-Versand über das ``gemeldet``-Flag.
         """
-        senden = self.send_real if senden is None else senden
+        automatisch = senden is None
+        senden = self.send_real if automatisch else senden
+        self._altlast_abgleichen()
         due = self.kalender.faellig(innerhalb_tage=innerhalb_tage)
         for t in due:
-            if nur_neue and senden and t.gemeldet:
-                continue
-            self._melden(t, senden=senden)
+            schluessel = (str(self.kalender.path), t.id)
+            if senden and self.kanaele:
+                if nur_neue and t.gemeldet:
+                    continue
+                if automatisch and self._kuerzlich_versucht(schluessel):
+                    continue
+                _LETZTER_VERSUCH[schluessel] = time.monotonic()
+                self._melden(t, senden=True)
+            else:
+                if automatisch:
+                    if schluessel in _LOKAL_GEZEIGT:
+                        continue
+                    _LOKAL_GEZEIGT.add(schluessel)
+                self._melden(t, senden=False)
         return due
+
+    @staticmethod
+    def _kuerzlich_versucht(schluessel: tuple[str, str]) -> bool:
+        zuletzt = _LETZTER_VERSUCH.get(schluessel)
+        return zuletzt is not None and time.monotonic() - zuletzt < VERSUCH_PAUSE
+
+    def _altlast_abgleichen(self) -> None:
+        """Einmal je Projekt: ``gemeldet`` nur behalten, wo das Journal einen Versand belegt.
+
+        Ältere Versionen setzten den Merker schon beim bloßen Ansehen (``kalender``) und in der
+        Wache ohne Flugrouten. Solche Termine wären nach dem Einrichten der Flugrouten für immer
+        stumm geblieben. Jeder echte Versand steht als ``waechter_versand`` im Journal — was dort
+        fehlt, wurde nie verschickt und darf wieder gemeldet werden.
+        """
+        marke = self.kalender.path.with_name(ABGLEICH_MARKE)
+        if marke.exists():
+            return
+        try:
+            belegt: set[str] = set()
+            log = getattr(getattr(self.ctx, "journal", None), "log", None)
+            if log is not None and log.exists():
+                with log.open(encoding="utf-8") as fh:
+                    for zeile in fh:
+                        if '"waechter_versand"' not in zeile:
+                            continue
+                        try:
+                            rec = json.loads(zeile)
+                        except json.JSONDecodeError:
+                            continue
+                        if rec.get("event") == "waechter_versand" and rec.get("erfolg") is True:
+                            belegt.add(str(rec.get("termin")))
+            self.kalender.gemeldet_abgleichen(belegt)
+            marke.write_text("gemeldet = wirklich verschickt (Abgleich mit log.jsonl erledigt)\n",
+                             encoding="utf-8")
+        except OSError:
+            pass          # der Abgleich darf die Wache nie stören; beim nächsten Mal erneut
 
     def _melden(self, t: Termin, *, senden: bool) -> None:
         tage = t.tage_bis()
@@ -58,8 +125,6 @@ class Waechterbiene:
                                kanaele=[k.name for k in self.kanaele])
         if senden and self.kanaele:
             self._ausfliegen(t)
-        else:
-            self.kalender.markiere_gemeldet(t.id)   # gemockt: als gemeldet vermerken
 
     def _ausfliegen(self, t: Termin) -> None:
         """Über alle Flugrouten echt versenden — mit bienenthematischer Quittung."""

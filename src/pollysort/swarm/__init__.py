@@ -4,7 +4,8 @@
 - ``Spurbiene``      — Scout Agent: fliegt aus, beschnuppert & sortiert (Stufe 1).
 - ``Baubiene``       — Project Agent: Wabenbau/Charter (Stufe 2).
 - ``Sammelbiene``    — Memory/RAG Agent: lernt Ablage-Gewohnheiten.
-- ``Waechterbiene``  — Communication Agent: überwacht Eingang & Deadlines, meldet (gemockt).
+- ``Waechterbiene``  — Communication Agent: überwacht Eingang & Deadlines, meldet über die
+                       Flugrouten (Discord/E-Mail), ohne Flugrouten nur hier.
 """
 
 from __future__ import annotations

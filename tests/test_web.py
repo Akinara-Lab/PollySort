@@ -313,7 +313,7 @@ def test_jeder_text_der_seite_existiert_in_beiden_sprachen():
     # Zusammengesetzte Schlüssel (t('mode.' + modus)) mit allen Werten, die vorkommen können:
     dynamisch = {"mode.": ("offline", "ollama", "openrouter"), "su.watch.": ("off", "notify", "move"),
                  "web.watchmode.": ("off", "notify", "move"), "web.key.": ("env", "datei"),
-                 "web.routes.": ("discord", "email", "kalender"),
+                 "web.routes.": ("discord", "email"),
                  "web.recommend.": ("para", "johnny", "dewey")}
     assert {k for k in keys if k.endswith(".")} <= set(dynamisch), "neuer dynamischer Schlüssel?"
     keys = {k for k in keys if not k.endswith(".")}
@@ -332,3 +332,15 @@ def test_seite_ohne_inline_skripte_und_inline_styles():
         assert 'style="' not in html, datei
     for datei in ("app.js", "musterbuch.js"):
         assert 'style="' not in (STATIC / datei).read_text(encoding="utf-8"), datei
+
+
+def test_schwarm_sagt_ob_die_wache_laeuft(tmp_path):
+    """Von selbst erinnert nur die laufende Wache — die Seite braucht das für ihren Hinweis."""
+    d, _ = _eingerichtet(tmp_path)
+    try:
+        assert d.schwarm()["wache"] is False
+        d.wache_schalten(an=True)
+        assert d.schwarm()["wache"] is True
+    finally:
+        d.wache.stoppen()
+    assert set(d.werkstatt()["flugrouten"]) == {"discord", "email"}, "keine Schein-Flugroute"

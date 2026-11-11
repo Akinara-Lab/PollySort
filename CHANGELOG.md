@@ -9,6 +9,33 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Benachrichtigungen (Flugrouten) repariert
+- **Ansehen verhindert den Versand nicht mehr.** Bisher galt eine Deadline schon als „gemeldet“,
+  wenn man `kalender` nur ansah oder die Wache ohne Flugrouten lief. Wer danach Discord oder
+  E-Mail einrichtete, bekam für diese Deadlines nie eine Nachricht. „Gemeldet“ heißt jetzt:
+  wirklich verschickt. Zu Unrecht gesetzte Merker nimmt PollySort einmal je Projekt zurück; als
+  Beleg dient das Journal, in dem jeder echte Versand steht.
+- **Die Wache wiederholt sich nicht mehr im Sekundentakt.** Ohne Flugrouten zeigt sie eine fällige
+  Deadline einmal je Programmlauf an statt bei jedem Takt. Scheitert ein Versand (Netz weg, Token
+  falsch), probiert sie es nach 15 Minuten wieder; `kalender melden` und der Knopf „Wächterbienen
+  ausschicken“ versuchen es sofort.
+- 🔒 **E-Mail-Versand prüft das Zertifikat des Mailservers.** Die Verbindung war verschlüsselt,
+  aber ungeprüft: Das Passwort wäre auch an einen Server gegangen, der sich nur als Mailserver
+  ausgibt. Bei einem nicht vertrauenswürdigen Zertifikat wird jetzt nichts verschickt.
+- **Port 465** (von Anfang an verschlüsselt) funktioniert neben 587; im Assistenten unter
+  „Benutzerdefiniert“ einfach den Port eintragen.
+- **Klarere Fehlermeldungen:** Lehnt der Mailserver die Anmeldung ab, sagt PollySort das, bei
+  Microsoft und Gmail mit dem üblichen Grund. Private Outlook-/Hotmail-Konten nehmen seit 2024
+  kein Passwort mehr an; `flugrouten setup` weist bei der Auswahl darauf hin. Eine Anmeldung über
+  die Microsoft-Anmeldeseite folgt später.
+- **Schwarm-Seite:** Sind Flugrouten eingerichtet, die Wache aber aus, steht dort, dass die
+  Wächterbienen dann nicht von selbst erinnern. Der Knopf im Kalender schickt sie von Hand los.
+- **Die „Kalender-Flugroute“ ist entfernt.** Sie war eine Frage im Assistenten und ein Schildchen
+  in der Werkstatt ohne Wirkung. Die abonnierbare `.honig/kalender.ics` gibt es unverändert.
+- Umgebungsvariablen heißen `POLLYSORT_DISCORD_TOKEN` und `POLLYSORT_EMAIL_PASSWORD`; die Altnamen
+  `BEEHIVE_…` gelten weiter. Discord: Nachrichten über 2000 Zeichen werden gekürzt, ein
+  „429 Too Many Requests“ wird als solches gemeldet.
+
 ### Modelle aktualisieren sich selbst
 - **Nach einem PollySort-Update sortiert BeeNara ohne Zutun weiter.** Jede PollySort-Version ist an
   genau eine geprüfte Modellversion gebunden. Bisher sortierte ein schon geladenes, älteres BeeNara
