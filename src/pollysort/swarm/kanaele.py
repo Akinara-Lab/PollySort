@@ -8,7 +8,7 @@ Flugrouten-Config, nie aus einem Modell-Kontext. Jeder Kanal bietet dieselbe Sch
 
 from __future__ import annotations
 
-from .. import i18n
+from .. import i18n, microsoft
 from ..flugrouten import (
     Flugrouten,
     anbieter_fuer_host,
@@ -16,6 +16,7 @@ from ..flugrouten import (
     discord_webhook,
     email_password,
 )
+from ..microsoft import AnmeldeFehler
 
 
 class KanalError(RuntimeError):
@@ -185,9 +186,11 @@ class EmailKanal:
     STOCK = "E-Mail-Wabe"
 
     def __init__(self, address: str, password: str, smtp_host: str, smtp_port: int,
-                 use_tls: bool = True, recipient: str = ""):
+                 use_tls: bool = True, recipient: str = "", *, token_holen=None):
         self.address = address
         self._password = password
+        # Anmeldung über Microsoft statt mit Passwort: liefert bei Bedarf ein Zugriffstoken.
+        self._token_holen = token_holen
         self.smtp_host = smtp_host
         self.smtp_port = smtp_port
         self.use_tls = use_tls
@@ -223,13 +226,25 @@ class EmailKanal:
             with smtp:
                 if self.use_tls and not sofort:
                     smtp.starttls(context=kontext)
-                smtp.login(self.address, self._password)
+                if self._token_holen is not None:
+                    from ..microsoft import xoauth2
+                    zeile = xoauth2(self.address, self._token_holen())
+                    smtp.ehlo_or_helo_if_needed()
+                    # Lehnt der Server ab, schickt er erst eine Rückfrage — darauf folgt nur eine
+                    # leere Zeile, nie noch einmal das Token.
+                    smtp.auth("XOAUTH2", lambda rueckfrage=None: zeile if rueckfrage is None else "")
+                else:
+                    smtp.login(self.address, self._password)
                 smtp.send_message(msg)
+        except AnmeldeFehler as exc:
+            raise KanalError(str(exc)) from None
         except ssl.SSLCertVerificationError:
             raise KanalError(i18n.t("kanal.cert")) from None
         except smtplib.SMTPAuthenticationError:
+            if self._token_holen is not None:
+                raise KanalError(i18n.t("kanal.auth.oauth")) from None
             raise KanalError(i18n.t("kanal.auth") + self._anbieter_hinweis()) from None
-        except (smtplib.SMTPException, OSError) as exc:
+        except (smtplib.SMTPException, OSError, ValueError) as exc:
             raise KanalError(f"SMTP-Versand fehlgeschlagen ({exc.__class__.__name__})") from None
 
     def _anbieter_hinweis(self) -> str:
@@ -261,8 +276,14 @@ def build_kanaele(fr: Flugrouten) -> list:
             kanaele.append(DiscordKanal(token, d.channel_id, d.user_ids))
         elif token and not webhook:
             kanaele.extend(DiscordDirektKanal(token, u) for u in d.user_ids)
-    if fr.email.enabled and fr.email.address and email_password(fr) and fr.email.smtp_host:
-        kanaele.append(EmailKanal(
-            fr.email.address, email_password(fr), fr.email.smtp_host,
-            fr.email.smtp_port, fr.email.use_tls, fr.email.recipient))
+    e = fr.email
+    if e.enabled and e.address and e.smtp_host:
+        if e.auth == "microsoft":
+            if microsoft.bereit(fr):
+                kanaele.append(EmailKanal(e.address, "", e.smtp_host, e.smtp_port, e.use_tls,
+                                          e.recipient,
+                                          token_holen=lambda: microsoft.zugriffstoken(fr)))
+        elif email_password(fr):
+            kanaele.append(EmailKanal(e.address, email_password(fr), e.smtp_host, e.smtp_port,
+                                      e.use_tls, e.recipient))
     return kanaele

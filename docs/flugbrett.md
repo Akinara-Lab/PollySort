@@ -324,6 +324,13 @@ umgedreht.
   `flugrouten_testen` tun, was sie sagen. Ein leeres Geheimnis lässt das gespeicherte stehen.
   Fehlermeldungen kommen fertig übersetzt als HTTP 400. Sobald `app.js` diese Aufrufe benutzt,
   die Ausnahme `formular_fehlt` in `tests/test_web_beenara.py` streichen.
+- **Microsoft-Anmeldung im Formular: noch zu bauen.** Für Outlook.com, Hotmail und Microsoft 365
+  (in `flugrouten_stand` die Anbieter mit `microsoft: true`) läuft die Anmeldung in zwei
+  Schritten: `flugrouten_microsoft_start` (`anbieter`, `adresse`, optional `empfaenger` und
+  `client_id`) liefert `seite` und `code` zum Anzeigen sowie `pause`; danach alle `pause`
+  Sekunden `flugrouten_microsoft_abschluss` aufrufen, bis `fertig: true` kommt (dann steht in
+  `stand` der neue Stand). Fehler kommen als HTTP 400 mit fertigem Text. `email.kennung` in
+  `flugrouten_stand` sagt, ob nach der Client-ID gefragt werden muss.
 - **Postfach in der Werkstatt: noch zu bauen.** Auch hier ist der Dienst fertig:
   `postfach_stand` (Ordner des Projekts, ob der E-Mail-Zugang bereit ist, letzter Abruf, Anzahl),
   `postfach_ordner` (Ordner des Postfachs zur Auswahl), `postfach_einstellen` (`ordner`, leer =

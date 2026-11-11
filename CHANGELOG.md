@@ -9,6 +9,28 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Microsoft-Anmeldung für Outlook.com, Hotmail und Microsoft 365
+- **Anmelden auf der Microsoft-Seite statt mit Passwort.** Private Outlook- und Hotmail-Konten
+  nehmen kein Passwort mehr an, bei Firmenkonten schaltet Microsoft es ab. `flugrouten setup`
+  zeigt jetzt bei diesen Anbietern eine Adresse und einen kurzen Code; man gibt den Code im
+  Browser ein, meldet sich dort an und erlaubt PollySort genau zwei Dinge: E-Mails senden und
+  das Postfach lesen. Damit gehen Erinnerungen per E-Mail und das Abholen von Anhängen
+  (`postfach`) auch mit diesen Konten.
+- 🔒 **PollySort bekommt kein Passwort.** Es behält ein Erneuerungstoken, das wie ein Passwort im
+  Tresor des Betriebssystems liegt, und holt sich damit bei Bedarf ein Zugriffstoken, das nur im
+  Arbeitsspeicher lebt. Kein Token steht in einer Meldung, einem Journal oder einem Prompt.
+  `flugrouten microsoft` meldet neu an, wenn Microsoft es verlangt (lange unbenutzt, Passwort
+  geändert, Zugriff entzogen).
+- **Einmalige Voraussetzung:** PollySort muss bei Microsoft als Anwendung angemeldet sein. Bis
+  eine gemeinsame Anmeldung mitgeliefert wird, legt man eine eigene an (kostenlos); die README
+  beschreibt die Schritte unter „Microsoft sign-in“. Die dabei entstehende Anwendungs-ID fragt
+  der Assistent ab, oder man setzt `POLLYSORT_MICROSOFT_CLIENT_ID`.
+- **Tresor: lange Werte.** Die Windows-Anmeldeinformationsverwaltung nimmt je Eintrag höchstens
+  1280 Zeichen an; Anmelde-Token sind oft länger. Solche Werte werden jetzt auf mehrere Einträge
+  verteilt und beim Lesen wieder zusammengesetzt.
+- Der Dienst des Flugbretts kann die Anmeldung in zwei Schritten
+  (`flugrouten_microsoft_start`, `flugrouten_microsoft_abschluss`); das Formular dazu fehlt noch.
+
 ### Postfach: Anhänge aus einem E-Mail-Ordner in den Eingang holen
 - **Ein Ordner im Postfach je Projekt.** `postfach liste` zeigt die Ordner des Postfachs,
   `postfach ordner <Name>` legt einen für das Projekt fest. Was dort hineingeschoben oder per

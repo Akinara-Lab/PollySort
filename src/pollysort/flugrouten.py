@@ -132,6 +132,12 @@ class EmailConfig:
     recipient: str = ""          # leer = an die eigene Adresse
     imap_host: str = ""          # Posteingangsserver — nur zum Abholen von Anhängen (postfach.py)
     imap_port: int = 993         # 993 = von Anfang an verschlüsselt, sonst STARTTLS
+    # Womit sich PollySort anmeldet: "passwort" oder "microsoft" (Anmeldung auf der
+    # Microsoft-Seite, siehe microsoft.py — dann gilt oauth_token statt password).
+    auth: str = "passwort"
+    oauth_token: str = ""        # SECRET: Erneuerungstoken der Microsoft-Anmeldung — wie bot_token
+    oauth_client_id: str = ""    # Kennung der Anwendung bei Microsoft (kein Geheimnis)
+    oauth_tenant: str = "common"  # Mandant; "common" = private Konten und Firmenkonten
 
 
 @dataclass
@@ -324,7 +330,38 @@ def email_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, passwort: str =
         raise FlugroutenFehler(i18n.t("routen.err.passwort"))
     fr.email = EmailConfig(enabled=True, provider=anbieter, address=adresse, password=passwort,
                            smtp_host=host, smtp_port=int(port), use_tls=True,
-                           recipient=empfaenger, imap_host=imap_host, imap_port=int(imap_port))
+                           recipient=empfaenger, imap_host=imap_host, imap_port=int(imap_port),
+                           # Die Kennung der Anwendung bleibt für eine spätere Microsoft-Anmeldung.
+                           oauth_client_id=fr.email.oauth_client_id,
+                           oauth_tenant=fr.email.oauth_tenant)
+
+
+def email_microsoft_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, erneuerung: str,
+                           kennung: str = "", mandant: str = "", empfaenger: str = "") -> None:
+    """E-Mail über die Microsoft-Anmeldung einstellen und einschalten (``microsoft.py``).
+
+    ``erneuerung`` ist das Erneuerungstoken aus der Anmeldung; ein Passwort gibt es dann nicht.
+    ``kennung`` (Client-ID) und ``mandant`` bleiben, wie sie waren, wenn sie leer sind.
+    """
+    from . import i18n
+    anbieter = (anbieter or "").strip().lower()
+    adresse, empfaenger = (adresse or "").strip(), (empfaenger or "").strip()
+    if anbieter not in ("outlook", "microsoft365"):
+        raise FlugroutenFehler(i18n.t("routen.err.anbieter"))
+    for wert in (adresse, empfaenger):
+        if wert and ("@" not in wert.strip("@") or " " in wert):
+            raise FlugroutenFehler(i18n.t("routen.err.adresse", adresse=wert))
+    if not adresse:
+        raise FlugroutenFehler(i18n.t("routen.err.adresse", adresse="—"))
+    if not erneuerung:
+        raise FlugroutenFehler(i18n.t("ms.err.neu_anmelden"))
+    a = EMAIL_ANBIETER[anbieter]
+    fr.email = EmailConfig(enabled=True, provider=anbieter, address=adresse, password="",
+                           smtp_host=a.host, smtp_port=a.port, use_tls=True, recipient=empfaenger,
+                           imap_host=a.imap, imap_port=993, auth="microsoft",
+                           oauth_token=erneuerung,
+                           oauth_client_id=(kennung or "").strip() or fr.email.oauth_client_id,
+                           oauth_tenant=(mandant or "").strip() or fr.email.oauth_tenant)
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +404,8 @@ def ablage(path: Path | None = None) -> dict[str, str]:
                                     tresor.DISCORD_TOKEN),
         "webhook": tresor.ablageort(str(data.get("discord", {}).get("webhook_url", "")),
                                     tresor.DISCORD_WEBHOOK),
+        "anmeldung": tresor.ablageort(str(data.get("email", {}).get("oauth_token", "")),
+                                      tresor.EMAIL_ANMELDUNG),
         "email": tresor.ablageort(str(data.get("email", {}).get("password", "")),
                                   tresor.EMAIL_PASSWORT),
     }
@@ -401,16 +440,22 @@ def load_flugrouten(path: Path | None = None) -> Flugrouten:
         # Ältere Dateien kennen den Posteingangsserver nicht → vom Anbieter ableiten.
         imap_host=str(e.get("imap_host", "") or _imap_von_anbieter(str(e.get("provider", "")))),
         imap_port=int(e.get("imap_port", 993)),
+        auth="microsoft" if str(e.get("auth", "")) == "microsoft" else "passwort",
+        oauth_token=str(e.get("oauth_token", "")),
+        oauth_client_id=str(e.get("oauth_client_id", "")),
+        oauth_tenant=str(e.get("oauth_tenant", "") or "common"),
     )
     fr.calendar = CalendarConfig(
         enabled=bool(c.get("enabled", False)),
         kind=str(c.get("kind", "ical")),
     )
     klartext = any(w and w != tresor.IM_TRESOR
-                   for w in (fr.discord.bot_token, fr.discord.webhook_url, fr.email.password))
+                   for w in (fr.discord.bot_token, fr.discord.webhook_url, fr.email.password,
+                             fr.email.oauth_token))
     fr.discord.bot_token = _aus_tresor(tresor.DISCORD_TOKEN, fr.discord.bot_token)
     fr.discord.webhook_url = _aus_tresor(tresor.DISCORD_WEBHOOK, fr.discord.webhook_url)
     fr.email.password = _aus_tresor(tresor.EMAIL_PASSWORT, fr.email.password)
+    fr.email.oauth_token = _aus_tresor(tresor.EMAIL_ANMELDUNG, fr.email.oauth_token)
     # Umzug: Steht noch ein Geheimnis im Klartext da und gibt es einen Tresor, schreibt ein
     # Speichern es dorthin und lässt in der Datei nur den Platzhalter zurück.
     if klartext and str(path) not in _UMZUG_VERSUCHT and tresor.verfuegbar():
@@ -431,6 +476,7 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
     token = tresor.ablegen(tresor.DISCORD_TOKEN, d.bot_token)
     webhook = tresor.ablegen(tresor.DISCORD_WEBHOOK, d.webhook_url)
     passwort = tresor.ablegen(tresor.EMAIL_PASSWORT, e.password)
+    anmeldung = tresor.ablegen(tresor.EMAIL_ANMELDUNG, e.oauth_token)
     content = (
         "# PollySort — Flugrouten der Wächterbienen (§v0.3)\n"
         "# 🔒 Wachssiegel: Zugangsdaten. Wird NIE an ein LLM übergeben oder im Klartext geloggt.\n"
@@ -453,7 +499,11 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
         f"use_tls   = {_toml_val(e.use_tls)}\n"
         f"recipient = {_toml_val(e.recipient)}\n"
         f"imap_host = {_toml_val(e.imap_host)}\n"
-        f"imap_port = {_toml_val(e.imap_port)}\n\n"
+        f"imap_port = {_toml_val(e.imap_port)}\n"
+        f"auth      = {_toml_val(e.auth)}\n"
+        f"oauth_token = {_toml_val(anmeldung)}\n"
+        f"oauth_client_id = {_toml_val(e.oauth_client_id)}\n"
+        f"oauth_tenant = {_toml_val(e.oauth_tenant)}\n\n"
         "[calendar]\n"
         f"enabled = {_toml_val(c.enabled)}\n"
         f"kind    = {_toml_val(c.kind)}\n"

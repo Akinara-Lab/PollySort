@@ -33,6 +33,13 @@ IM_TRESOR = "@tresor"
 OPENROUTER = "openrouter-schluessel"
 DISCORD_TOKEN = "discord-bot-token"
 DISCORD_WEBHOOK = "discord-webhook"
+EMAIL_ANMELDUNG = "email-anmeldung"          # Erneuerungstoken der Microsoft-Anmeldung
+
+#: Die Windows-Anmeldeinformationsverwaltung nimmt je Eintrag höchstens 1280 Zeichen an
+#: (gemessen). Längere Werte — Anmelde-Token sind es oft — werden auf mehrere Einträge verteilt:
+#: „<name>" enthält dann nur „@teile:<Anzahl>", die Stücke liegen in „<name>#1", „<name>#2", …
+TEIL_ZEICHEN = 1000
+_TEILE = "@teile:"
 EMAIL_PASSWORT = "email-passwort"
 
 #: Umgebungsvariable, die den Tresor abschaltet (Container, Skripte, eigene Vorliebe).
@@ -98,6 +105,14 @@ def dienst() -> str:
     return f"PollySort ({os.path.abspath(home)})"
 
 
+def _anzahl_teile(wert: str | None) -> int:
+    """Wie viele Stücke ein Eintrag ankündigt — ``0``, wenn er selbst der Wert ist."""
+    if not wert or not wert.startswith(_TEILE):
+        return 0
+    rest = wert[len(_TEILE):]
+    return int(rest) if rest.isdigit() else 0
+
+
 def lesen(name: str) -> str | None:
     """Ein Geheimnis holen. ``None`` = nicht da oder Tresor nicht benutzbar."""
     global _gestoert
@@ -105,10 +120,28 @@ def lesen(name: str) -> str | None:
     if kr is None:
         return None
     try:
-        return kr.get_password(dienst(), name) or None
+        wert = kr.get_password(dienst(), name) or None
+        teile = _anzahl_teile(wert)
+        if not teile:
+            return wert
+        stuecke = [kr.get_password(dienst(), f"{name}#{nr}") for nr in range(1, teile + 1)]
+        return "".join(stuecke) if all(stuecke) else None     # ein Stück fehlt → nicht lesbar
     except Exception:
         _gestoert = True
         return None
+
+
+def _teile_loeschen(kr, name: str) -> None:
+    """Die Stücke eines verteilten Eintrags entfernen (der Eintrag selbst bleibt)."""
+    try:
+        teile = _anzahl_teile(kr.get_password(dienst(), name))
+    except Exception:
+        return
+    for nr in range(1, teile + 1):
+        try:
+            kr.delete_password(dienst(), f"{name}#{nr}")
+        except Exception:
+            pass
 
 
 def schreiben(name: str, wert: str) -> bool:
@@ -117,10 +150,17 @@ def schreiben(name: str, wert: str) -> bool:
     if kr is None or not wert:
         return False
     try:
-        kr.set_password(dienst(), name, wert)
-        return kr.get_password(dienst(), name) == wert
+        _teile_loeschen(kr, name)                 # Stücke eines früheren, längeren Werts
+        if len(wert) <= TEIL_ZEICHEN:
+            kr.set_password(dienst(), name, wert)
+        else:
+            stuecke = [wert[i:i + TEIL_ZEICHEN] for i in range(0, len(wert), TEIL_ZEICHEN)]
+            for nr, stueck in enumerate(stuecke, 1):
+                kr.set_password(dienst(), f"{name}#{nr}", stueck)
+            kr.set_password(dienst(), name, f"{_TEILE}{len(stuecke)}")
+        return lesen(name) == wert
     except Exception:
-        # Zu lang für den Tresor, gesperrt, abgelehnt — der Aufrufer bleibt bei der Datei.
+        # Gesperrt, abgelehnt — der Aufrufer bleibt bei der Datei.
         return False
 
 
@@ -129,6 +169,7 @@ def loeschen(name: str) -> None:
     kr, _ = _pruefen()
     if kr is None:
         return
+    _teile_loeschen(kr, name)
     try:
         kr.delete_password(dienst(), name)
     except Exception:

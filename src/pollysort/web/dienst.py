@@ -477,7 +477,7 @@ class Dienst:
     @ansicht
     def flugrouten_stand(self) -> dict:
         """Alles, was ein Formular für die Flugrouten zeigen muss — Geheimnisse nur maskiert."""
-        from .. import tresor
+        from .. import microsoft, tresor
         from ..flugrouten import (
             EMAIL_ANBIETER,
             ablage,
@@ -504,10 +504,16 @@ class Dienst:
             "email": {"aktiv": e.enabled, "anbieter": e.provider, "adresse": e.address,
                       "host": e.smtp_host, "port": e.smtp_port, "empfaenger": e.recipient,
                       "imap_host": e.imap_host, "imap_port": e.imap_port,
-                      "passwort": maskiert(email_password(fr))},
+                      "passwort": maskiert(email_password(fr)),
+                      # "passwort" oder "microsoft" (Anmeldung auf der Microsoft-Seite); bei
+                      # "microsoft" sagt "angemeldet", ob sie steht, und "kennung", ob die
+                      # Kennung der Anwendung (Client-ID) schon da ist.
+                      "anmeldung": e.auth, "angemeldet": microsoft.bereit(fr),
+                      "kennung": bool(microsoft.client_id(e.oauth_client_id))},
             # Auswahlliste für das Formular; „custom" (eigener Server und Port) kommt dazu.
             "anbieter": [{"id": kurz, "name": a.name, "host": a.host, "port": a.port,
-                          "imap_host": a.imap, "hinweis": i18n.t(a.hinweis) if a.hinweis else ""}
+                          "imap_host": a.imap, "microsoft": kurz in microsoft.ANBIETER,
+                          "hinweis": i18n.t(a.hinweis) if a.hinweis else ""}
                          for kurz, a in EMAIL_ANBIETER.items()],
             "ablage": lagen, "hinweis": tresor.lage_text(offen, default_path()),
             "tresor": {"aktiv": tresor.verfuegbar(), "ort": tresor.ort()},
@@ -593,6 +599,57 @@ class Dienst:
             fr.email = EmailConfig()
         save_flugrouten(fr)
         return self.flugrouten_stand()
+
+    @auftrag("flugrouten_microsoft_start", sperre=False)
+    def flugrouten_microsoft_start(self, anbieter: str = "", adresse: str = "",
+                                   empfaenger: str = "", client_id: str = "") -> dict:
+        """Anmeldung auf der Microsoft-Seite beginnen (Outlook.com, Hotmail, Microsoft 365).
+
+        Die Antwort nennt die Seite und den kurzen Code, den der Mensch dort eintippt. Der
+        eigentliche Schlüssel dieser Anmeldung bleibt im Dienst; ``flugrouten_microsoft_abschluss``
+        fragt damit nach, ob die Anmeldung fertig ist.
+        """
+        from .. import microsoft
+        from ..flugrouten import FlugroutenFehler, email_microsoft_setzen, load_flugrouten
+        fr = load_flugrouten()
+        kennung = str(client_id).strip() or microsoft.client_id(fr.email.oauth_client_id)
+        try:
+            # Die Angaben schon jetzt prüfen — nicht erst, nachdem sich jemand angemeldet hat.
+            email_microsoft_setzen(load_flugrouten(), str(anbieter), adresse=str(adresse),
+                                   erneuerung="-", empfaenger=str(empfaenger))
+            code = microsoft.geraetecode_holen(kennung, fr.email.oauth_tenant)
+        except (FlugroutenFehler, microsoft.AnmeldeFehler) as exc:
+            raise Ungueltig(str(exc)) from None
+        self._microsoft = {"code": code, "kennung": kennung, "anbieter": str(anbieter),
+                           "adresse": str(adresse), "empfaenger": str(empfaenger),
+                           "neu": bool(str(client_id).strip())}
+        return {"seite": code.verification_uri, "code": code.user_code,
+                "minuten": max(1, code.expires_in // 60), "pause": code.interval}
+
+    @auftrag("flugrouten_microsoft_abschluss", sperre=False)
+    def flugrouten_microsoft_abschluss(self) -> dict:
+        """Nachfragen, ob die Anmeldung fertig ist. ``fertig: false`` = in ``pause`` Sekunden
+        noch einmal fragen; ``fertig: true`` = gespeichert, ``stand`` zeigt die Flugrouten."""
+        from .. import microsoft
+        from ..flugrouten import email_microsoft_setzen, load_flugrouten, save_flugrouten
+        offen = getattr(self, "_microsoft", None)
+        if not offen:
+            raise Ungueltig(i18n.t("ms.err.abgelaufen"))
+        fr = load_flugrouten()
+        try:
+            token = microsoft.nachfragen(offen["kennung"], offen["code"], fr.email.oauth_tenant)
+        except microsoft.AnmeldeFehler as exc:
+            self._microsoft = None
+            raise Ungueltig(str(exc)) from None
+        if token is None:
+            return {"fertig": False, "pause": offen["code"].interval}
+        self._microsoft = None
+        email_microsoft_setzen(fr, offen["anbieter"], adresse=offen["adresse"],
+                               erneuerung=token.erneuerung, empfaenger=offen["empfaenger"],
+                               kennung=offen["kennung"] if offen["neu"] else "")
+        save_flugrouten(fr)
+        microsoft.vergessen(offen["adresse"])
+        return {"fertig": True, "stand": self.flugrouten_stand()}
 
     @auftrag("flugrouten_testen", sperre=False)
     def flugrouten_testen(self) -> dict:

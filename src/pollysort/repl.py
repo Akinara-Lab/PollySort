@@ -386,7 +386,7 @@ class BeehiveShell(cmd.Cmd):
             ("modus <spar|lokal|cloud>", "mode <low|local|cloud>", "help.d.mode"),
             ("modell [name|liste]", "model [name|list]", "help.d.model"),
             ("schluessel [test|setzen|entfernen]", "key [test|set|remove]", "help.d.key"),
-            ("flugrouten [setup|test]", "routes [setup|test]", "help.d.routes"),
+            ("flugrouten [setup|test|microsoft]", "routes [setup|test|microsoft]", "help.d.routes"),
             ("postfach [abholen|liste|ordner <name>]", "mailbox [fetch|list|folder <name>]",
              "help.d.mailbox"),
             ("reflektiere · wachstafel [leeren]", "reflect · rules [clear]", "help.d.reflect"),
@@ -1675,12 +1675,18 @@ class BeehiveShell(cmd.Cmd):
     #  Flugrouten — Kommunikationskanäle der Wächterbienen (opt-in) §v0.3
     # ------------------------------------------------------------------ #
     def do_flugrouten(self, arg: str) -> None:
-        """flugrouten [setup|test|aus] — Discord/E-Mail-Benachrichtigungen der Wächterbienen."""
+        """flugrouten [setup|test|microsoft|aus] — Discord/E-Mail-Benachrichtigungen der Wächterbienen.
+
+        'flugrouten microsoft' meldet ein Outlook- oder Microsoft-365-Konto (neu) auf der
+        Microsoft-Seite an.
+        """
         sub = arg.strip().lower()
         if sub in ("setup", "config", "einrichten"):
             self._flugrouten_setup()
         elif sub in ("test", "testflug"):
             self._flugrouten_test()
+        elif sub in ("microsoft", "anmelden", "login"):
+            self._flugrouten_microsoft()
         elif sub in ("aus", "off", "deaktivieren", "stopp"):
             from pollysort.flugrouten import Flugrouten, save_flugrouten
             save_flugrouten(Flugrouten())
@@ -1721,7 +1727,13 @@ class BeehiveShell(cmd.Cmd):
                 self.con.raw(i18n.t("r.routes.discord_leer"))
             if nutzer and art in ("webhook", "kanal"):
                 self.con.raw(i18n.t("r.routes.mentions", users=nutzer))
-        if fr.email.enabled:
+        if fr.email.enabled and fr.email.auth == "microsoft":
+            from pollysort import microsoft
+            self.con.raw(i18n.t("r.routes.email_ms" if microsoft.bereit(fr)
+                                else "r.routes.email_ms_fehlt",
+                                addr=fr.email.address, provider=fr.email.provider,
+                                host=fr.email.smtp_host, port=fr.email.smtp_port))
+        elif fr.email.enabled:
             self.con.raw(i18n.t("r.routes.email",
                                 addr=fr.email.address, provider=fr.email.provider, host=fr.email.smtp_host,
                                 port=fr.email.smtp_port, pw=mask(email_password(fr))))
@@ -1753,6 +1765,7 @@ class BeehiveShell(cmd.Cmd):
             ablage,
             default_path,
             discord_setzen,
+            email_microsoft_setzen,
             email_setzen,
             load_flugrouten,
             save_flugrouten,
@@ -1803,12 +1816,22 @@ class BeehiveShell(cmd.Cmd):
                 host = self._ask(i18n.t("r.routes.smtp")).strip()
                 port = self._ask("      Port [587]: ").strip() or "587"   # 465 = sofort verschlüsselt
                 imap = self._ask(i18n.t("r.routes.imap")).strip()
+            # Outlook/Hotmail geht nur über die Microsoft-Seite, Microsoft 365 am besten auch.
+            ueber_microsoft = provider == "outlook" or (
+                provider == "microsoft365" and self._ja_default(i18n.t("r.routes.ms_ask")))
             address = self._ask(i18n.t("r.routes.address")).strip()
-            password = self._ask(i18n.t("r.routes.password")).strip()
+            password = "" if ueber_microsoft else self._ask(i18n.t("r.routes.password")).strip()
             recipient = self._ask(i18n.t("r.routes.recipient")).strip()
             try:
-                email_setzen(fr, provider, adresse=address, passwort=password, host=host,
-                             port=port, empfaenger=recipient, imap_host=imap)
+                if ueber_microsoft:
+                    anmeldung = self._microsoft_anmelden(fr) if address else None
+                    if anmeldung is None:
+                        raise FlugroutenFehler(i18n.t("r.ms.cancel"))
+                    email_microsoft_setzen(fr, provider, adresse=address, erneuerung=anmeldung[0],
+                                           kennung=anmeldung[1], empfaenger=recipient)
+                else:
+                    email_setzen(fr, provider, adresse=address, passwort=password, host=host,
+                                 port=port, empfaenger=recipient, imap_host=imap)
                 self.con.honey(i18n.t("r.routes.email_ok", provider=provider,
                                       host=fr.email.smtp_host, port=fr.email.smtp_port), "🐝")
             except FlugroutenFehler as exc:
@@ -1819,6 +1842,64 @@ class BeehiveShell(cmd.Cmd):
         # .honig/kalender.ics schreibt der Wabenbau ohnehin immer.
         save_flugrouten(fr)
         self.con.honey(i18n.t("r.routes.saved"), "🍯")
+        self._lage_zeigen(ablage().values(), default_path())
+
+    def _microsoft_anmelden(self, fr) -> tuple[str, str] | None:
+        """Auf der Microsoft-Seite anmelden lassen (Gerätecode). Gibt ``(Erneuerungstoken,
+        neu eingetragene Kennung der Anwendung)`` zurück — oder ``None`` bei Abbruch/Fehler.
+
+        🔒 Angezeigt werden nur die Adresse und der kurze Code, den der Mensch selbst eintippt.
+        """
+        from pollysort import microsoft
+        vorhanden = microsoft.client_id(fr.email.oauth_client_id)
+        kennung = vorhanden
+        if not kennung:
+            self.con.info(i18n.t("r.ms.need_id"), "⚠️")
+            kennung = self._ask(i18n.t("r.ms.id_prompt")).strip()
+            if not kennung:
+                return None
+        try:
+            code = microsoft.geraetecode_holen(kennung, fr.email.oauth_tenant)
+            self.con.honey(i18n.t("r.ms.open", url=code.verification_uri, code=code.user_code), "🔑")
+            self.con.info(i18n.t("r.ms.waiting", min=max(1, code.expires_in // 60)), "🐝")
+            token = microsoft.warten(kennung, code, fr.email.oauth_tenant)
+        except microsoft.AnmeldeFehler as exc:
+            self.con.error(str(exc))
+            return None
+        except KeyboardInterrupt:
+            self.con.raw("")
+            return None
+        microsoft.vergessen(fr.email.address)
+        self.con.honey(i18n.t("r.ms.done"), "✅")
+        return token.erneuerung, ("" if vorhanden else kennung)
+
+    def _flugrouten_microsoft(self) -> None:
+        """Ein schon eingerichtetes Outlook-/Microsoft-365-Konto (neu) bei Microsoft anmelden."""
+        from pollysort import microsoft
+        from pollysort.flugrouten import (
+            FlugroutenFehler,
+            ablage,
+            default_path,
+            email_microsoft_setzen,
+            load_flugrouten,
+            save_flugrouten,
+        )
+        fr = load_flugrouten()
+        if fr.email.provider not in microsoft.ANBIETER or not fr.email.address:
+            self.con.info(i18n.t("r.ms.nosetup"), "🧭")
+            return
+        anmeldung = self._microsoft_anmelden(fr)
+        if anmeldung is None:
+            self.con.info(i18n.t("r.ms.cancel"), "🧭")
+            return
+        try:
+            email_microsoft_setzen(fr, fr.email.provider, adresse=fr.email.address,
+                                   erneuerung=anmeldung[0], kennung=anmeldung[1],
+                                   empfaenger=fr.email.recipient)
+        except FlugroutenFehler as exc:
+            self.con.error(str(exc))
+            return
+        save_flugrouten(fr)
         self._lage_zeigen(ablage().values(), default_path())
 
     #: Zustimmung in beiden Sprachen — sonst versteht der EN-Modus sein eigenes "yes" nicht.

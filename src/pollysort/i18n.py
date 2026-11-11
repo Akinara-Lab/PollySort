@@ -1167,10 +1167,10 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "  📧 Set up e-mail? [y/N]: ",
     },
     "r.routes.outlook_hint": {
-        "de": "Private Outlook-/Hotmail-Konten nehmen seit 2024 kein Passwort mehr an. Mit Passwort "
-              "geht es nur noch bei Firmenkonten (Microsoft 365), solange der Administrator es erlaubt.",
-        "en": "Personal Outlook/Hotmail accounts have not accepted passwords since 2024. A password "
-              "only works for work accounts (Microsoft 365), as long as the administrator allows it.",
+        "de": "Private Outlook-/Hotmail-Konten nehmen seit 2024 kein Passwort mehr an — die "
+              "Anmeldung läuft über die Microsoft-Seite ('flugrouten setup' führt dorthin).",
+        "en": "Personal Outlook/Hotmail accounts have not accepted passwords since 2024 — you "
+              "sign in on the Microsoft page ('routes setup' takes you there).",
     },
     "r.routes.saved": {
         "de": "Flugrouten gesichert (nur auf diesem Rechner). Testflug: 'flugrouten test'.",
@@ -1695,6 +1695,58 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "      SMTP-Server: ",
         "en": "      SMTP server: ",
     },
+    "r.routes.ms_ask": {
+        "de": "      Über die Microsoft-Seite anmelden statt mit Passwort (empfohlen)? [J/n]: ",
+        "en": "      Sign in on the Microsoft page instead of with a password (recommended)? [Y/n]: ",
+    },
+    "r.routes.email_ms": {
+        "de": "   📧 E-Mail: aktiv · {addr} · {provider} ({host}:{port}) · bei Microsoft angemeldet",
+        "en": "   📧 E-mail: active · {addr} · {provider} ({host}:{port}) · signed in with Microsoft",
+    },
+    "r.routes.email_ms_fehlt": {
+        "de": "   📧 E-Mail: {addr} · {provider} ({host}:{port}) · Microsoft-Anmeldung fehlt — "
+              "'flugrouten microsoft'",
+        "en": "   📧 E-mail: {addr} · {provider} ({host}:{port}) · Microsoft sign-in missing — "
+              "'routes microsoft'",
+    },
+    "r.ms.need_id": {
+        "de": "Für die Microsoft-Anmeldung muss PollySort bei Microsoft als Anwendung angemeldet "
+              "sein. Das geht kostenlos und einmalig; die README beschreibt es unter "
+              "„Microsoft-Anmeldung“. Am Ende steht dort eine Anwendungs-ID (Client-ID).",
+        "en": "For Microsoft sign-in, PollySort must be registered with Microsoft as an "
+              "application. This is free and done once; the README explains it under “Microsoft "
+              "sign-in”. At the end you get an application (client) ID.",
+    },
+    "r.ms.id_prompt": {
+        "de": "      Anwendungs-ID (Client-ID) [leer = abbrechen]: ",
+        "en": "      Application (client) ID [empty = cancel]: ",
+    },
+    "r.ms.open": {
+        "de": "Öffne im Browser {url} und gib dort diesen Code ein: {code}",
+        "en": "Open {url} in your browser and enter this code there: {code}",
+    },
+    "r.ms.waiting": {
+        "de": "PollySort wartet, bis du dich dort angemeldet hast (höchstens {min} Minuten; "
+              "Strg-C bricht ab) …",
+        "en": "PollySort waits until you have signed in there (at most {min} minutes; Ctrl-C "
+              "cancels) …",
+    },
+    "r.ms.done": {
+        "de": "Bei Microsoft angemeldet. PollySort hat kein Passwort bekommen, nur die Erlaubnis, "
+              "E-Mails zu senden und das Postfach zu lesen.",
+        "en": "Signed in with Microsoft. PollySort received no password, only permission to send "
+              "mail and read the mailbox.",
+    },
+    "r.ms.cancel": {
+        "de": "Microsoft-Anmeldung nicht abgeschlossen.",
+        "en": "Microsoft sign-in not completed.",
+    },
+    "r.ms.nosetup": {
+        "de": "Es ist kein Outlook- oder Microsoft-365-Konto eingerichtet. 'flugrouten setup' "
+              "richtet eines ein und führt durch die Anmeldung.",
+        "en": "No Outlook or Microsoft 365 account is set up. 'routes setup' sets one up and "
+              "walks you through the sign-in.",
+    },
     "r.routes.imap": {
         "de": "      Posteingangsserver (IMAP) zum Abholen von Anhängen [leer = nicht abholen]: ",
         "en": "      Incoming server (IMAP) for fetching attachments [empty = don't fetch]: ",
@@ -1994,6 +2046,47 @@ _CATALOG: dict[str, dict[str, str]] = {
               "Firmenkonten entscheidet der Administrator",
         "en": "Microsoft no longer accepts passwords for personal Outlook/Hotmail accounts; for "
               "work accounts the administrator decides",
+    },
+    "kanal.auth.oauth": {
+        "de": "Microsoft lehnt die Anmeldung ab — mit 'flugrouten microsoft' neu anmelden. Bei "
+              "Firmenkonten muss der Administrator den Zugriff für E-Mail-Programme erlauben",
+        "en": "Microsoft rejects the sign-in — sign in again with 'routes microsoft'. For work "
+              "accounts the administrator must allow access for mail programs",
+    },
+    # Microsoft-Anmeldung (Gerätecode)
+    "ms.err.netz": {
+        "de": "Die Microsoft-Anmeldung ist nicht erreichbar ({typ}) — Internetverbindung prüfen",
+        "en": "Microsoft sign-in cannot be reached ({typ}) — check your connection",
+    },
+    "ms.err.antwort": {
+        "de": "Microsoft hat unerwartet geantwortet — später erneut versuchen",
+        "en": "Microsoft answered unexpectedly — try again later",
+    },
+    "ms.err.kennung": {
+        "de": "Es fehlt die Kennung der Anwendung bei Microsoft (Client-ID). Die README beschreibt "
+              "unter „Microsoft-Anmeldung“, wie man sie bekommt",
+        "en": "The application's ID at Microsoft (client ID) is missing. The README explains under "
+              "“Microsoft sign-in” how to get one",
+    },
+    "ms.err.start": {
+        "de": "Microsoft hat die Anmeldung nicht angenommen ({grund}) — Kennung der Anwendung und "
+              "ihre Einstellungen bei Microsoft prüfen",
+        "en": "Microsoft did not accept the sign-in ({grund}) — check the application's ID and its "
+              "settings at Microsoft",
+    },
+    "ms.err.abgelehnt": {
+        "de": "Die Anmeldung wurde auf der Microsoft-Seite abgelehnt",
+        "en": "The sign-in was declined on the Microsoft page",
+    },
+    "ms.err.abgelaufen": {
+        "de": "Der Code ist abgelaufen, bevor die Anmeldung fertig war — bitte noch einmal starten",
+        "en": "The code expired before the sign-in was finished — please start again",
+    },
+    "ms.err.neu_anmelden": {
+        "de": "Die Microsoft-Anmeldung fehlt oder ist abgelaufen — mit 'flugrouten microsoft' neu "
+              "anmelden",
+        "en": "The Microsoft sign-in is missing or has expired — sign in again with "
+              "'routes microsoft'",
     },
     "kanal.auth.gmail": {
         "de": "Gmail braucht ein App-Passwort (Bestätigung in zwei Schritten einschalten)",

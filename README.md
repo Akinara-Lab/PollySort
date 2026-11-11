@@ -765,8 +765,9 @@ project:
     messages only reach users who share a server with the bot and allow them.
   - **E-mail:** presets for Gmail, GMX, WEB.DE, T-Online, freenet, Posteo, mailbox.org, iCloud,
     Yahoo, IONOS, Strato and Microsoft 365, or your own server (port 587 or 465). The assistant
-    tells you what each provider needs (app password, enabled IMAP access, …). Personal
-    Outlook/Hotmail accounts no longer accept password sign-in.
+    tells you what each provider needs (app password, enabled IMAP access, …).
+  - **Outlook.com, Hotmail and Microsoft 365** sign in on the Microsoft page instead of with a
+    password — see *Microsoft sign-in* below.
   - Each route is tracked separately: if the mail server is down, only the e-mail is retried —
     Discord does not get the same reminder again.
 - **Attachments from your mailbox (opt-in):** give a project a folder in your mailbox
@@ -775,11 +776,39 @@ project:
   `watch` service runs. It uses the e-mail account from `routes setup`. **Nothing in the mailbox
   is changed:** the folder is opened read-only, nothing is deleted, moved or marked as read.
   Nothing arrives twice, no existing file is replaced, and file names from mails are sanitised
-  before they touch the disk. Personal Outlook/Hotmail accounts are not supported yet.
+  before they touch the disk.
+
+#### Microsoft sign-in (Outlook.com, Hotmail, Microsoft 365)
+
+Microsoft no longer accepts passwords for personal accounts and is switching them off for work
+accounts. PollySort therefore uses Microsoft's *device code* sign-in: `routes setup` shows a web
+address and a short code, you enter the code in your browser and sign in there, and PollySort is
+granted exactly two things — sending mail and reading the mailbox. It never sees your password.
+What it keeps is a renewal token, stored in the operating system's credential store like a
+password; `routes microsoft` signs in again when Microsoft asks for it.
+
+For this, PollySort must be registered with Microsoft as an application **once**. Until a
+shared registration ships with PollySort, you create your own (free):
+
+1. Sign in to the [Microsoft Entra admin center](https://entra.microsoft.com). Microsoft
+   requires an Azure account with an active subscription (a free one can be created) and the
+   role *Application Developer* or higher.
+2. Go to **Entra ID → App registrations → New registration**, enter a name (e.g. "PollySort") and
+   under **Supported account types** choose **Any Entra ID Tenant + Personal Microsoft accounts**.
+   No redirect address is needed. Select **Register**.
+3. On the app's **Overview** page, copy the **Application (client) ID**.
+4. Under **Authentication**, switch on **Allow public client flows** — the device code sign-in
+   needs it. (This step is from experience, not from Microsoft's registration quickstart; the
+   label may differ.)
+5. Enter the ID when `routes setup` asks for it, or set `POLLYSORT_MICROSOFT_CLIENT_ID`. It is
+   not a secret.
+
+For work accounts (Microsoft 365) the organisation's administrator may additionally have to
+allow the app or mail access for mail programs.
 
 > [!NOTE]
 > **Credential seal:** the secrets (OpenRouter key, Discord bot token and webhook address, e-mail
-> password) live in
+> password or Microsoft sign-in) live in
 > your operating system's credential store — Windows Credential Manager, macOS Keychain or the
 > desktop keyring on Linux — and the files under `~/.pollysort/` only hold the placeholder
 > `@tresor`. Secrets saved as plain text by earlier versions move there on first use. On systems

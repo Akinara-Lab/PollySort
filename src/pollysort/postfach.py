@@ -62,6 +62,8 @@ class Zugang:
     port: int
     adresse: str
     passwort: str = field(repr=False)
+    # Anmeldung über Microsoft statt mit Passwort: liefert bei Bedarf ein Zugriffstoken.
+    token_holen: object = field(default=None, repr=False)
 
 
 @dataclass
@@ -79,10 +81,17 @@ def zugang(fr: Flugrouten) -> Zugang | None:
     """Der Zugang aus der E-Mail-Flugroute — ``None``, solange Adresse, Passwort oder der
     Posteingangsserver fehlen. Ob die Flugroute zum *Melden* eingeschaltet ist, spielt keine Rolle."""
     e = fr.email
-    passwort = email_password(fr)
-    if not (e.address and passwort and e.imap_host):
+    if not (e.address and e.imap_host):
         return None
-    return Zugang(e.imap_host, int(e.imap_port or IMAP_PORT), e.address, passwort)
+    port = int(e.imap_port or IMAP_PORT)
+    if e.auth == "microsoft":
+        from . import microsoft
+        if not microsoft.bereit(fr):
+            return None
+        return Zugang(e.imap_host, port, e.address, "",
+                      token_holen=lambda: microsoft.zugriffstoken(fr))
+    passwort = email_password(fr)
+    return Zugang(e.imap_host, port, e.address, passwort) if passwort else None
 
 
 # --------------------------------------------------------------------------- #
@@ -143,11 +152,22 @@ def _verbinden(z: Zugang):
         raise PostfachFehler(i18n.t("kanal.cert")) from None
     except (OSError, imaplib.IMAP4.error) as exc:
         raise PostfachFehler(i18n.t("postfach.err.netz", typ=exc.__class__.__name__)) from None
+    from .microsoft import AnmeldeFehler, xoauth2
     try:
-        imap.login(z.adresse, z.passwort)
+        if z.token_holen is not None:
+            zeilen = [xoauth2(z.adresse, z.token_holen()).encode()]
+            # Lehnt der Server ab, fragt er noch einmal nach — darauf folgt nur eine leere Zeile.
+            imap.authenticate("XOAUTH2", lambda _rueckfrage: zeilen.pop() if zeilen else b"")
+        else:
+            imap.login(z.adresse, z.passwort)
+    except AnmeldeFehler as exc:
+        _abmelden(imap)
+        raise PostfachFehler(str(exc)) from None
     except imaplib.IMAP4.error:
         # Die Antwort des Servers kann die Anmeldedaten wiederholen — deshalb nie durchreichen.
         _abmelden(imap)
+        if z.token_holen is not None:
+            raise PostfachFehler(i18n.t("kanal.auth.oauth")) from None
         anbieter = anbieter_fuer_host(z.host)
         hinweis = (" " + i18n.t(anbieter.hinweis)
                    if anbieter is not None and anbieter.hinweis else "")
