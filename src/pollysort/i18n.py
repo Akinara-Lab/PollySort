@@ -352,8 +352,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "Start Ollama ('ollama serve'), then switch with 'mode local'.",
     },
     "fr.ai.key_where": {
-        "de": "Key holen: openrouter.ai/keys — er bleibt lokal (chmod 600).",
-        "en": "Get a key at openrouter.ai/keys — it stays local (chmod 600).",
+        "de": "Key holen: openrouter.ai/keys — er bleibt auf diesem Rechner.",
+        "en": "Get a key at openrouter.ai/keys — it stays on this computer.",
     },
     "fr.ai.key_prompt": {"de": "OpenRouter-API-Key (leer = überspringen): ",
                          "en": "OpenRouter API key (empty = skip): "},
@@ -608,6 +608,7 @@ _CATALOG: dict[str, dict[str, str]] = {
     "doctor.bn.laufzeit": {"de": "Version {version} · Laufzeit fehlt → 'beenara laden'",
                            "en": "version {version} · runtime missing → 'beenara pull'"},
     "doctor.beenara_big": {"de": "BeeNara Big", "en": "BeeNara Big"},
+    "doctor.tresor": {"de": "Tresor", "en": "Keyring"},
     "doctor.bb.partial": {"de": "unvollständig → 'beenara big laden' setzt fort",
                           "en": "incomplete → 'beenara big pull' resumes"},
     "doctor.bb.version": {"de": "Version {version}, erwartet {need} → 'beenara big laden'",
@@ -1170,8 +1171,8 @@ _CATALOG: dict[str, dict[str, str]] = {
               "only works for work accounts (Microsoft 365), as long as the administrator allows it.",
     },
     "r.routes.saved": {
-        "de": "Flugrouten gesichert (nur lokal, chmod 600). Testflug: 'flugrouten test'.",
-        "en": "Routes saved (local only, chmod 600). Test: 'routes test'.",
+        "de": "Flugrouten gesichert (nur auf diesem Rechner). Testflug: 'flugrouten test'.",
+        "en": "Routes saved (on this computer only). Test: 'routes test'.",
     },
     "r.dup.title": {
         "de": "{n} Dublette(n)",
@@ -1194,8 +1195,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "Switch with:  switch <n>   ·   New:  new <path>",
     },
     "r.key.saved_short": {
-        "de": "     Key gespeichert (chmod 600).",
-        "en": "     Key saved (chmod 600).",
+        "de": "     Key gespeichert (nur auf diesem Rechner).",
+        "en": "     Key saved (on this computer only).",
     },
     "r.preview.none": {
         "de": "Nichts verändert — die Vorschau bleibt eine Vorschau.",
@@ -1352,8 +1353,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "Cancelled — key unchanged.",
     },
     "r.key.saved": {
-        "de": "Schlüssel gültig & gespeichert ({path}, chmod 600).",
-        "en": "Key valid & saved ({path}, chmod 600).",
+        "de": "Schlüssel gültig & gespeichert.",
+        "en": "Key valid & saved.",
     },
     "r.key.new_invalid": {
         "de": "Der neue Schlüssel {reason}.",
@@ -1524,8 +1525,8 @@ _CATALOG: dict[str, dict[str, str]] = {
         "en": "No proposal '{slug}'.",
     },
     "r.key.stored": {
-        "de": "Hinterlegt: {masked}   ({path})",
-        "en": "Stored: {masked}   ({path})",
+        "de": "Hinterlegt: {masked}",
+        "en": "Stored: {masked}",
     },
     "r.key.none_status": {
         "de": "Kein Schlüssel hinterlegt — Sparmodus und Lokal gehen, Cloud nicht.",
@@ -1865,6 +1866,44 @@ _CATALOG: dict[str, dict[str, str]] = {
     "kanal.discord.429": {
         "de": "Discord bremst gerade (429 Too Many Requests) — später erneut",
         "en": "Discord is rate limiting (429 Too Many Requests) — try again later",
+    },
+    # Tresor: Zugangsdaten in der Anmeldeinformationsverwaltung des Betriebssystems
+    "tresor.ort.windows": {"de": "Windows-Anmeldeinformationsverwaltung",
+                           "en": "Windows Credential Manager"},
+    "tresor.ort.mac": {"de": "macOS-Schlüsselbund", "en": "macOS Keychain"},
+    "tresor.ort.linux": {"de": "Schlüsselbund des Systems", "en": "system keyring"},
+    "tresor.lage.tresor": {
+        "de": "Zugangsdaten liegen geschützt hier: {ort}.",
+        "en": "Credentials are kept protected in: {ort}.",
+    },
+    "tresor.lage.datei": {
+        "de": "Zugangsdaten liegen im Klartext in {datei} — {grund}.",
+        "en": "Credentials are stored as plain text in {datei} — {grund}.",
+    },
+    "tresor.lage.unlesbar": {
+        "de": "Zugangsdaten werden hier erwartet, fehlen dort aber: {ort}. Bitte neu eintragen.",
+        "en": "Credentials are expected in this place but missing there: {ort}. "
+              "Please enter them again.",
+    },
+    "tresor.grund.aus": {
+        "de": "der geschützte Speicher ist über POLLYSORT_TRESOR abgeschaltet",
+        "en": "the protected store is switched off via POLLYSORT_TRESOR",
+    },
+    "tresor.grund.fehlt": {
+        "de": "das Paket 'keyring' ist nicht installiert",
+        "en": "the 'keyring' package is not installed",
+    },
+    "tresor.grund.kein_speicher": {
+        "de": "dieses System hat keinen geschützten Speicher für Zugangsdaten",
+        "en": "this system has no protected store for credentials",
+    },
+    "tresor.grund.gestoert": {
+        "de": "der geschützte Speicher hat beim Lesen einen Fehler gemeldet",
+        "en": "the protected store reported an error while reading",
+    },
+    "tresor.grund.abgelehnt": {
+        "de": "der geschützte Speicher hat sie nicht angenommen",
+        "en": "the protected store did not accept them",
     },
     "sw.checking": {
         "de": "Prüfe den ganzen Ordner auf manuelle Änderungen …",
@@ -2378,7 +2417,8 @@ _CATALOG: dict[str, dict[str, str]] = {
               "in the browser, the log or an AI prompt.",
     },
     "web.key.env": {"de": "aus Umgebungsvariable", "en": "from environment variable"},
-    "web.key.datei": {"de": "lokal gespeichert", "en": "stored locally"},
+    "web.key.datei": {"de": "als Klartext-Datei gespeichert", "en": "stored as a plain-text file"},
+    "web.key.tresor": {"de": "geschützt gespeichert", "en": "stored protected"},
     "web.key.console": {
         "de": "Braucht einen OpenRouter-Schlüssel — in der Konsole: schluessel setzen",
         "en": "Needs an OpenRouter key — in the console: key set",

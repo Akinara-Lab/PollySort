@@ -1346,10 +1346,20 @@ class BeehiveShell(cmd.Cmd):
         if env:
             self.con.info(i18n.t("r.key.env", masked=mask(env)), "🔑")
         elif stored:
-            self.con.info(i18n.t("r.key.stored", masked=mask(stored), path=config.CREDENTIALS_PATH), "🔑")
+            self.con.info(i18n.t("r.key.stored", masked=mask(stored)), "🔑")
         else:
             self.con.info(i18n.t("r.key.none_status"), "🔑")
+        if not env:
+            self._lage_zeigen([config.credentials_ort()], config.CREDENTIALS_PATH)
         self.con.info(i18n.t("r.key.usage"), "🐝")
+
+    def _lage_zeigen(self, lagen, datei) -> None:
+        """Sagen, wo Zugangsdaten liegen: im Tresor, im Klartext (mit Grund) oder unauffindbar."""
+        from pollysort import tresor
+        for lage in tresor.LAGEN:
+            if lage in lagen:
+                zeigen = self.con.info if lage == "tresor" else self.con.ask
+                zeigen(tresor.lage_text(lage, datei), "🔑" if lage == "tresor" else "⚠️")
 
     def _schluessel_test(self) -> None:
         from pollysort.llm.client import verify_openrouter_key
@@ -1379,14 +1389,15 @@ class BeehiveShell(cmd.Cmd):
         ok, grund = verify_openrouter_key(key)
         if ok:
             config.save_credentials(key)
-            self.con.honey(i18n.t("r.key.saved", path=config.CREDENTIALS_PATH), "✅")
+            self.con.honey(i18n.t("r.key.saved"), "✅")
         else:
             self.con.error(i18n.t("r.key.new_invalid", reason=grund))
-            if self._ja(i18n.t("r.key.save_anyway")):
-                config.save_credentials(key)
-                self.con.info(i18n.t("r.key.saved_unchecked"), "🔑")
-            else:
+            if not self._ja(i18n.t("r.key.save_anyway")):
                 self.con.info(i18n.t("r.key.not_saved"), "🐝")
+                return
+            config.save_credentials(key)
+            self.con.info(i18n.t("r.key.saved_unchecked"), "🔑")
+        self._lage_zeigen([config.credentials_ort()], config.CREDENTIALS_PATH)
 
     def _schluessel_entfernen(self) -> None:
         import os
@@ -1396,10 +1407,7 @@ class BeehiveShell(cmd.Cmd):
         if not self._ja(i18n.t("r.key.remove_confirm")):
             self.con.info(i18n.t("r.cancelled"), "🐝")
             return
-        try:
-            config.CREDENTIALS_PATH.unlink()
-        except OSError:
-            pass
+        config.delete_credentials()
         if os.environ.get("OPENROUTER_API_KEY"):
             self.con.ask(i18n.t("r.key.env_still"))
         else:
@@ -1571,20 +1579,29 @@ class BeehiveShell(cmd.Cmd):
     do_api = do_flugrouten
 
     def _flugrouten_status(self) -> None:
-        from pollysort.flugrouten import load_flugrouten, mask
+        from pollysort.flugrouten import (
+            ablage,
+            default_path,
+            discord_token,
+            email_password,
+            load_flugrouten,
+            mask,
+        )
         fr = load_flugrouten()
         self.con.rule(i18n.t("r.routes.title"))
         if not fr.any_enabled():
             self.con.info(i18n.t("r.routes.none"), "🧭")
             return
+        # Maskiert wird der Wert, der wirklich benutzt würde (Umgebungsvariable vor Gespeichertem).
         if fr.discord.enabled:
             self.con.raw(i18n.t("r.routes.discord",
-                                channel=fr.discord.channel_id, token=mask(fr.discord.bot_token)))
+                                channel=fr.discord.channel_id, token=mask(discord_token(fr))))
         if fr.email.enabled:
             self.con.raw(i18n.t("r.routes.email",
                                 addr=fr.email.address, provider=fr.email.provider, host=fr.email.smtp_host,
-                                port=fr.email.smtp_port, pw=mask(fr.email.password)))
+                                port=fr.email.smtp_port, pw=mask(email_password(fr))))
         self.con.info(i18n.t("r.routes.local"), "🐝")
+        self._lage_zeigen(ablage().values(), default_path())
 
     def _flugrouten_test(self) -> None:
         from pollysort.flugrouten import load_flugrouten
@@ -1608,6 +1625,8 @@ class BeehiveShell(cmd.Cmd):
             EMAIL_PRESETS,
             DiscordConfig,
             EmailConfig,
+            ablage,
+            default_path,
             load_flugrouten,
             save_flugrouten,
         )
@@ -1658,6 +1677,7 @@ class BeehiveShell(cmd.Cmd):
         # .honig/kalender.ics schreibt der Wabenbau ohnehin immer.
         save_flugrouten(fr)
         self.con.honey(i18n.t("r.routes.saved"), "🍯")
+        self._lage_zeigen(ablage().values(), default_path())
 
     #: Zustimmung in beiden Sprachen — sonst versteht der EN-Modus sein eigenes "yes" nicht.
     _YES = ("j", "ja", "y", "yes")
@@ -2175,7 +2195,8 @@ class BeehiveShell(cmd.Cmd):
         """Den OpenRouter-Key lokal ablegen. Gibt zurück, ob es geklappt hat.
 
         🔒 Wachssiegel: Der Key wird nur an ``config.save_credentials`` weitergereicht
-        (chmod 600) — er wird nie ausgegeben, geloggt oder in einen Prompt geschrieben.
+        (Tresor des Betriebssystems, sonst Datei mit chmod 600) — er wird nie ausgegeben,
+        geloggt oder in einen Prompt geschrieben.
         """
         try:
             config.save_credentials(key.strip())

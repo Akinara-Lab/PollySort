@@ -32,6 +32,10 @@ dependencies = [
     # pure-Python, überall installierbar — nötig, damit die LOKALE KI (Ollama) PDFs
     # lesen kann: die kennt keine Datei-Anhänge, der Text wird lokal extrahiert.
     "pypdf>=4.0",
+    # Zugangsdaten (OpenRouter-Schlüssel, Discord-Token, E-Mail-Passwort) in den Tresor des
+    # Betriebssystems statt in eine Klartext-Datei — siehe pollysort/tresor.py. Fehlt ein
+    # solcher Tresor (Server, Container), bleibt es bei der Datei.
+    "keyring>=25.0",
 ]
 
 [project.urls]

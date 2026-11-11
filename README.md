@@ -763,11 +763,17 @@ project:
   sign-in, so for now use Gmail with an app password or another provider; port 465 works too.
 
 > [!NOTE]
-> **Credential seal:** notification credentials live **only** locally in
-> `~/.pollysort/flugrouten.toml` (chmod 600; override with `POLLYSORT_DISCORD_TOKEN` /
-> `POLLYSORT_EMAIL_PASSWORD`), **never** in the project and
-> **never** in an LLM prompt. Discord/SMTP calls run completely independently of the AI;
-> sensitive fields are masked in `log.jsonl`. No notifications are sent without your setup.
+> **Credential seal:** the secrets (OpenRouter key, Discord bot token, e-mail password) live in
+> your operating system's credential store — Windows Credential Manager, macOS Keychain or the
+> desktop keyring on Linux — and the files under `~/.pollysort/` only hold the placeholder
+> `@tresor`. Secrets saved as plain text by earlier versions move there on first use. On systems
+> without such a store (servers, containers) or with `POLLYSORT_TRESOR=off`, they stay in
+> `~/.pollysort/credentials` and `flugrouten.toml` (chmod 600) and PollySort says so (`key`,
+> `routes`, `doctor`, the workshop). Environment variables always win and are never stored:
+> `OPENROUTER_API_KEY`, `POLLYSORT_DISCORD_TOKEN`, `POLLYSORT_EMAIL_PASSWORD`. Secrets are
+> **never** in the project and **never** in an LLM prompt. Discord/SMTP calls run completely
+> independently of the AI; sensitive fields are masked in `log.jsonl`. No notifications are sent
+> without your setup.
 
 ---
 
@@ -811,7 +817,8 @@ Report vulnerabilities privately: **[`SECURITY.md`](SECURITY.md)**.
   through the confirmed `trash` → `empty` flow.
 - **The app listens on 127.0.0.1 only**, with a session token, host/origin checks and a strict
   Content-Security-Policy.
-- API keys and credentials are stored locally only and never enter an AI prompt.
+- API keys and credentials are stored locally only — in the operating system's credential store
+  where there is one — and never enter an AI prompt.
 
 ---
 
