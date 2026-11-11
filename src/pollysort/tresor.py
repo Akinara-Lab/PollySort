@@ -32,6 +32,7 @@ IM_TRESOR = "@tresor"
 # Namen der Einträge (im Windows-Tresor zu sehen als „<name>@PollySort").
 OPENROUTER = "openrouter-schluessel"
 DISCORD_TOKEN = "discord-bot-token"
+DISCORD_WEBHOOK = "discord-webhook"
 EMAIL_PASSWORT = "email-passwort"
 
 #: Umgebungsvariable, die den Tresor abschaltet (Container, Skripte, eigene Vorliebe).

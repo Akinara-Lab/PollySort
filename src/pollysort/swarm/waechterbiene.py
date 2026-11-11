@@ -133,21 +133,39 @@ class Waechterbiene:
         wann = i18n.t("wb.when_overdue") if tage < 0 else i18n.t("wb.when_in", n=tage)
         titel = f"Deadline: {t.titel}"
         text = i18n.t("wb.mail", date=t.faellig, when=wann)
-        erfolg_gesamt = True
-        for k in self.kanaele:
+        from .kanaele import KanalAbgelehnt
+
+        # Je Flugroute merken, wer die Deadline schon hat: Scheitert eine (Mailserver weg),
+        # bekommt beim nächsten Versuch nur sie die Nachricht — nicht alle anderen noch einmal.
+        an, abgelehnt = self.kalender.zustellung(t.id)
+        alle = set()
+        for nr, k in enumerate(self.kanaele):
+            kennung = getattr(k, "schluessel", None) or f"{k.name}#{nr}"
+            alle.add(kennung)
+            if kennung in an:
+                continue
             try:
                 k.senden(titel, text)
+                an.add(kennung)
+                abgelehnt.discard(kennung)
                 if con is not None:
                     stock = getattr(k, "STOCK", f"{k.name}-Wabe")
                     con.honey(i18n.t("r.routes.test_ok", target=stock), "🐝")
                 self.ctx.journal.event("waechter_versand", kanal=k.name, termin=t.id, erfolg=True)
             except Exception as exc:      # KanalError o. ä. — Text enthält bewusst kein Secret
-                erfolg_gesamt = False
+                if isinstance(exc, KanalAbgelehnt):
+                    abgelehnt.add(kennung)
                 if con is not None:
                     con.error(i18n.t("wb.back", name=k.name, err=exc))
                 self.ctx.journal.event("waechter_versand", kanal=k.name, termin=t.id, erfolg=False)
-        if erfolg_gesamt:
-            self.kalender.markiere_gemeldet(t.id)   # erst nach Erfolg → kein Doppel-Versand
+        try:
+            self.kalender.zustellung_merken(t.id, an, abgelehnt)
+        except OSError:
+            pass
+        # Gemeldet ist die Deadline, wenn jede Flugroute sie hat oder dauerhaft ablehnt — und
+        # mindestens eine sie wirklich bekommen hat. Bis dahin probiert die Wache es weiter.
+        if alle <= an | abgelehnt and alle & an:
+            self.kalender.markiere_gemeldet(t.id)
 
     # -- Testflug ------------------------------------------------------------
     def flugtest(self) -> list[str]:

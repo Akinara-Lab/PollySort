@@ -757,20 +757,30 @@ project:
 - Records deadlines in the swarm calendar and writes a real **`.ics` file** you can subscribe to
   in Apple Calendar, Outlook or Google.
 - **Notification routes (opt-in):** via `routes setup` you can give the guard bees **Discord**
-  (bot token + channel) and/or **e-mail** (SMTP presets for Gmail/Outlook or custom). When a
-  deadline is due they actually notify you (`calendar notify`, or automatically in the `watch`
-  service; anti-spam included). Personal Outlook/Hotmail accounts no longer accept password
-  sign-in, so for now use Gmail with an app password or another provider; port 465 works too.
+  and/or **e-mail**. When a deadline is due they actually notify you (`calendar notify`, or
+  automatically in the `watch` service; anti-spam included).
+  - **Discord, three ways:** a **webhook** (simplest — Discord issues an address for one channel,
+    no bot needed), your own **bot posting to a channel**, or your own **bot messaging individual
+    users directly**. With a webhook or channel you can list user IDs to be mentioned; direct
+    messages only reach users who share a server with the bot and allow them.
+  - **E-mail:** presets for Gmail, GMX, WEB.DE, T-Online, freenet, Posteo, mailbox.org, iCloud,
+    Yahoo, IONOS, Strato and Microsoft 365, or your own server (port 587 or 465). The assistant
+    tells you what each provider needs (app password, enabled IMAP access, …). Personal
+    Outlook/Hotmail accounts no longer accept password sign-in.
+  - Each route is tracked separately: if the mail server is down, only the e-mail is retried —
+    Discord does not get the same reminder again.
 
 > [!NOTE]
-> **Credential seal:** the secrets (OpenRouter key, Discord bot token, e-mail password) live in
+> **Credential seal:** the secrets (OpenRouter key, Discord bot token and webhook address, e-mail
+> password) live in
 > your operating system's credential store — Windows Credential Manager, macOS Keychain or the
 > desktop keyring on Linux — and the files under `~/.pollysort/` only hold the placeholder
 > `@tresor`. Secrets saved as plain text by earlier versions move there on first use. On systems
 > without such a store (servers, containers) or with `POLLYSORT_TRESOR=off`, they stay in
 > `~/.pollysort/credentials` and `flugrouten.toml` (chmod 600) and PollySort says so (`key`,
 > `routes`, `doctor`, the workshop). Environment variables always win and are never stored:
-> `OPENROUTER_API_KEY`, `POLLYSORT_DISCORD_TOKEN`, `POLLYSORT_EMAIL_PASSWORD`. Secrets are
+> `OPENROUTER_API_KEY`, `POLLYSORT_DISCORD_TOKEN`, `POLLYSORT_DISCORD_WEBHOOK`,
+> `POLLYSORT_EMAIL_PASSWORD`. Secrets are
 > **never** in the project and **never** in an LLM prompt. Discord/SMTP calls run completely
 > independently of the AI; sensitive fields are masked in `log.jsonl`. No notifications are sent
 > without your setup.

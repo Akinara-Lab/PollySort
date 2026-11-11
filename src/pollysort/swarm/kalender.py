@@ -88,6 +88,34 @@ class Kalender:
                 t.gemeldet = True
         self._write(termine)
 
+    # -- Zustellung je Flugroute ---------------------------------------------
+    # Wer eine Deadline schon bekommen hat, steht in einer eigenen kleinen Datei neben dem
+    # Kalender — nicht im Termin selbst: Ältere PollySort-Versionen verwerfen Termine mit
+    # Feldern, die sie nicht kennen.
+    @property
+    def _zustellung_pfad(self) -> Path:
+        return self.path.with_name("kalender.zustellung.json")
+
+    def _zustellungen(self) -> dict:
+        try:
+            daten = json.loads(self._zustellung_pfad.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return daten if isinstance(daten, dict) else {}
+
+    def zustellung(self, tid: str) -> tuple[set[str], set[str]]:
+        """``(angekommen, abgelehnt)`` — die Kennungen der Flugrouten für diesen Termin."""
+        stand = self._zustellungen().get(tid) or {}
+        return set(stand.get("an") or []), set(stand.get("abgelehnt") or [])
+
+    def zustellung_merken(self, tid: str, an: set[str], abgelehnt: set[str]) -> None:
+        alle = self._zustellungen()
+        alle[tid] = {"an": sorted(an), "abgelehnt": sorted(abgelehnt)}
+        offen = {t.id for t in self._all() if not t.erledigt}
+        alle = {k: v for k, v in alle.items() if k in offen}      # Erledigtes räumt sich weg
+        self._zustellung_pfad.write_text(json.dumps(alle, ensure_ascii=False, indent=1) + "\n",
+                                         encoding="utf-8")
+
     def gemeldet_abgleichen(self, belegt: set[str]) -> int:
         """``gemeldet`` zurücknehmen, wo kein Versand belegt ist. Gibt die Anzahl zurück."""
         termine = self._all()
