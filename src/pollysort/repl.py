@@ -1574,7 +1574,7 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.flugrouten import load_flugrouten, mask
         fr = load_flugrouten()
         self.con.rule(i18n.t("r.routes.title"))
-        if not fr.any_enabled() and not fr.calendar.enabled:
+        if not fr.any_enabled():
             self.con.info(i18n.t("r.routes.none"), "🧭")
             return
         if fr.discord.enabled:
@@ -1584,8 +1584,6 @@ class BeehiveShell(cmd.Cmd):
             self.con.raw(i18n.t("r.routes.email",
                                 addr=fr.email.address, provider=fr.email.provider, host=fr.email.smtp_host,
                                 port=fr.email.smtp_port, pw=mask(fr.email.password)))
-        if fr.calendar.enabled:
-            self.con.raw(i18n.t("r.routes.calendar", kind=fr.calendar.kind))
         self.con.info(i18n.t("r.routes.local"), "🐝")
 
     def _flugrouten_test(self) -> None:
@@ -1605,10 +1603,9 @@ class BeehiveShell(cmd.Cmd):
                 self.con.error(i18n.t("r.routes.blocked", name=k.name, err=exc))
 
     def _flugrouten_setup(self) -> None:
-        """Assistent: neue Flugrouten für die Wächterbienen ausweisen (Discord/E-Mail/Kalender)."""
+        """Assistent: neue Flugrouten für die Wächterbienen ausweisen (Discord/E-Mail)."""
         from pollysort.flugrouten import (
             EMAIL_PRESETS,
-            CalendarConfig,
             DiscordConfig,
             EmailConfig,
             load_flugrouten,
@@ -1636,10 +1633,12 @@ class BeehiveShell(cmd.Cmd):
             if wahl == "2":
                 provider = "outlook"
                 host, port, tls = EMAIL_PRESETS["outlook"]
+                self.con.info(i18n.t("r.routes.outlook_hint"), "⚠️")
             elif wahl == "3":
                 provider = "custom"
                 host = self._ask(i18n.t("r.routes.smtp")).strip()
-                port = int(self._ask("      Port [587]: ").strip() or "587")
+                eingabe = self._ask("      Port [587]: ").strip()
+                port = int(eingabe) if eingabe.isdigit() else 587   # 465 = sofort verschlüsselt
                 tls = True
             else:
                 provider = "gmail"
@@ -1655,11 +1654,8 @@ class BeehiveShell(cmd.Cmd):
             else:
                 self.con.info(i18n.t("r.routes.email_skip"), "🧭")
 
-        # -- Kalender (nur Struktur) ---------------------------------------
-        if self._ja(i18n.t("r.routes.ask_cal")):
-            fr.calendar = CalendarConfig(enabled=True)
-            self.con.honey(i18n.t("r.routes.cal_ok"), "🐝")
-
+        # Eine „Kalender-Flugroute" gab es hier nur als Frage ohne Wirkung — die abonnierbare
+        # .honig/kalender.ics schreibt der Wabenbau ohnehin immer.
         save_flugrouten(fr)
         self.con.honey(i18n.t("r.routes.saved"), "🍯")
 

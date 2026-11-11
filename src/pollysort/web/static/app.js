@@ -881,7 +881,7 @@
           ${rolle(P.sprite('krone'), 'web.role.queen', px(s.waben), t('web.role.queen.text', { waben: s.waben, docs: s.dokumente }))}
           ${rolle(P.biene(), 'web.role.scouts', px(s.assigned), t('web.role.scouts.text', { review: s.needs_review, errors: s.error }))}
           ${rolle(P.sprite('hammer'), 'web.role.builders', px(s.projekte), t('web.role.builders.text'))}
-          ${rolle(P.sprite('glocke'), 'web.role.guards', px(s.deadlines_faellig), t(s.flugrouten ? 'web.role.guards.routes' : 'web.role.guards.noroutes'))}
+          ${rolle(P.sprite('glocke'), 'web.role.guards', px(s.deadlines_faellig), t(!s.flugrouten ? 'web.role.guards.noroutes' : s.wache ? 'web.role.guards.routes' : 'web.role.guards.nowatch'))}
           ${rolle(P.sprite('topf'), 'web.role.foragers', px(s.gewohnheiten.length), t('web.role.foragers.text'), gew)}
         </div>
         <section class="karte"><div class="zeile weit"><h2>${P.sprite('kalender')} ${esc(t('r.cal.title'))}</h2>
@@ -1085,7 +1085,7 @@
         <section class="karte"><h2>${esc(t('web.ws.access'))}</h2>
           <table class="liste"><tbody>
             <tr><td class="mit-symbol">${P.sprite('schluessel', 'symbol')}<b>${esc(t('r.key.title'))}</b></td><td>${w.schluessel.quelle ? `<span class="mono">${esc(w.schluessel.maskiert)}</span> <span class="leise klein">(${esc(t('web.key.' + w.schluessel.quelle))})</span>` : `<span class="leise">${esc(t('r.key.none'))}</span>`}</td><td><code>schluessel setzen</code></td></tr>
-            <tr><td class="mit-symbol">${P.sprite('route', 'symbol')}<b>${esc(t('r.routes.title'))}</b></td><td>${['discord', 'email', 'kalender'].map((k) => `<span class="chip ${w.flugrouten[k] ? 'wache' : 'aus'}">${esc(t('web.routes.' + k))}</span>`).join(' ')}</td><td><code>flugrouten setup</code></td></tr>
+            <tr><td class="mit-symbol">${P.sprite('route', 'symbol')}<b>${esc(t('r.routes.title'))}</b></td><td>${['discord', 'email'].map((k) => `<span class="chip ${w.flugrouten[k] ? 'wache' : 'aus'}">${esc(t('web.routes.' + k))}</span>`).join(' ')}</td><td><code>flugrouten setup</code></td></tr>
           </tbody></table>
           <p class="hinweis">${esc(t('web.ws.access.text'))}</p></section>
         <section class="karte"><div class="zeile weit"><h2 class="mit-symbol">${P.sprite('zahnrad', 'symbol')}<span>${esc(t('web.ws.check'))}</span></h2>

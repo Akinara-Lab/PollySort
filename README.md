@@ -759,11 +759,13 @@ project:
 - **Notification routes (opt-in):** via `routes setup` you can give the guard bees **Discord**
   (bot token + channel) and/or **e-mail** (SMTP presets for Gmail/Outlook or custom). When a
   deadline is due they actually notify you (`calendar notify`, or automatically in the `watch`
-  service; anti-spam included).
+  service; anti-spam included). Personal Outlook/Hotmail accounts no longer accept password
+  sign-in, so for now use Gmail with an app password or another provider; port 465 works too.
 
 > [!NOTE]
 > **Credential seal:** notification credentials live **only** locally in
-> `~/.pollysort/flugrouten.toml` (chmod 600, env override possible), **never** in the project and
+> `~/.pollysort/flugrouten.toml` (chmod 600; override with `POLLYSORT_DISCORD_TOKEN` /
+> `POLLYSORT_EMAIL_PASSWORD`), **never** in the project and
 > **never** in an LLM prompt. Discord/SMTP calls run completely independently of the AI;
 > sensitive fields are masked in `log.jsonl`. No notifications are sent without your setup.
 

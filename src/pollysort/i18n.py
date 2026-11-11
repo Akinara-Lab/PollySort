@@ -1163,9 +1163,11 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "  📧 E-Mail-Flugroute einrichten? [j/N]: ",
         "en": "  📧 Set up e-mail? [y/N]: ",
     },
-    "r.routes.ask_cal": {
-        "de": "  📅 Kalender-Flugroute anlegen? (Struktur, Sync folgt) [j/N]: ",
-        "en": "  📅 Add a calendar route? (structure only, sync comes later) [y/N]: ",
+    "r.routes.outlook_hint": {
+        "de": "Private Outlook-/Hotmail-Konten nehmen seit 2024 kein Passwort mehr an. Mit Passwort "
+              "geht es nur noch bei Firmenkonten (Microsoft 365), solange der Administrator es erlaubt.",
+        "en": "Personal Outlook/Hotmail accounts have not accepted passwords since 2024. A password "
+              "only works for work accounts (Microsoft 365), as long as the administrator allows it.",
     },
     "r.routes.saved": {
         "de": "Flugrouten gesichert (nur lokal, chmod 600). Testflug: 'flugrouten test'.",
@@ -1444,10 +1446,6 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "   📧 E-Mail: aktiv · {addr} · {provider} ({host}:{port}) · Pass {pw}",
         "en": "   📧 E-mail: active · {addr} · {provider} ({host}:{port}) · pass {pw}",
     },
-    "r.routes.calendar": {
-        "de": "   📅 Kalender: vorgemerkt ({kind})",
-        "en": "   📅 Calendar: planned ({kind})",
-    },
     "r.routes.none_active": {
         "de": "Keine aktiven Flugrouten. 'flugrouten setup' weist welche aus.",
         "en": "No active notification routes. 'routes setup' adds some.",
@@ -1455,10 +1453,6 @@ _CATALOG: dict[str, dict[str, str]] = {
     "r.routes.providers": {
         "de": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Benutzerdefiniert",
         "en": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Custom",
-    },
-    "r.routes.cal_ok": {
-        "de": "Kalender-Flugroute vorgemerkt.",
-        "en": "Calendar route noted.",
     },
     "r.trash.moved": {
         "de": "→ Quarantäne (nicht gelöscht): {name}",
@@ -1849,6 +1843,29 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "🐝 Hallo vom Bienenstock! Diese Flugroute steht bereit.",
         "en": "🐝 Hello from the hive! This route is ready.",
     },
+    "kanal.cert": {
+        "de": "Zertifikat des Mailservers ist nicht vertrauenswürdig — nichts verschickt, "
+              "Servername prüfen",
+        "en": "The mail server's certificate is not trusted — nothing sent, check the server name",
+    },
+    "kanal.auth": {
+        "de": "Mailserver lehnt die Anmeldung ab — Adresse und (App-)Passwort prüfen",
+        "en": "The mail server rejected the sign-in — check address and (app) password",
+    },
+    "kanal.auth.microsoft": {
+        "de": "Microsoft nimmt bei privaten Outlook-/Hotmail-Konten kein Passwort mehr an; bei "
+              "Firmenkonten entscheidet der Administrator",
+        "en": "Microsoft no longer accepts passwords for personal Outlook/Hotmail accounts; for "
+              "work accounts the administrator decides",
+    },
+    "kanal.auth.gmail": {
+        "de": "Gmail braucht ein App-Passwort (Bestätigung in zwei Schritten einschalten)",
+        "en": "Gmail needs an app password (turn on 2-Step Verification)",
+    },
+    "kanal.discord.429": {
+        "de": "Discord bremst gerade (429 Too Many Requests) — später erneut",
+        "en": "Discord is rate limiting (429 Too Many Requests) — try again later",
+    },
     "sw.checking": {
         "de": "Prüfe den ganzen Ordner auf manuelle Änderungen …",
         "en": "Checking the whole folder for manual changes …",
@@ -2227,6 +2244,12 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "Deadlines in den nächsten 7 Tagen — sie melden sich über deine Flugrouten.",
         "en": "Deadlines within the next 7 days — reported via your notification routes.",
     },
+    "web.role.guards.nowatch": {
+        "de": "Deadlines in den nächsten 7 Tagen. Von selbst erinnern die Wächterbienen nur, solange "
+              "die Wache läuft — sie ist aus. Der Knopf im Kalender schickt sie von Hand los.",
+        "en": "Deadlines within the next 7 days. The guard bees only remind you on their own while "
+              "the watch is running — it is off. The button in the calendar sends them by hand.",
+    },
     "web.role.guards.noroutes": {
         "de": "Deadlines in den nächsten 7 Tagen. Ohne Flugrouten melden sich die Wächterbienen nur hier.",
         "en": "Deadlines within the next 7 days. Without notification routes the guard bees only report "
@@ -2362,7 +2385,6 @@ _CATALOG: dict[str, dict[str, str]] = {
     },
     "web.routes.discord": {"de": "Discord", "en": "Discord"},
     "web.routes.email": {"de": "E-Mail", "en": "Email"},
-    "web.routes.kalender": {"de": "Kalender", "en": "Calendar"},
     "web.ws.check": {"de": "Stock-Check", "en": "Hive check"},
     "web.ws.about": {
         "de": "Konsole: pollysort · Browser: pollysort-web",

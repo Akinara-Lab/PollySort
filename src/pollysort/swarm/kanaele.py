@@ -8,6 +8,7 @@ Flugrouten-Config, nie aus einem Modell-Kontext. Jeder Kanal bietet dieselbe Sch
 
 from __future__ import annotations
 
+from .. import i18n
 from ..flugrouten import Flugrouten, discord_token, email_password
 
 
@@ -30,8 +31,10 @@ class DiscordKanal:
         self._token = token
         self.channel_id = channel_id
 
+    MAX_ZEICHEN = 2000                       # mehr nimmt Discord je Nachricht nicht an
+
     def _payload(self, titel: str, text: str) -> dict:
-        return {"content": f"🐝 **{titel}**\n{text}"}
+        return {"content": f"🐝 **{titel}**\n{text}"[:self.MAX_ZEICHEN]}
 
     def senden(self, titel: str, text: str) -> None:
         import httpx
@@ -52,12 +55,18 @@ class DiscordKanal:
         if r.status_code in (403, 404):
             raise KanalError(f"Discord-Channel nicht erreichbar ({r.status_code}) — Channel-ID/"
                              "Bot-Rechte prüfen")
+        if r.status_code == 429:
+            raise KanalError(i18n.t("kanal.discord.429"))
         if r.status_code >= 400:
             raise KanalError(f"Discord antwortete mit HTTP {r.status_code}")
 
 
 class EmailKanal:
-    """Verschickt eine E-Mail per SMTP+STARTTLS (Adresse/Passwort nur aus der lokalen Config)."""
+    """Verschickt eine E-Mail per SMTP (Adresse/Passwort nur aus der lokalen Config).
+
+    Port 465 spricht von Anfang an verschlüsselt, alle anderen Ports wechseln per STARTTLS —
+    in beiden Fällen wird das Zertifikat des Servers geprüft.
+    """
 
     name = "E-Mail"
     STOCK = "E-Mail-Wabe"
@@ -80,17 +89,43 @@ class EmailKanal:
         msg.set_content(text)
         return msg
 
+    #: Port, auf dem Mailserver von Anfang an verschlüsselt sprechen (statt STARTTLS auf 587).
+    PORT_TLS_SOFORT = 465
+
     def senden(self, titel: str, text: str) -> None:
         import smtplib
+        import ssl
         msg = self._message(titel, text)
+        # Ohne eigenen Kontext prüft smtplib das Zertifikat des Servers NICHT — das Passwort
+        # ginge dann auch an jeden, der sich als Mailserver ausgibt. Dieser Kontext prüft
+        # Zertifikat und Servernamen gegen die Zertifikate des Betriebssystems.
+        kontext = ssl.create_default_context()
+        sofort = self.smtp_port == self.PORT_TLS_SOFORT
         try:
-            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=20) as smtp:
-                if self.use_tls:
-                    smtp.starttls()
+            if sofort:
+                smtp = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=20, context=kontext)
+            else:
+                smtp = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=20)
+            with smtp:
+                if self.use_tls and not sofort:
+                    smtp.starttls(context=kontext)
                 smtp.login(self.address, self._password)
                 smtp.send_message(msg)
+        except ssl.SSLCertVerificationError:
+            raise KanalError(i18n.t("kanal.cert")) from None
+        except smtplib.SMTPAuthenticationError:
+            raise KanalError(i18n.t("kanal.auth") + self._anbieter_hinweis()) from None
         except (smtplib.SMTPException, OSError) as exc:
             raise KanalError(f"SMTP-Versand fehlgeschlagen ({exc.__class__.__name__})") from None
+
+    def _anbieter_hinweis(self) -> str:
+        """Bekannter Grund je Anbieter, warum ein richtiges Passwort trotzdem abgelehnt wird."""
+        host = self.smtp_host.lower()
+        if host.endswith(("outlook.com", "office365.com", "hotmail.com", "live.com")):
+            return ". " + i18n.t("kanal.auth.microsoft")
+        if host.endswith(("gmail.com", "googlemail.com")):
+            return ". " + i18n.t("kanal.auth.gmail")
+        return ""
 
 
 def build_kanaele(fr: Flugrouten) -> list:
