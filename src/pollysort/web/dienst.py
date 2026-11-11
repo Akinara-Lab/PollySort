@@ -10,8 +10,10 @@ Die Grundsätze bleiben unverhandelbar (CONTRIBUTING.md):
 
 - **Nichts wird gelöscht** außer über ``leeren`` — und das nur mit der getippten Anzahl.
 - **Eine Vorschau bleibt eine Vorschau:** ``vorschau`` füllt nur den Analyse-Cache.
-- **Zugangsdaten bleiben in der Konsole:** Schlüssel und Flugrouten zeigt das Flugbrett
-  nur maskiert an; eingetragen werden sie über ``schluessel setzen`` / ``flugrouten setup``.
+- **Zugangsdaten kommen herein, nie heraus:** Schlüssel und Flugrouten zeigt das Flugbrett
+  nur maskiert an. Den OpenRouter-Schlüssel trägt man in der Konsole ein (``schluessel
+  setzen``); für die Flugrouten gibt es zusätzlich zu ``flugrouten setup`` die Aktionen
+  ``flugrouten_*`` — das Formular dazu in der Werkstatt steht noch aus.
 - **Eine Aktion nach der anderen:** Schreibende Aktionen laufen nacheinander (``Beschaeftigt``)
   und respektieren das Lock der Königin, falls parallel eine Konsole im Stock arbeitet.
 """
@@ -465,6 +467,145 @@ class Dienst:
                 "modell": cfg.llm_model,
                 "sorten": [{"kurz": k, "id": v} for k, v in NEKTAR_SORTEN.items()],
                 "beenara": self._beenara(), "beenara_big": self._beenara_big()}
+
+    # ------------------------------------------------------------------ #
+    #  Flugrouten einrichten — die Funktionen hinter einem Formular in der Werkstatt.
+    #  Das Formular selbst gibt es in app.js noch nicht; bis dahin bleibt 'flugrouten setup'
+    #  in der Konsole der Weg. Geheimnisse kommen hier nur herein, nie wieder heraus: Jede
+    #  Antwort zeigt sie maskiert, nichts davon geht in den Ereignisstrom oder ins Protokoll.
+    # ------------------------------------------------------------------ #
+    @ansicht
+    def flugrouten_stand(self) -> dict:
+        """Alles, was ein Formular für die Flugrouten zeigen muss — Geheimnisse nur maskiert."""
+        from .. import tresor
+        from ..flugrouten import (
+            EMAIL_ANBIETER,
+            ablage,
+            default_path,
+            discord_art,
+            discord_token,
+            discord_webhook,
+            email_password,
+            load_flugrouten,
+            mask,
+        )
+        fr = load_flugrouten()
+        d, e = fr.discord, fr.email
+        lagen = ablage()
+        offen = next((la for la in tresor.LAGEN[:2] if la in lagen.values()), "")
+
+        def maskiert(wert: str) -> str:
+            return mask(wert) if wert else ""       # "" = nichts hinterlegt
+
+        return {
+            "discord": {"aktiv": d.enabled, "art": discord_art(fr), "kanal": d.channel_id,
+                        "nutzer": list(d.user_ids), "token": maskiert(discord_token(fr)),
+                        "webhook": maskiert(discord_webhook(fr))},
+            "email": {"aktiv": e.enabled, "anbieter": e.provider, "adresse": e.address,
+                      "host": e.smtp_host, "port": e.smtp_port, "empfaenger": e.recipient,
+                      "passwort": maskiert(email_password(fr))},
+            # Auswahlliste für das Formular; „custom" (eigener Server und Port) kommt dazu.
+            "anbieter": [{"id": kurz, "name": a.name, "host": a.host, "port": a.port,
+                          "hinweis": i18n.t(a.hinweis) if a.hinweis else ""}
+                         for kurz, a in EMAIL_ANBIETER.items()],
+            "ablage": lagen, "hinweis": tresor.lage_text(offen, default_path()),
+            "tresor": {"aktiv": tresor.verfuegbar(), "ort": tresor.ort()},
+        }
+
+    @staticmethod
+    def _felder(daten, erlaubt: tuple[str, ...]) -> dict:
+        """Ein Formularteil: ein Objekt nur mit bekannten Feldern, Texte als Text."""
+        if not isinstance(daten, dict) or set(daten) - set(erlaubt):
+            raise Ungueltig(i18n.t("web.err.params"))
+        return {k: ("" if v is None else v) for k, v in daten.items()}
+
+    @auftrag("flugrouten_speichern")
+    def flugrouten_speichern(self, discord: dict | None = None, email: dict | None = None) -> dict:
+        """Discord und/oder E-Mail einrichten und einschalten.
+
+        ``discord``: ``art`` (webhook · kanal · direkt), dazu ``webhook`` bzw. ``token`` und
+        ``kanal``, und ``nutzer`` (Liste oder mit Komma getrennt). ``email``: ``anbieter``
+        (Kürzel aus ``flugrouten_stand`` oder custom), ``adresse``, ``passwort``,
+        ``empfaenger``, bei custom ``host`` und ``port``. Ein leeres Geheimnis lässt das
+        gespeicherte stehen — das Formular bekommt es ja nie zu sehen.
+        """
+        from ..flugrouten import (
+            FlugroutenFehler,
+            discord_setzen,
+            email_setzen,
+            load_flugrouten,
+            save_flugrouten,
+        )
+        fr = load_flugrouten()
+        try:
+            if discord is not None:
+                f = self._felder(discord, ("art", "webhook", "token", "kanal", "nutzer"))
+                nutzer = f.get("nutzer") if "nutzer" in f else None
+                if not isinstance(nutzer, str | list | None):
+                    raise Ungueltig(i18n.t("web.err.params"))
+                discord_setzen(fr, str(f.get("art", "")), webhook=str(f.get("webhook", "")),
+                               token=str(f.get("token", "")), kanal=str(f.get("kanal", "")),
+                               nutzer=nutzer)
+            if email is not None:
+                f = self._felder(email, ("anbieter", "adresse", "passwort", "host", "port",
+                                         "empfaenger"))
+                email_setzen(fr, str(f.get("anbieter", "")), adresse=str(f.get("adresse", "")),
+                             passwort=str(f.get("passwort", "")), host=str(f.get("host", "")),
+                             port=str(f.get("port", "")), empfaenger=str(f.get("empfaenger", "")))
+        except FlugroutenFehler as exc:
+            raise Ungueltig(str(exc)) from None
+        save_flugrouten(fr)
+        return self.flugrouten_stand()
+
+    def _flugroute(self, fr, kanal: str):
+        """Der Abschnitt ``discord`` oder ``email`` — alles andere ist eine ungültige Anfrage."""
+        kanal = str(kanal).strip().lower()
+        if kanal not in ("discord", "email"):
+            raise Ungueltig(i18n.t("routen.err.welche"))
+        return kanal, getattr(fr, kanal)
+
+    @auftrag("flugrouten_schalten")
+    def flugrouten_schalten(self, kanal: str = "", an: bool = True) -> dict:
+        """Eine eingerichtete Flugroute aus- oder wieder einschalten — die Angaben bleiben."""
+        from ..flugrouten import discord_art, email_password, load_flugrouten, save_flugrouten
+        fr = load_flugrouten()
+        kanal, abschnitt = self._flugroute(fr, kanal)
+        bereit = (bool(discord_art(fr)) if kanal == "discord" else
+                  bool(fr.email.address and fr.email.smtp_host and email_password(fr)))
+        if an and not bereit:
+            raise Ungueltig(i18n.t("routen.err.leer"))
+        abschnitt.enabled = bool(an)
+        save_flugrouten(fr)
+        return self.flugrouten_stand()
+
+    @auftrag("flugrouten_entfernen")
+    def flugrouten_entfernen(self, kanal: str = "") -> dict:
+        """Eine Flugroute samt ihren Zugangsdaten vergessen (auch im Tresor)."""
+        from ..flugrouten import DiscordConfig, EmailConfig, load_flugrouten, save_flugrouten
+        fr = load_flugrouten()
+        kanal, _ = self._flugroute(fr, kanal)
+        if kanal == "discord":
+            fr.discord = DiscordConfig()
+        else:
+            fr.email = EmailConfig()
+        save_flugrouten(fr)
+        return self.flugrouten_stand()
+
+    @auftrag("flugrouten_testen", sperre=False)
+    def flugrouten_testen(self) -> dict:
+        """Eine Testnachricht über jede aktive Flugroute schicken — Ergebnis je Empfänger."""
+        from ..flugrouten import load_flugrouten
+        from ..swarm.kanaele import KanalError, build_kanaele
+        ergebnis = []
+        for k in build_kanaele(load_flugrouten()):
+            try:
+                k.senden(i18n.t("wb.test_title"), i18n.t("wb.test_text"))
+                ergebnis.append({"name": k.name, "ok": True, "fehler": ""})
+            except KanalError as exc:              # diese Texte sind ohne Geheimnis gebaut
+                ergebnis.append({"name": k.name, "ok": False, "fehler": str(exc)})
+            except Exception as exc:               # Unerwartetes: nur die Art, nie der Inhalt
+                ergebnis.append({"name": k.name, "ok": False, "fehler": exc.__class__.__name__})
+        return {"kanaele": ergebnis}
 
     # ------------------------------------------------------------------ #
     #  Sortieren

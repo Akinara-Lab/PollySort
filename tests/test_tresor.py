@@ -70,7 +70,7 @@ def test_speichern_legt_geheimnisse_in_den_tresor(ablage_ordner, tresor_im_speic
 
     fr = load_flugrouten()
     assert (fr.discord.bot_token, fr.email.password) == (TOKEN, PASSWORT)
-    assert flugrouten.ablage() == {"discord": "tresor", "email": "tresor"}
+    assert flugrouten.ablage() == {"discord": "tresor", "webhook": "", "email": "tresor"}
 
 
 def test_ohne_tresor_bleibt_es_bei_der_datei(ablage_ordner):
@@ -78,7 +78,7 @@ def test_ohne_tresor_bleibt_es_bei_der_datei(ablage_ordner):
     assert TOKEN in _datei(ablage_ordner) and PASSWORT in _datei(ablage_ordner)
     fr = load_flugrouten()
     assert (fr.discord.bot_token, fr.email.password) == (TOKEN, PASSWORT)
-    assert flugrouten.ablage() == {"discord": "datei", "email": "datei"}
+    assert flugrouten.ablage() == {"discord": "datei", "webhook": "", "email": "datei"}
 
 
 def test_alte_klartext_datei_zieht_beim_laden_um(ablage_ordner, tresor_im_speicher, monkeypatch):
@@ -143,7 +143,7 @@ def test_flugrouten_aus_raeumt_den_tresor(ablage_ordner, tresor_im_speicher):
     save_flugrouten(_routen())
     save_flugrouten(Flugrouten())                   # das macht 'flugrouten aus'
     assert not tresor_im_speicher.inhalt
-    assert flugrouten.ablage() == {"discord": "", "email": ""}
+    assert flugrouten.ablage() == {"discord": "", "webhook": "", "email": ""}
 
 
 def test_umgebungsvariable_schlaegt_den_tresor(ablage_ordner, tresor_im_speicher, monkeypatch):
@@ -177,7 +177,7 @@ def test_anzeige_zieht_erst_um_und_meldet_dann(ablage_ordner, tresor_im_speicher
     save_flugrouten(_routen())
     monkeypatch.setattr(tresor, "_pruefen", lambda: (tresor_im_speicher, ""))
     assert config.credentials_ort() == "tresor"
-    assert flugrouten.ablage() == {"discord": "tresor", "email": "tresor"}
+    assert flugrouten.ablage() == {"discord": "tresor", "webhook": "", "email": "tresor"}
 
 
 def test_schluessel_ohne_tresor_wie_bisher(ablage_ordner):

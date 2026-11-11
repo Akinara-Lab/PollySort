@@ -1582,7 +1582,9 @@ class BeehiveShell(cmd.Cmd):
         from pollysort.flugrouten import (
             ablage,
             default_path,
+            discord_art,
             discord_token,
+            discord_webhook,
             email_password,
             load_flugrouten,
             mask,
@@ -1594,8 +1596,19 @@ class BeehiveShell(cmd.Cmd):
             return
         # Maskiert wird der Wert, der wirklich benutzt würde (Umgebungsvariable vor Gespeichertem).
         if fr.discord.enabled:
-            self.con.raw(i18n.t("r.routes.discord",
-                                channel=fr.discord.channel_id, token=mask(discord_token(fr))))
+            art, nutzer = discord_art(fr), ", ".join(fr.discord.user_ids)
+            if art == "webhook":
+                self.con.raw(i18n.t("r.routes.discord_webhook", webhook=mask(discord_webhook(fr))))
+            elif art == "kanal":
+                self.con.raw(i18n.t("r.routes.discord",
+                                    channel=fr.discord.channel_id, token=mask(discord_token(fr))))
+            elif art == "direkt":
+                self.con.raw(i18n.t("r.routes.discord_direkt", users=nutzer,
+                                    token=mask(discord_token(fr))))
+            else:
+                self.con.raw(i18n.t("r.routes.discord_leer"))
+            if nutzer and art in ("webhook", "kanal"):
+                self.con.raw(i18n.t("r.routes.mentions", users=nutzer))
         if fr.email.enabled:
             self.con.raw(i18n.t("r.routes.email",
                                 addr=fr.email.address, provider=fr.email.provider, host=fr.email.smtp_host,
@@ -1614,7 +1627,8 @@ class BeehiveShell(cmd.Cmd):
         for k in kanaele:
             try:
                 k.senden(i18n.t("wb.test_title"), i18n.t("wb.test_text"))
-                stock = getattr(k, "STOCK", f"{k.name}-Wabe")
+                # Bei Direktnachrichten steht der Nutzer dabei — sonst liest man dreimal dasselbe.
+                stock = k.name if hasattr(k, "user_id") else getattr(k, "STOCK", f"{k.name}-Wabe")
                 self.con.honey(i18n.t("r.routes.test_ok", target=stock), "🐝")
             except Exception as exc:
                 self.con.error(i18n.t("r.routes.blocked", name=k.name, err=exc))
@@ -1622,11 +1636,12 @@ class BeehiveShell(cmd.Cmd):
     def _flugrouten_setup(self) -> None:
         """Assistent: neue Flugrouten für die Wächterbienen ausweisen (Discord/E-Mail)."""
         from pollysort.flugrouten import (
-            EMAIL_PRESETS,
-            DiscordConfig,
-            EmailConfig,
+            EMAIL_ANBIETER,
+            FlugroutenFehler,
             ablage,
             default_path,
+            discord_setzen,
+            email_setzen,
             load_flugrouten,
             save_flugrouten,
         )
@@ -1635,42 +1650,56 @@ class BeehiveShell(cmd.Cmd):
         self.con.info(i18n.t("r.routes.where"), "🧭")
         self.con.info(i18n.t("r.routes.local2"), "🐝")
 
-        # -- Discord --------------------------------------------------------
+        # -- Discord: Webhook, Bot im Kanal oder Direktnachrichten ------------
         if self._ja(i18n.t("r.routes.ask_discord")):
-            token = self._ask(i18n.t("r.routes.token")).strip()
-            channel = self._ask(i18n.t("r.routes.channel")).strip()
-            if token and channel:
-                fr.discord = DiscordConfig(enabled=True, bot_token=token, channel_id=channel)
-                self.con.honey(i18n.t("r.routes.discord_ok"), "🐝")
+            self.con.raw(i18n.t("r.routes.discord_arten"))
+            wahl = self._ask(i18n.t("r.routes.choice")).strip() or "1"
+            art = {"2": "kanal", "3": "direkt"}.get(wahl, "webhook")
+            angaben = {}
+            if art == "webhook":
+                angaben["webhook"] = self._ask(i18n.t("r.routes.webhook")).strip()
             else:
+                angaben["token"] = self._ask(i18n.t("r.routes.token")).strip()
+            if art == "kanal":
+                angaben["kanal"] = self._ask(i18n.t("r.routes.channel")).strip()
+            if art == "direkt":
+                self.con.info(i18n.t("r.routes.dm_hint"), "⚠️")
+            frage = "r.routes.users_dm" if art == "direkt" else "r.routes.users_mention"
+            angaben["nutzer"] = self._ask(i18n.t(frage)).strip()
+            try:
+                discord_setzen(fr, art, **angaben)
+                self.con.honey(i18n.t("r.routes.discord_ok"), "🐝")
+            except FlugroutenFehler as exc:
+                self.con.error(str(exc))
                 self.con.info(i18n.t("r.routes.discord_skip"), "🧭")
 
-        # -- E-Mail (mit Presets) ------------------------------------------
+        # -- E-Mail: Anbieter aus der Liste oder eigener Server ---------------
         if self._ja(i18n.t("r.routes.ask_email")):
-            self.con.raw(i18n.t("r.routes.providers"))
+            kuerzel = list(EMAIL_ANBIETER)
+            for nr, kurz in enumerate(kuerzel, 1):
+                self.con.raw(f"      [{nr}] {EMAIL_ANBIETER[kurz].name}")
+            self.con.raw(f"      [{len(kuerzel) + 1}] {i18n.t('r.routes.custom')}")
             wahl = self._ask(i18n.t("r.routes.choice")).strip() or "1"
-            if wahl == "2":
-                provider = "outlook"
-                host, port, tls = EMAIL_PRESETS["outlook"]
-                self.con.info(i18n.t("r.routes.outlook_hint"), "⚠️")
-            elif wahl == "3":
+            nr = int(wahl) if wahl.isdigit() else 1
+            host, port = "", ""
+            if 1 <= nr <= len(kuerzel):
+                provider = kuerzel[nr - 1]
+                if EMAIL_ANBIETER[provider].hinweis:
+                    self.con.info(i18n.t(EMAIL_ANBIETER[provider].hinweis), "⚠️")
+            else:
                 provider = "custom"
                 host = self._ask(i18n.t("r.routes.smtp")).strip()
-                eingabe = self._ask("      Port [587]: ").strip()
-                port = int(eingabe) if eingabe.isdigit() else 587   # 465 = sofort verschlüsselt
-                tls = True
-            else:
-                provider = "gmail"
-                host, port, tls = EMAIL_PRESETS["gmail"]
+                port = self._ask("      Port [587]: ").strip() or "587"   # 465 = sofort verschlüsselt
             address = self._ask(i18n.t("r.routes.address")).strip()
             password = self._ask(i18n.t("r.routes.password")).strip()
             recipient = self._ask(i18n.t("r.routes.recipient")).strip()
-            if address and password and host:
-                fr.email = EmailConfig(enabled=True, provider=provider, address=address,
-                                       password=password, smtp_host=host, smtp_port=port,
-                                       use_tls=tls, recipient=recipient)
-                self.con.honey(i18n.t("r.routes.email_ok", provider=provider, host=host, port=port), "🐝")
-            else:
+            try:
+                email_setzen(fr, provider, adresse=address, passwort=password, host=host,
+                             port=port, empfaenger=recipient)
+                self.con.honey(i18n.t("r.routes.email_ok", provider=provider,
+                                      host=fr.email.smtp_host, port=fr.email.smtp_port), "🐝")
+            except FlugroutenFehler as exc:
+                self.con.error(str(exc))
                 self.con.info(i18n.t("r.routes.email_skip"), "🧭")
 
         # Eine „Kalender-Flugroute" gab es hier nur als Frage ohne Wirkung — die abonnierbare

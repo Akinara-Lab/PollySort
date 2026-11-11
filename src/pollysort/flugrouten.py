@@ -22,11 +22,59 @@ from pathlib import Path
 from . import config, tresor
 from .config import _toml_val
 
-# SMTP-Presets für den E-Mail-Kanal: name -> (host, port, use_tls)
-EMAIL_PRESETS: dict[str, tuple[str, int, bool]] = {
-    "gmail": ("smtp.gmail.com", 587, True),
-    "outlook": ("smtp-mail.outlook.com", 587, True),
+
+@dataclass(frozen=True)
+class Anbieter:
+    """Ein E-Mail-Anbieter mit seinem Postausgangsserver (SMTP).
+
+    Port 587 wechselt per STARTTLS in die Verschlüsselung, Port 465 spricht von Anfang an
+    verschlüsselt — beides kann :class:`pollysort.swarm.kanaele.EmailKanal`. ``hinweis`` ist
+    ein Text-Schlüssel: was man bei diesem Anbieter wissen muss, damit die Anmeldung klappt.
+    """
+
+    name: str
+    host: str
+    port: int
+    hinweis: str = ""
+
+
+#: Die in Deutschland üblichen Anbieter. Alles andere geht über „custom" (Server und Port frei).
+EMAIL_ANBIETER: dict[str, Anbieter] = {
+    "gmail": Anbieter("Gmail", "smtp.gmail.com", 587, "anbieter.hinweis.gmail"),
+    "outlook": Anbieter("Outlook.com / Hotmail", "smtp-mail.outlook.com", 587,
+                        "r.routes.outlook_hint"),
+    "microsoft365": Anbieter("Microsoft 365", "smtp.office365.com", 587,
+                             "anbieter.hinweis.microsoft365"),
+    "gmx": Anbieter("GMX", "mail.gmx.net", 587, "anbieter.hinweis.gmx"),
+    "webde": Anbieter("WEB.DE", "smtp.web.de", 587, "anbieter.hinweis.webde"),
+    "t-online": Anbieter("T-Online", "securesmtp.t-online.de", 465, "anbieter.hinweis.t-online"),
+    "freenet": Anbieter("freenet", "mx.freenet.de", 587),
+    "posteo": Anbieter("Posteo", "posteo.de", 587),
+    "mailbox": Anbieter("mailbox.org", "smtp.mailbox.org", 465),
+    "icloud": Anbieter("iCloud Mail", "smtp.mail.me.com", 587, "anbieter.hinweis.icloud"),
+    "yahoo": Anbieter("Yahoo Mail", "smtp.mail.yahoo.com", 465, "anbieter.hinweis.yahoo"),
+    "ionos": Anbieter("IONOS (1&1)", "smtp.ionos.de", 587),
+    "strato": Anbieter("Strato", "smtp.strato.de", 465),
 }
+
+# Ältere Schreibweise derselben Liste: name -> (host, port, use_tls).
+EMAIL_PRESETS: dict[str, tuple[str, int, bool]] = {
+    kurz: (a.host, a.port, True) for kurz, a in EMAIL_ANBIETER.items()
+}
+
+
+def anbieter_fuer_host(host: str) -> Anbieter | None:
+    """Der bekannte Anbieter zu einem Postausgangsserver — für Hinweise bei Anmeldefehlern."""
+    host = (host or "").strip().lower()
+    return next((a for a in EMAIL_ANBIETER.values() if a.host == host), None)
+
+
+#: Wie Discord erreicht wird — siehe :func:`discord_art`.
+DISCORD_ARTEN = ("webhook", "kanal", "direkt")
+
+
+class FlugroutenFehler(ValueError):
+    """Eine Eingabe für die Flugrouten passt nicht — der Text ist für den Menschen gedacht."""
 
 # Feld-Namen, die als Geheimnis gelten (für Log-Redaction & Anzeige-Maskierung).
 SECRET_HINTS = ("token", "password", "passwort", "secret", "key", "auth", "credential")
@@ -50,9 +98,21 @@ def mask(value: str) -> str:
 # ---------------------------------------------------------------------------
 @dataclass
 class DiscordConfig:
+    """Drei Wege zu Discord (:func:`discord_art`):
+
+    - **Webhook:** eine Adresse, die Discord für genau einen Kanal ausgibt — kein Bot nötig.
+    - **Kanal:** ein eigener Bot schreibt in einen Kanal (Token + Kanal-ID).
+    - **Direkt:** ohne Kanal und ohne Webhook schreibt der Bot die Nutzer in ``user_ids``
+      einzeln an.
+
+    Bei Webhook und Kanal werden die Nutzer in ``user_ids`` in der Nachricht erwähnt.
+    """
+
     enabled: bool = False
     bot_token: str = ""          # SECRET — im Speicher der Wert, in der Datei meist "@tresor"
     channel_id: str = ""
+    webhook_url: str = ""        # SECRET (die Adresse enthält ihr eigenes Token) — wie bot_token
+    user_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -105,8 +165,134 @@ def discord_token(fr: Flugrouten) -> str:
     return _aus_umgebung("DISCORD_TOKEN", fr.discord.bot_token)
 
 
+def discord_webhook(fr: Flugrouten) -> str:
+    return _aus_umgebung("DISCORD_WEBHOOK", fr.discord.webhook_url)
+
+
 def email_password(fr: Flugrouten) -> str:
     return _aus_umgebung("EMAIL_PASSWORD", fr.email.password)
+
+
+def discord_art(fr: Flugrouten) -> str:
+    """Welcher der drei Wege gilt: ``webhook`` · ``kanal`` · ``direkt`` · ``""`` (keiner)."""
+    if discord_webhook(fr):
+        return "webhook"
+    if discord_token(fr) and fr.discord.channel_id:
+        return "kanal"
+    if discord_token(fr) and fr.discord.user_ids:
+        return "direkt"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Eingaben prüfen und übernehmen — gemeinsam für Konsole und Werkstatt
+# ---------------------------------------------------------------------------
+#: Hinter diesen Rechnernamen stehen Discord-Webhooks. Andere Adressen werden abgelehnt, damit
+#: PollySort Erinnerungen nicht an beliebige Server schickt.
+_WEBHOOK_HOSTS = ("discord.com", "discordapp.com", "ptb.discord.com", "canary.discord.com")
+
+
+def webhook_pruefen(url: str) -> str:
+    """Eine Discord-Webhook-Adresse prüfen und bereinigt zurückgeben."""
+    from urllib.parse import urlsplit
+
+    from . import i18n
+    url = (url or "").strip()
+    teile = urlsplit(url)
+    pfad = [t for t in teile.path.split("/") if t]
+    if (teile.scheme != "https" or (teile.hostname or "").lower() not in _WEBHOOK_HOSTS
+            or len(pfad) != 4 or pfad[:2] != ["api", "webhooks"] or not pfad[2].isdigit()):
+        raise FlugroutenFehler(i18n.t("routen.err.webhook"))
+    return f"https://{teile.hostname.lower()}/api/webhooks/{pfad[2]}/{pfad[3]}"
+
+
+def ids_pruefen(eingabe, *, was: str) -> list[str]:
+    """Discord-IDs aus Text (``"1, 2"``) oder Liste lesen — nur Ziffern, ohne Doppelte.
+
+    ``was`` ist der Text-Schlüssel der Fehlermeldung (Kanal oder Nutzer).
+    """
+    from . import i18n
+    if isinstance(eingabe, str):
+        eingabe = eingabe.replace(";", ",").replace(" ", ",").split(",")
+    ids: list[str] = []
+    for roh in eingabe or []:
+        wert = str(roh).strip().removeprefix("<@").removesuffix(">")
+        if not wert:
+            continue
+        if not wert.isdigit() or not 15 <= len(wert) <= 20:
+            raise FlugroutenFehler(i18n.t(was, id=wert))
+        if wert not in ids:
+            ids.append(wert)
+    return ids
+
+
+def discord_setzen(fr: Flugrouten, art: str, *, webhook: str = "", token: str = "",
+                   kanal: str = "", nutzer=None) -> None:
+    """Discord auf einen der drei Wege einstellen und einschalten.
+
+    Ein leeres Geheimnis (``webhook``/``token``) heißt „das gespeicherte behalten". ``nutzer``
+    = ``None`` lässt die Liste, wie sie ist. Was zum gewählten Weg nicht gehört, wird geleert —
+    sonst gingen Erinnerungen über einen Weg hinaus, den niemand mehr auf dem Schirm hat.
+    """
+    from . import i18n
+    d = fr.discord
+    art = (art or "").strip().lower()
+    if art not in DISCORD_ARTEN:
+        raise FlugroutenFehler(i18n.t("routen.err.art"))
+    ids = list(d.user_ids) if nutzer is None else ids_pruefen(nutzer, was="routen.err.nutzer")
+    token = (token or "").strip() or d.bot_token
+    if art == "webhook":
+        neu = webhook_pruefen(webhook) if (webhook or "").strip() else d.webhook_url
+        if not neu and not discord_webhook(fr):      # aus der Umgebungsvariable reicht auch
+            raise FlugroutenFehler(i18n.t("routen.err.webhook"))
+        fr.discord = DiscordConfig(enabled=True, webhook_url=neu, user_ids=ids)
+        return
+    if not token and not discord_token(fr):
+        raise FlugroutenFehler(i18n.t("routen.err.token"))
+    if art == "kanal":
+        kanaele = ids_pruefen(kanal or d.channel_id, was="routen.err.kanal")
+        if len(kanaele) != 1:
+            raise FlugroutenFehler(i18n.t("routen.err.kanal", id=kanal or "—"))
+        fr.discord = DiscordConfig(enabled=True, bot_token=token, channel_id=kanaele[0],
+                                   user_ids=ids)
+        return
+    if not ids:
+        raise FlugroutenFehler(i18n.t("routen.err.nutzer_fehlt"))
+    fr.discord = DiscordConfig(enabled=True, bot_token=token, user_ids=ids)
+
+
+def email_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, passwort: str = "",
+                 host: str = "", port: int | str = 0, empfaenger: str = "") -> None:
+    """E-Mail einstellen und einschalten. Leeres ``passwort`` = das gespeicherte behalten.
+
+    ``anbieter`` ist ein Kürzel aus :data:`EMAIL_ANBIETER` oder ``custom`` — dann gelten
+    ``host`` und ``port`` (587 mit STARTTLS oder 465, von Anfang an verschlüsselt).
+    """
+    from . import i18n
+    anbieter = (anbieter or "").strip().lower()
+    adresse, empfaenger = (adresse or "").strip(), (empfaenger or "").strip()
+    for wert in (adresse, empfaenger):
+        if wert and ("@" not in wert.strip("@") or " " in wert):
+            raise FlugroutenFehler(i18n.t("routen.err.adresse", adresse=wert))
+    if not adresse:
+        raise FlugroutenFehler(i18n.t("routen.err.adresse", adresse="—"))
+    if anbieter in EMAIL_ANBIETER:
+        host, port = EMAIL_ANBIETER[anbieter].host, EMAIL_ANBIETER[anbieter].port
+    elif anbieter == "custom":
+        host = (host or "").strip()
+        port = int(port) if str(port).strip().isdigit() else 0
+        if not host or " " in host or "/" in host:
+            raise FlugroutenFehler(i18n.t("routen.err.host"))
+        if not 1 <= port <= 65535:
+            raise FlugroutenFehler(i18n.t("routen.err.port"))
+    else:
+        raise FlugroutenFehler(i18n.t("routen.err.anbieter"))
+    passwort = passwort or fr.email.password
+    if not passwort and not email_password(fr):
+        raise FlugroutenFehler(i18n.t("routen.err.passwort"))
+    fr.email = EmailConfig(enabled=True, provider=anbieter, address=adresse, password=passwort,
+                           smtp_host=host, smtp_port=int(port), use_tls=True,
+                           recipient=empfaenger)
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +333,8 @@ def ablage(path: Path | None = None) -> dict[str, str]:
     return {
         "discord": tresor.ablageort(str(data.get("discord", {}).get("bot_token", "")),
                                     tresor.DISCORD_TOKEN),
+        "webhook": tresor.ablageort(str(data.get("discord", {}).get("webhook_url", "")),
+                                    tresor.DISCORD_WEBHOOK),
         "email": tresor.ablageort(str(data.get("email", {}).get("password", "")),
                                   tresor.EMAIL_PASSWORT),
     }
@@ -165,6 +353,9 @@ def load_flugrouten(path: Path | None = None) -> Flugrouten:
         enabled=bool(d.get("enabled", False)),
         bot_token=str(d.get("bot_token", "")),
         channel_id=str(d.get("channel_id", "")),
+        webhook_url=str(d.get("webhook_url", "")),
+        user_ids=[str(u) for u in d.get("user_ids", []) if str(u).strip()]
+        if isinstance(d.get("user_ids", []), list) else [],
     )
     fr.email = EmailConfig(
         enabled=bool(e.get("enabled", False)),
@@ -180,8 +371,10 @@ def load_flugrouten(path: Path | None = None) -> Flugrouten:
         enabled=bool(c.get("enabled", False)),
         kind=str(c.get("kind", "ical")),
     )
-    klartext = any(w and w != tresor.IM_TRESOR for w in (fr.discord.bot_token, fr.email.password))
+    klartext = any(w and w != tresor.IM_TRESOR
+                   for w in (fr.discord.bot_token, fr.discord.webhook_url, fr.email.password))
     fr.discord.bot_token = _aus_tresor(tresor.DISCORD_TOKEN, fr.discord.bot_token)
+    fr.discord.webhook_url = _aus_tresor(tresor.DISCORD_WEBHOOK, fr.discord.webhook_url)
     fr.email.password = _aus_tresor(tresor.EMAIL_PASSWORT, fr.email.password)
     # Umzug: Steht noch ein Geheimnis im Klartext da und gibt es einen Tresor, schreibt ein
     # Speichern es dorthin und lässt in der Datei nur den Platzhalter zurück.
@@ -201,16 +394,20 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
     # Die Geheimnisse gehen in den Tresor; in der Datei steht dann nur der Platzhalter. Ohne
     # Tresor (oder wenn er ablehnt) bleibt der Klartext — verloren geht so oder so nichts.
     token = tresor.ablegen(tresor.DISCORD_TOKEN, d.bot_token)
+    webhook = tresor.ablegen(tresor.DISCORD_WEBHOOK, d.webhook_url)
     passwort = tresor.ablegen(tresor.EMAIL_PASSWORT, e.password)
     content = (
         "# PollySort — Flugrouten der Wächterbienen (§v0.3)\n"
         "# 🔒 Wachssiegel: Zugangsdaten. Wird NIE an ein LLM übergeben oder im Klartext geloggt.\n"
         f'# "{tresor.IM_TRESOR}" heißt: Der Wert liegt im Tresor des Betriebssystems, nicht hier.\n'
-        "# Secrets via Env überschreibbar: POLLYSORT_DISCORD_TOKEN, POLLYSORT_EMAIL_PASSWORD.\n\n"
+        "# Secrets via Env überschreibbar: POLLYSORT_DISCORD_TOKEN, POLLYSORT_DISCORD_WEBHOOK,\n"
+        "# POLLYSORT_EMAIL_PASSWORD.\n\n"
         "[discord]\n"
         f"enabled    = {_toml_val(d.enabled)}\n"
         f"bot_token  = {_toml_val(token)}\n"
-        f"channel_id = {_toml_val(d.channel_id)}\n\n"
+        f"channel_id = {_toml_val(d.channel_id)}\n"
+        f"webhook_url = {_toml_val(webhook)}\n"
+        f"user_ids   = {_toml_val(list(d.user_ids))}\n\n"
         "[email]\n"
         f"enabled   = {_toml_val(e.enabled)}\n"
         f"provider  = {_toml_val(e.provider)}\n"

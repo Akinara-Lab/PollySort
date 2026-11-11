@@ -9,6 +9,35 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Flugrouten: Discord-Webhook, Direktnachrichten, mehr E-Mail-Anbieter
+- **Discord per Webhook.** Der einfachste Weg: In Discord unter Kanal → Integrationen → Webhooks
+  eine Adresse anlegen und in `flugrouten setup` eintragen. Ein eigener Bot ist dafür nicht nötig.
+  Die Adresse gilt als Geheimnis und liegt im Tresor.
+- **Der Bot schreibt einzelne Nutzer direkt an.** Ist weder Kanal noch Webhook gesetzt, bekommen
+  die eingetragenen Nutzer-IDs die Erinnerung als Direktnachricht. Nutzer kommen dazu oder fallen
+  weg, indem man die Liste ändert. Discord stellt das nur Nutzern zu, die mit dem Bot auf einem
+  gemeinsamen Server sind und Direktnachrichten von Servermitgliedern erlauben; lehnt Discord ab,
+  sagt PollySort das für genau diesen Nutzer.
+- **Nutzer erwähnen.** Bei Webhook und Kanal werden die eingetragenen Nutzer in der Nachricht
+  erwähnt und so benachrichtigt. Benachrichtigt werden nur sie: Ein `@everyone` in einem
+  Deadline-Titel bleibt bloßer Text.
+- **E-Mail-Anbieter:** Gmail, GMX, WEB.DE, T-Online, freenet, Posteo, mailbox.org, iCloud, Yahoo,
+  IONOS, Strato und Microsoft 365 stehen zur Auswahl, dazu der eigene Server mit frei wählbarem
+  Port. Der Assistent sagt je Anbieter, was es braucht (App-Passwort, eingeschalteter
+  IMAP-Abruf, eigenes Passwort für E-Mail-Programme), und dieselben Hinweise stehen dabei, wenn
+  der Mailserver die Anmeldung ablehnt.
+- **Jede Flugroute wird einzeln nachgehalten.** Bisher galt eine Deadline erst als gemeldet, wenn
+  alle Flugrouten geklappt hatten; scheiterte eine, bekamen die anderen dieselbe Erinnerung beim
+  nächsten Versuch noch einmal. Jetzt bekommt nur die gescheiterte einen neuen Versuch. Lehnt ein
+  Empfänger dauerhaft ab, bleibt die Deadline nicht ewig offen, sofern sie wenigstens einen
+  anderen erreicht hat. Der Stand liegt in `.honig/kalender.zustellung.json`, ohne Adressen und
+  IDs; `kalender.jsonl` bleibt unverändert.
+- **Eingaben werden geprüft, bevor etwas gespeichert wird** (Webhook-Adresse, Kanal- und
+  Nutzer-IDs, E-Mail-Adresse, Server, Port). Ein Fehler lässt die bisherigen Flugrouten stehen.
+- **Für die Werkstatt vorbereitet:** Der Dienst des Flugbretts kann Flugrouten jetzt anzeigen,
+  speichern, aus- und einschalten, entfernen und testen. Das Formular dazu im App-Fenster gibt es
+  noch nicht; bis dahin bleibt `flugrouten setup` der Weg.
+
 ### Zugangsdaten im Tresor des Betriebssystems
 - 🔒 **Schlüssel und Passwörter liegen nicht mehr im Klartext auf der Platte.** Der
   OpenRouter-Schlüssel, das Discord-Bot-Token und das E-Mail-Passwort stehen jetzt in der

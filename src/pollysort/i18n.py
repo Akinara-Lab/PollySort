@@ -1451,9 +1451,52 @@ _CATALOG: dict[str, dict[str, str]] = {
         "de": "Keine aktiven Flugrouten. 'flugrouten setup' weist welche aus.",
         "en": "No active notification routes. 'routes setup' adds some.",
     },
-    "r.routes.providers": {
-        "de": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Benutzerdefiniert",
-        "en": "      Provider:  [1] Gmail   [2] Outlook/Hotmail   [3] Custom",
+    "r.routes.custom": {"de": "Eigener Server (Adresse und Port selbst eintragen)",
+                        "en": "Own server (enter address and port yourself)"},
+    "r.routes.discord_arten": {
+        "de": "      [1] Webhook — am einfachsten: Discord gibt für einen Kanal eine Adresse aus\n"
+              "      [2] Eigener Bot schreibt in einen Kanal\n"
+              "      [3] Eigener Bot schreibt einzelne Nutzer direkt an",
+        "en": "      [1] Webhook — simplest: Discord issues an address for one channel\n"
+              "      [2] Your own bot posts to a channel\n"
+              "      [3] Your own bot messages individual users directly",
+    },
+    "r.routes.webhook": {
+        "de": "      🔑 Webhook-Adresse (Kanal → Integrationen → Webhooks → URL kopieren): ",
+        "en": "      🔑 Webhook address (channel → Integrations → Webhooks → Copy URL): ",
+    },
+    "r.routes.users_mention": {
+        "de": "      👤 Nutzer-IDs, die erwähnt werden sollen (mit Komma, leer = niemand): ",
+        "en": "      👤 User IDs to mention (comma-separated, empty = nobody): ",
+    },
+    "r.routes.users_dm": {
+        "de": "      👤 Nutzer-IDs, die angeschrieben werden (mit Komma getrennt): ",
+        "en": "      👤 User IDs to message (comma-separated): ",
+    },
+    "r.routes.dm_hint": {
+        "de": "Direktnachrichten kommen nur bei Nutzern an, die mit dem Bot auf einem gemeinsamen "
+              "Server sind und Direktnachrichten von Servermitgliedern erlauben. Die Nutzer-ID "
+              "zeigt Discord nach Einstellungen → Erweitert → Entwicklermodus per Rechtsklick "
+              "auf den Nutzer.",
+        "en": "Direct messages only reach users who share a server with the bot and allow direct "
+              "messages from server members. Discord shows the user ID after Settings → Advanced "
+              "→ Developer Mode via right-click on the user.",
+    },
+    "r.routes.discord_webhook": {
+        "de": "   🎮 Discord: aktiv · Webhook {webhook}",
+        "en": "   🎮 Discord: active · webhook {webhook}",
+    },
+    "r.routes.discord_direkt": {
+        "de": "   🎮 Discord: aktiv · Direktnachrichten an {users} · Token {token}",
+        "en": "   🎮 Discord: active · direct messages to {users} · token {token}",
+    },
+    "r.routes.discord_leer": {
+        "de": "   🎮 Discord: eingeschaltet, aber unvollständig — 'flugrouten setup'",
+        "en": "   🎮 Discord: switched on but incomplete — 'routes setup'",
+    },
+    "r.routes.mentions": {
+        "de": "      erwähnt werden: {users}",
+        "en": "      mentioned: {users}",
     },
     "r.trash.moved": {
         "de": "→ Quarantäne (nicht gelöscht): {name}",
@@ -1866,6 +1909,106 @@ _CATALOG: dict[str, dict[str, str]] = {
     "kanal.discord.429": {
         "de": "Discord bremst gerade (429 Too Many Requests) — später erneut",
         "en": "Discord is rate limiting (429 Too Many Requests) — try again later",
+    },
+    "kanal.discord.webhook_weg": {
+        "de": "Discord nimmt den Webhook nicht an ({status}) — er wurde vermutlich gelöscht. "
+              "In Discord einen neuen anlegen und hier eintragen",
+        "en": "Discord does not accept the webhook ({status}) — it was probably deleted. "
+              "Create a new one in Discord and enter it here",
+    },
+    "kanal.discord.dm_abgelehnt": {
+        "de": "Discord stellt die Direktnachricht nicht zu ({status}) — der Nutzer muss mit dem "
+              "Bot auf einem gemeinsamen Server sein und Direktnachrichten von Servermitgliedern "
+              "erlauben",
+        "en": "Discord does not deliver the direct message ({status}) — the user must share a "
+              "server with the bot and allow direct messages from server members",
+    },
+    # Was man beim jeweiligen E-Mail-Anbieter wissen muss, damit die Anmeldung klappt
+    "anbieter.hinweis.gmail": {
+        "de": "Gmail nimmt nur ein App-Passwort an (Google-Konto → Sicherheit → Bestätigung in "
+              "zwei Schritten → App-Passwörter), nicht das normale Passwort.",
+        "en": "Gmail only accepts an app password (Google Account → Security → 2-Step "
+              "Verification → App passwords), not your normal password.",
+    },
+    "anbieter.hinweis.microsoft365": {
+        "de": "Geht nur, solange der Administrator die Anmeldung mit Passwort für den Mailversand "
+              "erlaubt. Microsoft schaltet sie ab Ende 2026 standardmäßig ab.",
+        "en": "Works only while the administrator allows password sign-in for sending mail. "
+              "Microsoft turns it off by default from the end of 2026.",
+    },
+    "anbieter.hinweis.gmx": {
+        "de": "In den GMX-Einstellungen muss „POP3 & IMAP Abruf“ eingeschaltet sein. Mit "
+              "Zwei-Faktor-Anmeldung braucht es ein anwendungsspezifisches Passwort.",
+        "en": "“POP3 & IMAP access” must be switched on in the GMX settings. With two-factor "
+              "sign-in you need an application-specific password.",
+    },
+    "anbieter.hinweis.webde": {
+        "de": "In den WEB.DE-Einstellungen muss „POP3 & IMAP Abruf“ eingeschaltet sein.",
+        "en": "“POP3 & IMAP access” must be switched on in the WEB.DE settings.",
+    },
+    "anbieter.hinweis.t-online": {
+        "de": "T-Online verlangt ein eigenes „Passwort für E-Mail-Programme“ (im Kundencenter "
+              "einrichten), nicht das Passwort der Anmeldung.",
+        "en": "T-Online requires a separate “password for e-mail programs” (set it up in the "
+              "customer centre), not your sign-in password.",
+    },
+    "anbieter.hinweis.icloud": {
+        "de": "iCloud nimmt nur ein anwendungsspezifisches Passwort an (Apple-Konto → Anmeldung "
+              "und Sicherheit).",
+        "en": "iCloud only accepts an app-specific password (Apple Account → Sign-In and "
+              "Security).",
+    },
+    "anbieter.hinweis.yahoo": {
+        "de": "Yahoo nimmt nur ein App-Passwort an (Kontosicherheit → App-Passwort erstellen).",
+        "en": "Yahoo only accepts an app password (Account security → Generate app password).",
+    },
+    # Eingabefehler bei den Flugrouten (Konsole und Werkstatt)
+    "routen.err.art": {
+        "de": "Unbekannter Weg zu Discord — möglich sind Webhook, Kanal oder Direktnachricht.",
+        "en": "Unknown way to reach Discord — choose webhook, channel or direct message.",
+    },
+    "routen.err.webhook": {
+        "de": "Das ist keine Discord-Webhook-Adresse. Sie beginnt mit "
+              "https://discord.com/api/webhooks/ …",
+        "en": "That is not a Discord webhook address. It starts with "
+              "https://discord.com/api/webhooks/ …",
+    },
+    "routen.err.token": {"de": "Das Bot-Token fehlt.", "en": "The bot token is missing."},
+    "routen.err.kanal": {
+        "de": "Ungültige Kanal-ID „{id}“ — eine Kanal-ID besteht nur aus Ziffern.",
+        "en": "Invalid channel ID “{id}” — a channel ID consists of digits only.",
+    },
+    "routen.err.nutzer": {
+        "de": "Ungültige Nutzer-ID „{id}“ — eine Nutzer-ID besteht nur aus Ziffern.",
+        "en": "Invalid user ID “{id}” — a user ID consists of digits only.",
+    },
+    "routen.err.nutzer_fehlt": {
+        "de": "Für Direktnachrichten braucht es mindestens eine Nutzer-ID.",
+        "en": "Direct messages need at least one user ID.",
+    },
+    "routen.err.adresse": {
+        "de": "Ungültige E-Mail-Adresse „{adresse}“.",
+        "en": "Invalid e-mail address “{adresse}”.",
+    },
+    "routen.err.anbieter": {
+        "de": "Unbekannter E-Mail-Anbieter.", "en": "Unknown e-mail provider.",
+    },
+    "routen.err.host": {
+        "de": "Der Postausgangsserver fehlt oder ist ungültig (Beispiel: smtp.example.org).",
+        "en": "The outgoing mail server is missing or invalid (example: smtp.example.org).",
+    },
+    "routen.err.port": {
+        "de": "Ungültiger Port — üblich sind 587 oder 465.",
+        "en": "Invalid port — 587 or 465 are usual.",
+    },
+    "routen.err.passwort": {"de": "Das Passwort fehlt.", "en": "The password is missing."},
+    "routen.err.leer": {
+        "de": "Diese Flugroute ist noch nicht eingerichtet.",
+        "en": "This route has not been set up yet.",
+    },
+    "routen.err.welche": {
+        "de": "Unbekannte Flugroute — möglich sind discord und email.",
+        "en": "Unknown route — choose discord or email.",
     },
     # Tresor: Zugangsdaten in der Anmeldeinformationsverwaltung des Betriebssystems
     "tresor.ort.windows": {"de": "Windows-Anmeldeinformationsverwaltung",

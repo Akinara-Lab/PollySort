@@ -231,7 +231,7 @@ Kern (pipeline, review, swarm, wachstafel, spiel …)  ──►  WebKonsole  �
 | CSP `default-src 'self'`, keine Inline-Skripte/-Styles, `frame-ancestors 'none'` | eingeschleuster Code, Clickjacking |
 | `esc()` für alles aus Dateien/Dokumenten | XSS über Dateinamen oder Titel |
 | Statische Dateien nur aus `static/`, nur bekannte Endungen | Pfad-Traversal |
-| Schlüssel & Flugrouten nur maskiert, Eintragen nur in der Konsole | Geheimnisse im Browser, im Protokoll, in Screenshots |
+| Schlüssel & Flugrouten nur maskiert; Geheimnisse kommen herein (`flugrouten_speichern`), nie heraus | Geheimnisse im Browser, im Protokoll, in Screenshots |
 | Kein Zugriffsprotokoll auf der Konsole | Token oder Pfade im Terminal-Verlauf |
 
 **Kleine Änderungen im Kern** (alle getestet):
@@ -315,8 +315,16 @@ umgedreht.
 - **Konsolen-Hinweise im Browser:** Ein paar Meldungen aus dem Kern nennen Konsolenbefehle oder
   Tasten („'beenara laden' setzt fort", „Strg-C unterbricht"). Im Flugbrett wären „Werkstatt"
   bzw. der Knopf die bessere Wortwahl — dafür bräuchte die WebKonsole eigene Varianten dieser Texte.
-- **Zugangsdaten im Browser** (OpenRouter-Schlüssel, Flugrouten): bewusst noch nicht. Falls
-  gewünscht, als eigenes Formular mit eigener Prüfung, nie im Protokoll.
+- **Formular für die Flugrouten in der Werkstatt: noch zu bauen.** Der Dienst dahinter ist
+  fertig und getestet (`web/dienst.py`): `flugrouten_stand` liefert alles zum Anzeigen
+  (Geheimnisse maskiert, die Anbieterliste samt Hinweisen, wo die Zugangsdaten liegen),
+  `flugrouten_speichern` nimmt `discord` (`art`: webhook · kanal · direkt, dazu `webhook` bzw.
+  `token`/`kanal` und `nutzer`) und `email` (`anbieter`, `adresse`, `passwort`, `empfaenger`, bei
+  `custom` auch `host`/`port`) entgegen, `flugrouten_schalten`, `flugrouten_entfernen` und
+  `flugrouten_testen` tun, was sie sagen. Ein leeres Geheimnis lässt das gespeicherte stehen.
+  Fehlermeldungen kommen fertig übersetzt als HTTP 400. Sobald `app.js` diese Aufrufe benutzt,
+  die Ausnahme `formular_fehlt` in `tests/test_web_beenara.py` streichen.
+- **OpenRouter-Schlüssel im Browser:** bewusst noch nicht — weiter über `schluessel setzen`.
 - **Logo & Markenfarben:** Die Pixel-Biene ist ein Vorschlag. Sobald es ein offizielles Logo
   gibt, ersetzt es `Pixel.biene()` im Kopf und `favicon.svg`.
 - **Web-Cockpit für Teams:** Der `Dienst` ist so geschnitten, dass er später hinter einer
