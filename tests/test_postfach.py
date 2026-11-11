@@ -56,6 +56,8 @@ class MiniImap(threading.Thread):
         self.ordner, self.gueltigkeit = ordner, gueltigkeit
         self.befehle: list[str] = []            # was PollySort geschickt hat (ohne Passwort)
         self.abbruch_bei: int | None = None     # bei dieser Nachricht reißt die Verbindung ab
+        self.token = ""                         # Zugriffstoken, das der Server annimmt (XOAUTH2)
+        self.anmeldezeilen: list[str] = []      # was bei der Token-Anmeldung ankam
         self._sock = socket.socket()
         self._sock.bind(("127.0.0.1", 0))
         self._sock.listen(5)
@@ -101,6 +103,18 @@ class MiniImap(threading.Thread):
                     ok()
                 else:       # echte Server wiederholen hier gern, was man geschickt hat
                     v.sendall(f"{tag} NO [AUTHENTICATIONFAILED] falsch: {rest}\r\n".encode())
+            elif befehl.startswith("AUTHENTICATE XOAUTH2"):
+                # Anmeldung mit Zugriffstoken: erst „+", dann kommt die Anmeldezeile (Base64).
+                import base64
+                v.sendall(b"+ \r\n")
+                zeile = base64.b64decode(datei.readline().strip()).decode()
+                self.anmeldezeilen.append(zeile)
+                if self.token and zeile == f"user=ich@example.org\x01auth=Bearer {self.token}\x01\x01":
+                    ok("AUTHENTICATE completed.")
+                else:       # echte Server fragen erst nach und erwarten eine leere Zeile
+                    v.sendall(b"+ eyJzdGF0dXMiOiI0MDAifQ==\r\n")
+                    self.anmeldezeilen.append(datei.readline().strip().decode())
+                    v.sendall(f"{tag} NO AUTHENTICATE failed.\r\n".encode())
             elif befehl.startswith(("EXAMINE", "SELECT", "STATUS")):
                 name = re.search(r'"((?:[^"\\]|\\.)*)"', rest).group(1)
                 if name not in self.ordner:

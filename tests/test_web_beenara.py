@@ -211,6 +211,7 @@ def test_jeder_aufruf_der_seite_hat_einen_endpunkt_und_umgekehrt():
     # ist fertig. Wer das Formular baut, streicht die Namen hier — sonst schlägt die letzte Zeile an.
     formular_fehlt = {"flugrouten_stand", "flugrouten_speichern", "flugrouten_schalten",
                       "flugrouten_entfernen", "flugrouten_testen",
+                      "flugrouten_microsoft_start", "flugrouten_microsoft_abschluss",
                       "postfach_stand", "postfach_einstellen", "postfach_ordner", "postfach_abholen"}
     ohne_seite = ansichten - gelesen - formular_fehlt
     assert not ohne_seite, f"Ansicht ohne Seite: {ohne_seite}"
