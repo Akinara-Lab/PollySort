@@ -503,10 +503,11 @@ class Dienst:
                         "webhook": maskiert(discord_webhook(fr))},
             "email": {"aktiv": e.enabled, "anbieter": e.provider, "adresse": e.address,
                       "host": e.smtp_host, "port": e.smtp_port, "empfaenger": e.recipient,
+                      "imap_host": e.imap_host, "imap_port": e.imap_port,
                       "passwort": maskiert(email_password(fr))},
             # Auswahlliste für das Formular; „custom" (eigener Server und Port) kommt dazu.
             "anbieter": [{"id": kurz, "name": a.name, "host": a.host, "port": a.port,
-                          "hinweis": i18n.t(a.hinweis) if a.hinweis else ""}
+                          "imap_host": a.imap, "hinweis": i18n.t(a.hinweis) if a.hinweis else ""}
                          for kurz, a in EMAIL_ANBIETER.items()],
             "ablage": lagen, "hinweis": tresor.lage_text(offen, default_path()),
             "tresor": {"aktiv": tresor.verfuegbar(), "ort": tresor.ort()},
@@ -548,10 +549,12 @@ class Dienst:
                                nutzer=nutzer)
             if email is not None:
                 f = self._felder(email, ("anbieter", "adresse", "passwort", "host", "port",
-                                         "empfaenger"))
+                                         "empfaenger", "imap_host", "imap_port"))
                 email_setzen(fr, str(f.get("anbieter", "")), adresse=str(f.get("adresse", "")),
                              passwort=str(f.get("passwort", "")), host=str(f.get("host", "")),
-                             port=str(f.get("port", "")), empfaenger=str(f.get("empfaenger", "")))
+                             port=str(f.get("port", "")), empfaenger=str(f.get("empfaenger", "")),
+                             imap_host=str(f.get("imap_host", "")),
+                             imap_port=str(f.get("imap_port", "")))
         except FlugroutenFehler as exc:
             raise Ungueltig(str(exc)) from None
         save_flugrouten(fr)
@@ -606,6 +609,72 @@ class Dienst:
             except Exception as exc:               # Unerwartetes: nur die Art, nie der Inhalt
                 ergebnis.append({"name": k.name, "ok": False, "fehler": exc.__class__.__name__})
         return {"kanaele": ergebnis}
+
+    # ------------------------------------------------------------------ #
+    #  Postfach — Anhänge aus einem E-Mail-Ordner in den Eingang holen (postfach.py).
+    #  Wie bei den Flugrouten fehlt die Oberfläche dazu noch; die Konsole kann es ('postfach').
+    # ------------------------------------------------------------------ #
+    def _postfach_zugang(self):
+        from .. import postfach
+        from ..flugrouten import load_flugrouten
+        z = postfach.zugang(load_flugrouten())
+        if z is None:
+            raise Ungueltig(i18n.t("pf.nozugang"))
+        return z
+
+    @ansicht
+    def postfach_stand(self) -> dict:
+        """Was die Seite zum Postfach zeigen muss — ohne Passwort, ohne Inhalte."""
+        from .. import postfach
+        from ..flugrouten import load_flugrouten
+        hive = self._projekt()
+        seed = config.load_seed(hive)
+        z = postfach.zugang(load_flugrouten())
+        st = postfach.stand(hive)
+        passt = st["ordner"] == seed.postfach_ordner
+        return {"ordner": seed.postfach_ordner, "bereit": z is not None,
+                "konto": z.adresse if z else "", "server": z.host if z else "",
+                "letzter_abruf": st["letzter_abruf"] if passt else "",
+                "geholt": st["geholt"], "minuten": postfach.PAUSE // 60}
+
+    @auftrag("postfach_einstellen")
+    def postfach_einstellen(self, ordner: str = "") -> dict:
+        """Den Postfach-Ordner dieses Projekts festlegen — leer schaltet den Abruf aus."""
+        hive = self._projekt()
+        ordner = str(ordner).strip()
+        if len(ordner) > 200 or any(ord(z) < 32 for z in ordner):
+            raise Ungueltig(i18n.t("web.err.params"))
+        seed = config.load_seed(hive)
+        seed.postfach_ordner = ordner
+        config.write_seed(hive, seed)
+        return self.postfach_stand()
+
+    @auftrag("postfach_ordner", sperre=False)
+    def postfach_ordner(self) -> dict:
+        """Die Ordner des Postfachs zur Auswahl."""
+        from .. import postfach
+        try:
+            return {"ordner": postfach.ordner_liste(self._postfach_zugang())}
+        except postfach.PostfachFehler as exc:
+            raise Ungueltig(str(exc)) from None
+
+    @auftrag("postfach_abholen")
+    def postfach_abholen(self) -> dict:
+        """Jetzt nachsehen und neue Anhänge in den Eingang legen."""
+        from .. import postfach
+        hive = self._projekt()
+        seed = config.load_seed(hive)
+        if not seed.postfach_ordner:
+            raise Ungueltig(i18n.t("pf.none"))
+        try:
+            e = postfach.abholen(hive, self._postfach_zugang(), seed.postfach_ordner,
+                                 max_mb=seed.max_file_mb)
+        except postfach.PostfachFehler as exc:
+            raise Ungueltig(str(exc)) from None
+        postfach.protokollieren(self._ctx().journal, e)
+        postfach.melden(self.con, e, max_mb=seed.max_file_mb)
+        return {"geholt": e.geholt, "bekannt": e.bekannt, "zu_gross": e.zu_gross,
+                "rest": e.rest, "nachrichten": e.nachrichten}
 
     # ------------------------------------------------------------------ #
     #  Sortieren
@@ -1595,6 +1664,7 @@ class Wache:
                 if erledigt:                       # sonst beim nächsten Takt erneut versuchen
                     gesehen = {str(p) for p in self._d._eingang_pfade(hive)}
                 self._deadlines(hive)
+                self._postfach(hive)
         finally:
             if obs is not None:
                 try:
@@ -1602,6 +1672,24 @@ class Wache:
                     obs.join(timeout=2)
                 except Exception:
                     pass
+
+    def _postfach(self, hive: Path) -> None:
+        """Alle paar Minuten Anhänge aus dem Postfach-Ordner holen — sie fallen dann wie jede
+        neue Datei im nächsten Takt auf."""
+        try:
+            if self._d.hive != hive:
+                return
+            from .. import postfach
+            seed = config.load_seed(hive)
+            ergebnis, fehler = postfach.automatisch(
+                hive, ordner=seed.postfach_ordner, max_mb=seed.max_file_mb,
+                journal=self._d._ctx().journal if seed.postfach_ordner else None)
+            if fehler:
+                self._d.con.error(fehler)
+            elif ergebnis is not None and (ergebnis.geholt or ergebnis.zu_gross):
+                postfach.melden(self._d.con, ergebnis, max_mb=seed.max_file_mb)
+        except Exception:
+            pass          # das Postfach darf die Eingangs-Wache nie stören
 
     def _deadlines(self, hive: Path) -> None:
         try:

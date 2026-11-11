@@ -186,6 +186,9 @@ class HiveSeed:
     watch_seconds: int = 10              # wie oft der Eingang geprüft wird
     # Nach dem Sortieren verfeinert die KI Titel & Zusammenfassung (nur Ollama, Plan §8.3).
     nacherfassung: bool = True
+    # Ordner im E-Mail-Postfach, dessen Anhänge in den Eingang dieses Projekts geholt werden
+    # (postfach.py). Leer = aus.
+    postfach_ordner: str = ""
 
 
 #: Wörter, mit denen man einen Modus wählt → interner Wert. Die neuen Namen (seit
@@ -333,6 +336,7 @@ def load_seed(hive: Path) -> HiveSeed:
         watch=proj.get("watch", "move" if proj.get("auto_sort_on_start") else "off"),
         watch_seconds=int(proj.get("watch_seconds", 10)),
         nacherfassung=bool(proj.get("nacherfassung", True)),
+        postfach_ordner=str(data.get("postfach", {}).get("ordner", "")),
     )
 
 
@@ -369,6 +373,11 @@ assign = {seed.threshold_assign}   # >= automatisch, darunter wird extra gefragt
 max_file_mb = {seed.max_file_mb}          # groesser -> Metadaten-Eintrag + needs_review
 pollen_retention_days = {seed.pollen_retention_days}
 """
+    # Postfach-Ordner (optional) — nur schreiben, wenn gesetzt.
+    if seed.postfach_ordner:
+        content += ("\n# Anhänge aus diesem Ordner des E-Mail-Postfachs landen im Eingang "
+                    "('postfach abholen').\n"
+                    f"[postfach]\nordner = {_toml_val(seed.postfach_ordner)}\n")
     # Dynamische Unterordner je Kategorie (optional) — nur schreiben, wenn gesetzt.
     if seed.subrouting:
         sub_lines = "\n".join(f"{_toml_val(k)} = {_toml_val(v)}"

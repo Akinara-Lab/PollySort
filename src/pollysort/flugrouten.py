@@ -36,25 +36,29 @@ class Anbieter:
     host: str
     port: int
     hinweis: str = ""
+    imap: str = ""               # Posteingangsserver (IMAP, Port 993) — zum Abholen von Anhängen
 
 
 #: Die in Deutschland üblichen Anbieter. Alles andere geht über „custom" (Server und Port frei).
 EMAIL_ANBIETER: dict[str, Anbieter] = {
-    "gmail": Anbieter("Gmail", "smtp.gmail.com", 587, "anbieter.hinweis.gmail"),
+    "gmail": Anbieter("Gmail", "smtp.gmail.com", 587, "anbieter.hinweis.gmail", "imap.gmail.com"),
     "outlook": Anbieter("Outlook.com / Hotmail", "smtp-mail.outlook.com", 587,
-                        "r.routes.outlook_hint"),
+                        "r.routes.outlook_hint", "outlook.office365.com"),
     "microsoft365": Anbieter("Microsoft 365", "smtp.office365.com", 587,
-                             "anbieter.hinweis.microsoft365"),
-    "gmx": Anbieter("GMX", "mail.gmx.net", 587, "anbieter.hinweis.gmx"),
-    "webde": Anbieter("WEB.DE", "smtp.web.de", 587, "anbieter.hinweis.webde"),
-    "t-online": Anbieter("T-Online", "securesmtp.t-online.de", 465, "anbieter.hinweis.t-online"),
-    "freenet": Anbieter("freenet", "mx.freenet.de", 587),
-    "posteo": Anbieter("Posteo", "posteo.de", 587),
-    "mailbox": Anbieter("mailbox.org", "smtp.mailbox.org", 465),
-    "icloud": Anbieter("iCloud Mail", "smtp.mail.me.com", 587, "anbieter.hinweis.icloud"),
-    "yahoo": Anbieter("Yahoo Mail", "smtp.mail.yahoo.com", 465, "anbieter.hinweis.yahoo"),
-    "ionos": Anbieter("IONOS (1&1)", "smtp.ionos.de", 587),
-    "strato": Anbieter("Strato", "smtp.strato.de", 465),
+                             "anbieter.hinweis.microsoft365", "outlook.office365.com"),
+    "gmx": Anbieter("GMX", "mail.gmx.net", 587, "anbieter.hinweis.gmx", "imap.gmx.net"),
+    "webde": Anbieter("WEB.DE", "smtp.web.de", 587, "anbieter.hinweis.webde", "imap.web.de"),
+    "t-online": Anbieter("T-Online", "securesmtp.t-online.de", 465, "anbieter.hinweis.t-online",
+                         "secureimap.t-online.de"),
+    "freenet": Anbieter("freenet", "mx.freenet.de", 587, imap="mx.freenet.de"),
+    "posteo": Anbieter("Posteo", "posteo.de", 587, imap="posteo.de"),
+    "mailbox": Anbieter("mailbox.org", "smtp.mailbox.org", 465, imap="imap.mailbox.org"),
+    "icloud": Anbieter("iCloud Mail", "smtp.mail.me.com", 587, "anbieter.hinweis.icloud",
+                       "imap.mail.me.com"),
+    "yahoo": Anbieter("Yahoo Mail", "smtp.mail.yahoo.com", 465, "anbieter.hinweis.yahoo",
+                      "imap.mail.yahoo.com"),
+    "ionos": Anbieter("IONOS (1&1)", "smtp.ionos.de", 587, imap="imap.ionos.de"),
+    "strato": Anbieter("Strato", "smtp.strato.de", 465, imap="imap.strato.de"),
 }
 
 # Ältere Schreibweise derselben Liste: name -> (host, port, use_tls).
@@ -64,9 +68,10 @@ EMAIL_PRESETS: dict[str, tuple[str, int, bool]] = {
 
 
 def anbieter_fuer_host(host: str) -> Anbieter | None:
-    """Der bekannte Anbieter zu einem Postausgangsserver — für Hinweise bei Anmeldefehlern."""
+    """Der bekannte Anbieter zu einem Mailserver (Ausgang oder Eingang) — für Hinweise bei
+    Anmeldefehlern."""
     host = (host or "").strip().lower()
-    return next((a for a in EMAIL_ANBIETER.values() if a.host == host), None)
+    return next((a for a in EMAIL_ANBIETER.values() if host in (a.host, a.imap)), None)
 
 
 #: Wie Discord erreicht wird — siehe :func:`discord_art`.
@@ -125,6 +130,8 @@ class EmailConfig:
     smtp_port: int = 587
     use_tls: bool = True
     recipient: str = ""          # leer = an die eigene Adresse
+    imap_host: str = ""          # Posteingangsserver — nur zum Abholen von Anhängen (postfach.py)
+    imap_port: int = 993         # 993 = von Anfang an verschlüsselt, sonst STARTTLS
 
 
 @dataclass
@@ -261,12 +268,35 @@ def discord_setzen(fr: Flugrouten, art: str, *, webhook: str = "", token: str = 
     fr.discord = DiscordConfig(enabled=True, bot_token=token, user_ids=ids)
 
 
+def _imap_von_anbieter(kurz: str) -> str:
+    return EMAIL_ANBIETER[kurz].imap if kurz in EMAIL_ANBIETER else ""
+
+
+def _host_pruefen(host: str) -> str:
+    from . import i18n
+    host = (host or "").strip()
+    if not host or " " in host or "/" in host:
+        raise FlugroutenFehler(i18n.t("routen.err.host"))
+    return host
+
+
+def _port_pruefen(port) -> int:
+    from . import i18n
+    port = int(port) if str(port).strip().isdigit() else 0
+    if not 1 <= port <= 65535:
+        raise FlugroutenFehler(i18n.t("routen.err.port"))
+    return port
+
+
 def email_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, passwort: str = "",
-                 host: str = "", port: int | str = 0, empfaenger: str = "") -> None:
+                 host: str = "", port: int | str = 0, empfaenger: str = "",
+                 imap_host: str = "", imap_port: int | str = 0) -> None:
     """E-Mail einstellen und einschalten. Leeres ``passwort`` = das gespeicherte behalten.
 
     ``anbieter`` ist ein Kürzel aus :data:`EMAIL_ANBIETER` oder ``custom`` — dann gelten
-    ``host`` und ``port`` (587 mit STARTTLS oder 465, von Anfang an verschlüsselt).
+    ``host`` und ``port`` (587 mit STARTTLS oder 465, von Anfang an verschlüsselt). Den
+    Posteingangsserver zum Abholen von Anhängen bringt ein bekannter Anbieter mit; bei ``custom``
+    ist ``imap_host`` freiwillig (ohne ihn wird nur gemeldet, nichts abgeholt).
     """
     from . import i18n
     anbieter = (anbieter or "").strip().lower()
@@ -278,13 +308,15 @@ def email_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, passwort: str =
         raise FlugroutenFehler(i18n.t("routen.err.adresse", adresse="—"))
     if anbieter in EMAIL_ANBIETER:
         host, port = EMAIL_ANBIETER[anbieter].host, EMAIL_ANBIETER[anbieter].port
+        imap_host, imap_port = EMAIL_ANBIETER[anbieter].imap, 993
     elif anbieter == "custom":
-        host = (host or "").strip()
-        port = int(port) if str(port).strip().isdigit() else 0
-        if not host or " " in host or "/" in host:
-            raise FlugroutenFehler(i18n.t("routen.err.host"))
-        if not 1 <= port <= 65535:
-            raise FlugroutenFehler(i18n.t("routen.err.port"))
+        host, port = _host_pruefen(host), _port_pruefen(port)
+        imap_host = (imap_host or "").strip()
+        if imap_host:
+            imap_host = _host_pruefen(imap_host)
+            imap_port = _port_pruefen(imap_port or 993)
+        else:
+            imap_port = 993
     else:
         raise FlugroutenFehler(i18n.t("routen.err.anbieter"))
     passwort = passwort or fr.email.password
@@ -292,7 +324,7 @@ def email_setzen(fr: Flugrouten, anbieter: str, *, adresse: str, passwort: str =
         raise FlugroutenFehler(i18n.t("routen.err.passwort"))
     fr.email = EmailConfig(enabled=True, provider=anbieter, address=adresse, password=passwort,
                            smtp_host=host, smtp_port=int(port), use_tls=True,
-                           recipient=empfaenger)
+                           recipient=empfaenger, imap_host=imap_host, imap_port=int(imap_port))
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +398,9 @@ def load_flugrouten(path: Path | None = None) -> Flugrouten:
         smtp_port=int(e.get("smtp_port", 587)),
         use_tls=bool(e.get("use_tls", True)),
         recipient=str(e.get("recipient", "")),
+        # Ältere Dateien kennen den Posteingangsserver nicht → vom Anbieter ableiten.
+        imap_host=str(e.get("imap_host", "") or _imap_von_anbieter(str(e.get("provider", "")))),
+        imap_port=int(e.get("imap_port", 993)),
     )
     fr.calendar = CalendarConfig(
         enabled=bool(c.get("enabled", False)),
@@ -416,7 +451,9 @@ def save_flugrouten(fr: Flugrouten, path: Path | None = None) -> None:
         f"smtp_host = {_toml_val(e.smtp_host)}\n"
         f"smtp_port = {_toml_val(e.smtp_port)}\n"
         f"use_tls   = {_toml_val(e.use_tls)}\n"
-        f"recipient = {_toml_val(e.recipient)}\n\n"
+        f"recipient = {_toml_val(e.recipient)}\n"
+        f"imap_host = {_toml_val(e.imap_host)}\n"
+        f"imap_port = {_toml_val(e.imap_port)}\n\n"
         "[calendar]\n"
         f"enabled = {_toml_val(c.enabled)}\n"
         f"kind    = {_toml_val(c.kind)}\n"

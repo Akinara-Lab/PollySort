@@ -9,6 +9,30 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Postfach: Anhänge aus einem E-Mail-Ordner in den Eingang holen
+- **Ein Ordner im Postfach je Projekt.** `postfach liste` zeigt die Ordner des Postfachs,
+  `postfach ordner <Name>` legt einen für das Projekt fest. Was dort hineingeschoben oder per
+  Regel einsortiert wird, landet als Datei im Eingang und wird wie jede andere Datei sortiert.
+  `postfach abholen` sieht sofort nach; läuft die Wache, sieht sie alle 10 Minuten nach.
+- 🔒 **Im Postfach wird nichts verändert.** Der Ordner wird schreibgeschützt geöffnet: nichts wird
+  gelöscht, verschoben oder als gelesen markiert.
+- **Nichts doppelt, nichts überschrieben.** PollySort merkt sich je Projekt, bis wohin abgeholt
+  wurde und welche Inhalte schon da waren (`.honig/postfach.json`). Liegt im Eingang schon eine
+  Datei gleichen Namens, bekommt die neue eine Nummer. Bricht ein Abruf ab, macht der nächste
+  dort weiter.
+- 🔒 **Dateinamen aus E-Mails werden entschärft**, bevor sie die Platte sehen: kein Pfad, keine
+  von Windows abgelehnten Zeichen, keine Gerätenamen, kein führender Punkt. Ein Anhang kann nur
+  im Eingang landen. Logos aus Signaturen und kryptografische Signaturen zählen nicht als Anhang;
+  was größer ist als das Größenlimit des Projekts, bleibt im Postfach und wird genannt.
+- **Zugang:** das E-Mail-Konto aus `flugrouten setup`, über eine verschlüsselte Verbindung mit
+  geprüftem Zertifikat. Die Anbieter aus der Liste bringen ihren Posteingangsserver mit; beim
+  eigenen Server fragt der Assistent danach (leer = nur melden, nichts abholen). Abholen geht
+  auch, wenn das Melden per E-Mail ausgeschaltet ist. Passwort, Absender und Betreff stehen in
+  keiner Meldung und in keinem Journal.
+- **Noch nicht:** private Outlook-/Hotmail-Konten (dort gibt es keine Anmeldung mit Passwort
+  mehr), Absender und Betreff als Hilfe für die Zuordnung, die Oberfläche im App-Fenster. Der
+  Dienst des Flugbretts kann es schon (`postfach_*`).
+
 ### Flugrouten: Discord-Webhook, Direktnachrichten, mehr E-Mail-Anbieter
 - **Discord per Webhook.** Der einfachste Weg: In Discord unter Kanal → Integrationen → Webhooks
   eine Adresse anlegen und in `flugrouten setup` eintragen. Ein eigener Bot ist dafür nicht nötig.

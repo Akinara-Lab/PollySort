@@ -769,6 +769,13 @@ project:
     Outlook/Hotmail accounts no longer accept password sign-in.
   - Each route is tracked separately: if the mail server is down, only the e-mail is retried —
     Discord does not get the same reminder again.
+- **Attachments from your mailbox (opt-in):** give a project a folder in your mailbox
+  (`mailbox list`, `mailbox folder <name>`) and PollySort fetches the attachments of the mails in
+  it into the project's inbox — on demand with `mailbox fetch`, and every 10 minutes while the
+  `watch` service runs. It uses the e-mail account from `routes setup`. **Nothing in the mailbox
+  is changed:** the folder is opened read-only, nothing is deleted, moved or marked as read.
+  Nothing arrives twice, no existing file is replaced, and file names from mails are sanitised
+  before they touch the disk. Personal Outlook/Hotmail accounts are not supported yet.
 
 > [!NOTE]
 > **Credential seal:** the secrets (OpenRouter key, Discord bot token and webhook address, e-mail
