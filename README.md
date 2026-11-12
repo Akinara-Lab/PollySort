@@ -777,6 +777,17 @@ project:
   is changed:** the folder is opened read-only, nothing is deleted, moved or marked as read.
   Nothing arrives twice, no existing file is replaced, and file names from mails are sanitised
   before they touch the disk.
+- **Attachments from Discord (opt-in):** give a project its own Discord channel
+  (`discord list`, `discord channel <ID or link>`) and PollySort fetches the files uploaded or
+  forwarded there into the project's inbox — on demand with `discord fetch`, and every
+  10 minutes while the `watch` service runs. It uses the bot from `routes setup` (a webhook can
+  only write). **Nothing in the channel is changed:** PollySort only reads; it never posts,
+  deletes or reacts there. The same promises as for the mailbox apply, files are downloaded only
+  from Discord's own file servers, and the bot token is never sent there. Two things to set up
+  on Discord's side: the bot needs *View Channel* and *Read Message History* in that channel, and
+  *Message Content Intent* must be switched on for the bot in the Discord developer portal
+  (Bot → Privileged Gateway Intents) — without it Discord hides attachments from bots. PollySort
+  tells you if that is the case and skips nothing.
 
 #### Microsoft sign-in (Outlook.com, Hotmail, Microsoft 365)
 

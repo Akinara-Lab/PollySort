@@ -734,6 +734,73 @@ class Dienst:
                 "rest": e.rest, "nachrichten": e.nachrichten}
 
     # ------------------------------------------------------------------ #
+    #  Discord — Anhänge aus dem Kanal des Projekts in den Eingang holen (discord_anhaenge.py).
+    #  Auch hier fehlt die Oberfläche noch; die Konsole kann es ('discord').
+    # ------------------------------------------------------------------ #
+    def _discord_bot(self) -> str:
+        from .. import discord_anhaenge
+        from ..flugrouten import load_flugrouten
+        bot_token = discord_anhaenge.token(load_flugrouten())
+        if not bot_token:
+            raise Ungueltig(i18n.t("dc.nobot"))
+        return bot_token
+
+    @ansicht
+    def discord_stand(self) -> dict:
+        """Was die Seite zum Discord-Kanal des Projekts zeigen muss — ohne Token, ohne Inhalte."""
+        from .. import discord_anhaenge
+        from ..flugrouten import load_flugrouten
+        hive = self._projekt()
+        seed = config.load_seed(hive)
+        st = discord_anhaenge.stand(hive)
+        passt = st["kanal"] == seed.discord_kanal
+        return {"kanal": seed.discord_kanal,
+                "bereit": bool(discord_anhaenge.token(load_flugrouten())),
+                "letzter_abruf": st["letzter_abruf"] if passt else "",
+                "geholt": st["geholt"], "minuten": discord_anhaenge.PAUSE // 60}
+
+    @auftrag("discord_einstellen")
+    def discord_einstellen(self, kanal: str = "") -> dict:
+        """Den Discord-Kanal dieses Projekts festlegen (ID oder Link) — leer schaltet den Abruf aus."""
+        from .. import discord_anhaenge
+        hive = self._projekt()
+        try:
+            kanal = discord_anhaenge.kanal_pruefen(str(kanal)[:200])
+        except discord_anhaenge.DiscordFehler as exc:
+            raise Ungueltig(str(exc)) from None
+        seed = config.load_seed(hive)
+        seed.discord_kanal = kanal
+        config.write_seed(hive, seed)
+        return self.discord_stand()
+
+    @auftrag("discord_kanaele", sperre=False)
+    def discord_kanaele(self) -> dict:
+        """Die Textkanäle, die der Bot sieht, zur Auswahl: ``server``, ``name``, ``id``."""
+        from .. import discord_anhaenge
+        try:
+            return {"kanaele": discord_anhaenge.kanal_liste(self._discord_bot())}
+        except discord_anhaenge.DiscordFehler as exc:
+            raise Ungueltig(str(exc)) from None
+
+    @auftrag("discord_abholen")
+    def discord_abholen(self) -> dict:
+        """Jetzt nachsehen und neue Anhänge in den Eingang legen."""
+        from .. import discord_anhaenge
+        hive = self._projekt()
+        seed = config.load_seed(hive)
+        if not seed.discord_kanal:
+            raise Ungueltig(i18n.t("dc.none"))
+        try:
+            e = discord_anhaenge.abholen(hive, self._discord_bot(), seed.discord_kanal,
+                                         max_mb=seed.max_file_mb)
+        except discord_anhaenge.DiscordFehler as exc:
+            raise Ungueltig(str(exc)) from None
+        discord_anhaenge.protokollieren(self._ctx().journal, e)
+        discord_anhaenge.melden(self.con, e, max_mb=seed.max_file_mb)
+        return {"geholt": e.geholt, "bekannt": e.bekannt, "zu_gross": e.zu_gross,
+                "verloren": e.verloren, "mehr": e.mehr, "nachrichten": e.nachrichten}
+
+    # ------------------------------------------------------------------ #
     #  Sortieren
     # ------------------------------------------------------------------ #
     def _summary(self, s, ctx: Context) -> dict:
@@ -1722,6 +1789,7 @@ class Wache:
                     gesehen = {str(p) for p in self._d._eingang_pfade(hive)}
                 self._deadlines(hive)
                 self._postfach(hive)
+                self._discord(hive)
         finally:
             if obs is not None:
                 try:
@@ -1747,6 +1815,24 @@ class Wache:
                 postfach.melden(self._d.con, ergebnis, max_mb=seed.max_file_mb)
         except Exception:
             pass          # das Postfach darf die Eingangs-Wache nie stören
+
+    def _discord(self, hive: Path) -> None:
+        """Alle paar Minuten Anhänge aus dem Discord-Kanal des Projekts holen."""
+        try:
+            if self._d.hive != hive:
+                return
+            from .. import discord_anhaenge
+            seed = config.load_seed(hive)
+            ergebnis, fehler = discord_anhaenge.automatisch(
+                hive, kanal=seed.discord_kanal, max_mb=seed.max_file_mb,
+                journal=self._d._ctx().journal if seed.discord_kanal else None)
+            if fehler:
+                self._d.con.error(fehler)
+            elif ergebnis is not None and (ergebnis.geholt or ergebnis.zu_gross
+                                           or ergebnis.verloren):
+                discord_anhaenge.melden(self._d.con, ergebnis, max_mb=seed.max_file_mb)
+        except Exception:
+            pass          # Discord darf die Eingangs-Wache nie stören
 
     def _deadlines(self, hive: Path) -> None:
         try:

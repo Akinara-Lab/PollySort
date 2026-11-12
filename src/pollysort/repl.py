@@ -389,6 +389,8 @@ class BeehiveShell(cmd.Cmd):
             ("flugrouten [setup|test|microsoft]", "routes [setup|test|microsoft]", "help.d.routes"),
             ("postfach [abholen|liste|ordner <name>]", "mailbox [fetch|list|folder <name>]",
              "help.d.mailbox"),
+            ("discord [abholen|liste|kanal <id>]", "discord [fetch|list|channel <id>]",
+             "help.d.discord"),
             ("reflektiere · wachstafel [leeren]", "reflect · rules [clear]", "help.d.reflect"),
             ("gedaechtnis [approve|neu]", "memory [approve|rebuild]", "help.d.memory"),
             ("nacherfassen [an|aus|jetzt]", "enrich [on|off|now]", "help.d.enrich"),
@@ -689,6 +691,7 @@ class BeehiveShell(cmd.Cmd):
         self.con.honey(i18n.t("r.watch.on", mode=modus, action=verb), "🟢")
         self._deadlines_wachen()          # beim Start einmal die Deadlines prüfen
         self._postfach_wachen()           # … und im Postfach nachsehen (falls eingestellt)
+        self._discord_wachen()            # … und im Discord-Kanal des Projekts
         seen = {str(p) for p in self._inbox_paths()}
         try:
             while True:
@@ -709,6 +712,7 @@ class BeehiveShell(cmd.Cmd):
                 seen = {str(p) for p in self._inbox_paths()}
                 self._deadlines_wachen()   # Wächterbienen behalten auch Deadlines im Blick
                 self._postfach_wachen()    # neue Anhänge fallen beim nächsten Takt als „neu" auf
+                self._discord_wachen()
         except KeyboardInterrupt:
             self.con.raw("")
             self.con.info(i18n.t("r.watch.stop"), "🐝")
@@ -835,6 +839,122 @@ class BeehiveShell(cmd.Cmd):
             return
         postfach.protokollieren(self._ctx().journal, ergebnis)
         postfach.melden(self.con, ergebnis, max_mb=seed.max_file_mb)
+
+    # ------------------------------------------------------------------ #
+    #  Discord — Anhänge aus dem Kanal des Projekts in den Eingang holen
+    # ------------------------------------------------------------------ #
+    def _discord_wachen(self) -> None:
+        """Alle paar Minuten Anhänge aus dem Discord-Kanal des Projekts holen (falls eingestellt)."""
+        try:
+            from pollysort import discord_anhaenge
+            seed = config.load_seed(self.hive)
+            ergebnis, fehler = discord_anhaenge.automatisch(
+                self.hive, kanal=seed.discord_kanal, max_mb=seed.max_file_mb,
+                journal=self._ctx().journal if seed.discord_kanal else None)
+            if fehler:
+                self.con.error(fehler)
+            elif ergebnis is not None and (ergebnis.geholt or ergebnis.zu_gross
+                                           or ergebnis.verloren):
+                discord_anhaenge.melden(self.con, ergebnis, max_mb=seed.max_file_mb)
+        except Exception:
+            pass          # Discord darf die Eingangs-Wache nie stören
+
+    def do_discord(self, arg: str) -> None:
+        """discord [abholen|liste|kanal <id>|aus] — Anhänge aus dem Discord-Kanal des Projekts holen.
+
+        Im Kanal wird nichts verändert: nur lesen, nichts löschen, nichts schreiben.
+        """
+        from pollysort import discord_anhaenge
+        teile = arg.strip().split(" ", 1)
+        sub = teile[0].lower()
+        rest = teile[1].strip().strip('"') if len(teile) > 1 else ""
+        if sub in ("abholen", "holen", "fetch"):
+            self._discord_abholen()
+        elif sub in ("liste", "list", "channels", "kanaele", "kanäle"):
+            self._discord_liste()
+        elif sub in ("kanal", "channel") and rest:
+            try:
+                kanal = discord_anhaenge.kanal_pruefen(rest)
+            except discord_anhaenge.DiscordFehler as exc:
+                self.con.error(str(exc))
+                return
+            self._update_seed(discord_kanal=kanal)
+            self.con.honey(i18n.t("dc.set", id=kanal), "🎮")
+        elif sub in ("kanal", "channel"):
+            self._discord_liste()
+        elif sub in ("aus", "off"):
+            self._update_seed(discord_kanal="")
+            self.con.info(i18n.t("dc.off"), "🎮")
+        else:
+            self._discord_status()
+
+    def _discord_bot(self) -> str:
+        """Das Bot-Token zum Lesen — oder ``""`` mit einem Hinweis, was fehlt."""
+        from pollysort import discord_anhaenge
+        from pollysort.flugrouten import load_flugrouten
+        bot_token = discord_anhaenge.token(load_flugrouten())
+        if not bot_token:
+            self.con.ask(i18n.t("dc.nobot"))
+        return bot_token
+
+    def _discord_status(self) -> None:
+        from pollysort import discord_anhaenge
+        from pollysort.flugrouten import load_flugrouten
+        seed = config.load_seed(self.hive)
+        self.con.rule(i18n.t("dc.title"))
+        if discord_anhaenge.token(load_flugrouten()):
+            self.con.info(i18n.t("dc.bot"), "🎮")
+        else:
+            self.con.ask(i18n.t("dc.nobot"))
+        if not seed.discord_kanal:
+            self.con.info(i18n.t("dc.none"), "🐝")
+            return
+        st = discord_anhaenge.stand(self.hive)
+        self.con.info(i18n.t("dc.channel", id=seed.discord_kanal,
+                             min=discord_anhaenge.PAUSE // 60), "🎮")
+        if st["letzter_abruf"] and st["kanal"] == seed.discord_kanal:
+            self.con.info(i18n.t("dc.last", when=st["letzter_abruf"][:16].replace("T", " "),
+                                 n=st["geholt"]), "🐝")
+        else:
+            self.con.info(i18n.t("dc.never"), "🐝")
+        self.con.info(i18n.t("dc.usage"), "🐝")
+
+    def _discord_liste(self) -> None:
+        from pollysort import discord_anhaenge
+        bot_token = self._discord_bot()
+        if not bot_token:
+            return
+        try:
+            kanaele = discord_anhaenge.kanal_liste(bot_token)
+        except discord_anhaenge.DiscordFehler as exc:
+            self.con.error(str(exc))
+            return
+        if not kanaele:
+            self.con.ask(i18n.t("dc.nochannels"))
+            return
+        self.con.rule(i18n.t("dc.channels"))
+        for k in kanaele:
+            self.con.raw(f"   {k['server']} · #{k['name']}   {k['id']}")
+        self.con.info(i18n.t("dc.pick"), "🐝")
+
+    def _discord_abholen(self) -> None:
+        from pollysort import discord_anhaenge
+        seed = config.load_seed(self.hive)
+        if not seed.discord_kanal:
+            self.con.info(i18n.t("dc.none"), "🐝")
+            return
+        bot_token = self._discord_bot()
+        if not bot_token:
+            return
+        self.con.bloom(i18n.t("dc.fetching"), "🐝")
+        try:
+            ergebnis = discord_anhaenge.abholen(self.hive, bot_token, seed.discord_kanal,
+                                                max_mb=seed.max_file_mb)
+        except discord_anhaenge.DiscordFehler as exc:
+            self.con.error(str(exc))
+            return
+        discord_anhaenge.protokollieren(self._ctx().journal, ergebnis)
+        discord_anhaenge.melden(self.con, ergebnis, max_mb=seed.max_file_mb)
 
     # ------------------------------------------------------------------ #
     #  Anzeigen
