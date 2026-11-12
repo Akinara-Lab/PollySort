@@ -9,6 +9,28 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Discord: Anhänge aus dem Kanal eines Projekts in den Eingang holen
+- **Ein Discord-Kanal je Projekt.** `discord liste` zeigt die Textkanäle, die der Bot sieht,
+  `discord kanal <ID oder Link>` legt einen für das Projekt fest. Dateien, die dort hochgeladen
+  oder hinein weitergeleitet werden, landen im Eingang des Projekts. `discord abholen` sieht
+  sofort nach; läuft die Wache, sieht sie alle 10 Minuten nach. `discord aus` schaltet es ab.
+- **Abgeholt wird mit dem Bot** der Discord-Flugroute (`flugrouten setup`). Ein Webhook reicht
+  dafür nicht — er kann nur schreiben.
+- 🔒 **Im Kanal wird nichts verändert.** PollySort liest nur: nichts wird geschrieben, gelöscht
+  oder markiert. Das Bot-Token geht ausschließlich an die Schnittstelle von Discord, nie an
+  dessen Dateispeicher; geladen wird nur von den Dateispeichern von Discord. Text, Verfasser und
+  Zeit der Nachrichten werden nicht gespeichert.
+- **Nichts doppelt, nichts überschrieben.** Je Projekt merkt sich PollySort, bis zu welcher
+  Nachricht abgeholt wurde und welche Inhalte schon da waren (`.honig/discord.json`). Was größer
+  ist als das Größenlimit des Projekts, wird gar nicht erst geladen und genannt. Dateinamen
+  werden wie beim Postfach entschärft.
+- **Zwei Dinge auf der Seite von Discord:** Der Bot braucht im Kanal die Rechte „Kanal ansehen“
+  und „Nachrichtenverlauf anzeigen“, und im Discord-Entwicklerportal muss beim Bot „Message
+  Content Intent“ eingeschaltet sein — sonst zeigt Discord einem Bot keine Anhänge. Fehlt das,
+  sagt der Abruf es und überspringt nichts.
+- Der Kanal steht in den Projekt-Einstellungen (`[discord] kanal` in `hive.toml`). Der Dienst
+  des Flugbretts kann es schon (`discord_*`); die Oberfläche dazu fehlt noch.
+
 ### Microsoft-Anmeldung für Outlook.com, Hotmail und Microsoft 365
 - **Anmelden auf der Microsoft-Seite statt mit Passwort.** Private Outlook- und Hotmail-Konten
   nehmen kein Passwort mehr an, bei Firmenkonten schaltet Microsoft es ab. `flugrouten setup`

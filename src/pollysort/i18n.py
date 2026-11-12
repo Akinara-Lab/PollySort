@@ -532,6 +532,8 @@ _CATALOG: dict[str, dict[str, str]] = {
                       "en": "Discord / e-mail notifications (opt-in)"},
     "help.d.mailbox": {"de": "Anhänge aus einem E-Mail-Ordner in den Eingang holen",
                        "en": "Fetch attachments from a mail folder into the inbox"},
+    "help.d.discord": {"de": "Anhänge aus dem Discord-Kanal des Projekts in den Eingang holen",
+                       "en": "Fetch attachments from the project's Discord channel into the inbox"},
     "help.d.reflect": {"de": "Meta-Learning: Regeln ableiten / zeigen / leeren",
                        "en": "Meta-learning: derive / show / clear rules"},
     "help.d.memory": {"de": "Kategorien/Vorschläge · 'neu' = Reindex nach Modellwechsel",
@@ -1837,6 +1839,105 @@ _CATALOG: dict[str, dict[str, str]] = {
     "postfach.err.schreiben": {
         "de": "Ein Anhang ließ sich nicht in den Eingang schreiben ({typ})",
         "en": "An attachment could not be written to the inbox ({typ})",
+    },
+    "dc.title": {"de": "Discord-Kanal des Projekts", "en": "The project's Discord channel"},
+    "dc.channel": {
+        "de": "Kanal für dieses Projekt: {id} — die Wache sieht alle {min} Minuten nach.",
+        "en": "Channel for this project: {id} — the watch checks every {min} minutes.",
+    },
+    "dc.last": {
+        "de": "Zuletzt nachgesehen: {when} (Weltzeit) · bisher {n} Anhänge geholt",
+        "en": "Last checked: {when} (UTC) · {n} attachments fetched so far",
+    },
+    "dc.never": {"de": "Noch nie nachgesehen.", "en": "Never checked yet."},
+    "dc.usage": {
+        "de": "Jetzt holen: 'discord abholen' · Kanäle zeigen: 'discord liste' · "
+              "ändern: 'discord kanal <ID>' · abschalten: 'discord aus'",
+        "en": "Fetch now: 'discord fetch' · show channels: 'discord list' · "
+              "change: 'discord channel <ID>' · turn off: 'discord off'",
+    },
+    "dc.none": {
+        "de": "Für dieses Projekt ist kein Discord-Kanal eingestellt. 'discord liste' zeigt die "
+              "Kanäle, die der Bot sieht, 'discord kanal <ID>' legt einen fest.",
+        "en": "No Discord channel is set for this project. 'discord list' shows the channels the "
+              "bot can see, 'discord channel <ID>' sets one.",
+    },
+    "dc.nobot": {
+        "de": "Zum Abholen braucht es einen Discord-Bot — ein Webhook kann nur schreiben. "
+              "'flugrouten setup' richtet den Bot ein.",
+        "en": "Fetching needs a Discord bot — a webhook can only write. "
+              "'routes setup' sets up the bot.",
+    },
+    "dc.bot": {"de": "Der Bot der Discord-Flugroute ist eingerichtet.",
+               "en": "The bot of the Discord route is set up."},
+    "dc.set": {
+        "de": "Discord-Kanal für dieses Projekt: {id}. 'discord abholen' holt die Anhänge jetzt; "
+              "im Kanal wird dabei nichts verändert.",
+        "en": "Discord channel for this project: {id}. 'discord fetch' fetches the attachments "
+              "now; nothing in the channel is changed.",
+    },
+    "dc.off": {
+        "de": "Für dieses Projekt werden keine Anhänge mehr aus Discord abgeholt.",
+        "en": "No attachments are fetched from Discord for this project any more.",
+    },
+    "dc.channels": {"de": "Kanäle, die der Bot sieht", "en": "Channels the bot can see"},
+    "dc.nochannels": {
+        "de": "Der Bot sieht keinen Textkanal. Er muss auf deinen Server eingeladen sein und den "
+              "Kanal ansehen dürfen.",
+        "en": "The bot cannot see any text channel. It must be invited to your server and be "
+              "allowed to view the channel.",
+    },
+    "dc.pick": {
+        "de": "Festlegen mit: discord kanal <ID>   (die Zahl am Ende der Zeile)",
+        "en": "Set with: discord channel <ID>   (the number at the end of the line)",
+    },
+    "dc.fetching": {
+        "de": "Sammelbienen sehen im Discord-Kanal nach …",
+        "en": "Checking the Discord channel …",
+    },
+    "dc.lost": {
+        "de": "Discord gibt diese Dateien nicht mehr heraus: {names}",
+        "en": "Discord no longer provides these files: {names}",
+    },
+    "dc.more": {
+        "de": "Im Kanal liegen weitere Nachrichten — sie kommen beim nächsten Abruf dran.",
+        "en": "There are more messages in the channel — they will be handled on the next fetch.",
+    },
+    "discord.err.kanal_id": {
+        "de": "Das ist keine Kanal-ID. Gebraucht wird die lange Zahl des Kanals oder der Link "
+              "zum Kanal — 'discord liste' zeigt beide",
+        "en": "That is not a channel ID. Needed is the channel's long number or the link to the "
+              "channel — 'discord list' shows them",
+    },
+    "discord.err.netz": {
+        "de": "Discord ist nicht erreichbar ({typ}) — Internetverbindung prüfen",
+        "en": "Discord cannot be reached ({typ}) — check your connection",
+    },
+    "discord.err.token": {
+        "de": "Discord lehnt das Bot-Token ab — in 'flugrouten setup' neu eintragen",
+        "en": "Discord rejects the bot token — enter it again in 'routes setup'",
+    },
+    "discord.err.kanal": {
+        "de": "Discord lässt den Bot das nicht lesen ({status}) — Kanal-ID prüfen; der Bot braucht "
+              "im Kanal die Rechte „Kanal ansehen“ und „Nachrichtenverlauf anzeigen“",
+        "en": "Discord does not let the bot read this ({status}) — check the channel ID; the bot "
+              "needs “View Channel” and “Read Message History” in the channel",
+    },
+    "discord.err.status": {
+        "de": "Discord antwortete mit einem Fehler ({status}) — später erneut versuchen",
+        "en": "Discord answered with an error ({status}) — try again later",
+    },
+    "discord.err.antwort": {
+        "de": "Discord hat unerwartet geantwortet — später erneut versuchen",
+        "en": "Discord answered unexpectedly — try again later",
+    },
+    "discord.err.inhalt": {
+        "de": "Discord zeigt dem Bot die Inhalte der Nachrichten nicht, also auch keine Anhänge. "
+              "Im Discord-Entwicklerportal beim Bot „Message Content Intent“ einschalten, dann "
+              "noch einmal abholen — übersprungen wurde nichts",
+        "en": "Discord does not show the bot what the messages contain, so no attachments either. "
+              "Switch on “Message Content Intent” for the bot in the Discord developer portal, "
+              "then fetch again — nothing was skipped",
     },
     "r.projects.pick": {
         "de": "  Nummer, Name oder Pfad: ",

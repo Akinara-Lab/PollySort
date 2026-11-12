@@ -337,6 +337,13 @@ umgedreht.
   aus) und `postfach_abholen` (legt neue Anhänge in den Eingang und nennt sie). Der Zugang kommt
   aus der E-Mail-Flugroute; bei `custom` nimmt `flugrouten_speichern` dafür zusätzlich
   `imap_host`/`imap_port`. Auch diese vier Namen stehen in `formular_fehlt`.
+- **Discord-Kanal des Projekts in der Werkstatt: noch zu bauen.** Gleiches Muster wie beim
+  Postfach: `discord_stand` (`kanal`, `bereit` = es gibt einen Bot, `letzter_abruf`, `geholt`,
+  `minuten`), `discord_kanaele` (Textkanäle, die der Bot sieht: `server`, `name`, `id` — zur
+  Auswahl), `discord_einstellen` (`kanal` als ID oder Link zum Kanal, leer = aus) und
+  `discord_abholen` (`geholt`, `bekannt`, `zu_gross`, `verloren`, `mehr`, `nachrichten`). Fehler
+  kommen als HTTP 400 mit fertigem Text — auch der Hinweis, dass beim Bot „Message Content
+  Intent“ fehlt. Die vier Namen stehen in `formular_fehlt`.
 - **OpenRouter-Schlüssel im Browser:** bewusst noch nicht — weiter über `schluessel setzen`.
 - **Logo & Markenfarben:** Die Pixel-Biene ist ein Vorschlag. Sobald es ein offizielles Logo
   gibt, ersetzt es `Pixel.biene()` im Kopf und `favicon.svg`.

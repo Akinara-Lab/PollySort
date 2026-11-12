@@ -189,6 +189,9 @@ class HiveSeed:
     # Ordner im E-Mail-Postfach, dessen Anhänge in den Eingang dieses Projekts geholt werden
     # (postfach.py). Leer = aus.
     postfach_ordner: str = ""
+    # Discord-Kanal dieses Projekts (ID): Dateien, die dort hochgeladen werden, landen im Eingang
+    # (discord_anhaenge.py). Leer = aus.
+    discord_kanal: str = ""
 
 
 #: Wörter, mit denen man einen Modus wählt → interner Wert. Die neuen Namen (seit
@@ -337,6 +340,7 @@ def load_seed(hive: Path) -> HiveSeed:
         watch_seconds=int(proj.get("watch_seconds", 10)),
         nacherfassung=bool(proj.get("nacherfassung", True)),
         postfach_ordner=str(data.get("postfach", {}).get("ordner", "")),
+        discord_kanal=str(data.get("discord", {}).get("kanal", "")),
     )
 
 
@@ -378,6 +382,10 @@ pollen_retention_days = {seed.pollen_retention_days}
         content += ("\n# Anhänge aus diesem Ordner des E-Mail-Postfachs landen im Eingang "
                     "('postfach abholen').\n"
                     f"[postfach]\nordner = {_toml_val(seed.postfach_ordner)}\n")
+    # Discord-Kanal (optional) — nur schreiben, wenn gesetzt. Die ID ist kein Geheimnis.
+    if seed.discord_kanal:
+        content += ("\n# Dateien aus diesem Discord-Kanal landen im Eingang ('discord abholen').\n"
+                    f"[discord]\nkanal = {_toml_val(seed.discord_kanal)}\n")
     # Dynamische Unterordner je Kategorie (optional) — nur schreiben, wenn gesetzt.
     if seed.subrouting:
         sub_lines = "\n".join(f"{_toml_val(k)} = {_toml_val(v)}"
