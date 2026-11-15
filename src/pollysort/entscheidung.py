@@ -70,8 +70,8 @@ BEENARA_ENDE = 0.3
 #: Beschreibungen 0; auf dem v0.4-Benchmark 59 % selbst einsortiert, davon 0,3 % falsch.
 BEENARA_REGEL = "risk"
 #: BeeNara Big (:mod:`pollysort.beenara_big`) ist auf 3–300 Ordner trainiert, in 5 % der
-#: Aufgaben bis 500. Selbst einsortiert wird nur mit Risiko-Schwelle: in v0.4 bei 3–9 Ordnern
-#: (v0.3 nirgends); darüber macht es Vorschläge.
+#: Aufgaben bis 500. Selbst einsortiert wird nur mit Risiko-Schwelle: in v0.5 bei 3–49 Ordnern
+#: (v0.4 bei 3–9, v0.3 nirgends); darüber macht es Vorschläge.
 BIG_MIN, BIG_MAX = 3, 500
 #: Werte der Einstellung ``beenara_modell``: welches Modell sortiert, wenn beide da sind.
 MODELLE = ("auto", "klein", "big")
@@ -90,9 +90,9 @@ def beenara_modell_fuer(modus: str, n: int, *, klein_bereit: bool, big_bereit: b
     """Welches BeeNara bei ``n`` Ordnern entscheidet: ``klein`` · ``big`` · ``None`` (keins).
 
     ``auto`` (Standard): das kleine BeeNara für 3–9 Ordner — dort sortiert es selbst; sonst
-    Big bis 500 Ordner, das nur vorschlägt. ``klein`` und ``big`` erzwingen ein Modell; außerhalb
-    seines Bereichs entscheidet dann der bisherige Weg. Ist Big nicht geladen, ist ``auto``
-    genau das Verhalten vor Big."""
+    Big bis 500 Ordner, das bis 49 Ordner selbst einsortiert und darüber vorschlägt. ``klein``
+    und ``big`` erzwingen ein Modell; außerhalb seines Bereichs entscheidet dann der bisherige
+    Weg. Ist Big nicht geladen, ist ``auto`` genau das Verhalten vor Big."""
     klein = klein_bereit and BEENARA_MIN <= n <= BEENARA_MAX
     big = big_bereit and BIG_MIN <= n <= BIG_MAX
     if modus == "klein":

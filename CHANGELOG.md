@@ -9,6 +9,26 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### BeeNara Big v0.5
+- **Neue Modellversion** (Hugging Face, Tag `v0.5`): PollySort lädt BeeNara Big aus
+  `Kwokou/BeeNara-Big@56f3ea7`. Wer v0.4 geladen hat, bekommt die neue Version beim nächsten
+  Start der App automatisch (164 MB; das Basismodell bleibt dasselbe und wird nicht neu geladen).
+  Das kleine BeeNara bleibt bei v0.4.
+- **Trifft öfter den richtigen Ordner:** auf denselben 2.400 ungesehenen Aufgaben 87,4 % statt
+  83,6 % (v0.4). Am meisten gewinnen große Bäume: 50–99 Ordner 90,5 % (84,5 %), 100–199 Ordner
+  90,2 % (83,5 %), ab 200 Ordnern 65,8 % (59,0 %). „Keiner passt“ erkennt es in 85,8 % der Fälle
+  (75,7 %).
+- **Sortiert jetzt bis 49 Ordner selbst ein**, wenn es sicher genug ist — bisher nur bei 3–9.
+  Bei 10–24 Ordnern 57 % der Aufgaben (davon 0,9 % falsch), bei 25–49 Ordnern 49 % (1,0 %). Die
+  Schwelle für 25–49 Ordner liegt knapp an der 1-%-Grenze. Ab 50 Ordnern bleibt jede Antwort ein
+  Vorschlag mit Rückfrage.
+- **Fragt nach, wenn zwei Ordner gleich gut passen.** v0.5 hat solche Dokumente im Training
+  gesehen und teilt seine Sicherheit dann auf beide auf; im Test wurde 1 von 152 solchen
+  Dokumenten selbst einsortiert.
+- An der Laufzeit ändert sich nichts: Schwellen und Listengrößen stehen in der Kalibrierdatei.
+  Geprüft mit den neuen Gewichten auf der CPU: 23 Eingaben mit 6 bis 30 Ordnern, Ergebnis
+  bitgleich mit dem Lader auf Hugging Face.
+
 ### Discord: Anhänge aus dem Kanal eines Projekts in den Eingang holen
 - **Ein Discord-Kanal je Projekt.** `discord liste` zeigt die Textkanäle, die der Bot sieht,
   `discord kanal <ID oder Link>` legt einen für das Projekt fest. Dateien, die dort hochgeladen
