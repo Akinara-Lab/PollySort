@@ -853,9 +853,9 @@ _CATALOG: dict[str, dict[str, str]] = {
     "bb.status.partial": {"de": "Unvollständig — 'beenara big laden' setzt den Download fort.",
                           "en": "Incomplete — 'beenara big pull' resumes the download."},
     "bb.active.ja": {
-        "de": "Bereit: entscheidet, wo es laut Modellwahl dran ist. Bei 3 bis 9 Ordnern sortiert es "
+        "de": "Bereit: entscheidet, wo es laut Modellwahl dran ist. Bei 3 bis 49 Ordnern sortiert es "
               "selbst ein, wenn es sicher genug ist; bei mehr Ordnern wird jeder Vorschlag eine Rückfrage.",
-        "en": "Ready: decides where the model choice puts it in charge. With 3 to 9 folders it files "
+        "en": "Ready: decides where the model choice puts it in charge. With 3 to 49 folders it files "
               "on its own when it is sure enough; with more folders every suggestion becomes a review.",
     },
     "bb.active.version": {

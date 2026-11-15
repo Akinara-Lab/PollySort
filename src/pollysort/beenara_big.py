@@ -1,9 +1,9 @@
 """BeeNara Big — das große Entscheider-Modell für ganze Ordnerbäume: holen, prüfen, öffnen.
 
-BeeNara Big (https://huggingface.co/Kwokou/BeeNara-Big, v0.4) liest den ganzen Ordnerbaum — 3 bis
+BeeNara Big (https://huggingface.co/Kwokou/BeeNara-Big, v0.5) liest den ganzen Ordnerbaum — 3 bis
 etwa 300 Ordner, trainiert bis 500 — und schlägt den passenden Ordner vor. Es ist Qwen3.5-2B-Base
 mit LoRA und einem kleinen Entscheidungskopf und braucht eine NVIDIA-GPU mit mindestens 8 GB. Selbst
-einsortieren darf es nur, wo seine Kalibrierung eine Risiko-Schwelle hat — in v0.4 bei 3 bis 9
+einsortieren darf es nur, wo seine Kalibrierung eine Risiko-Schwelle hat — in v0.5 bei 3 bis 49
 Ordnern; sonst wird, was Big entscheidet, eine Rückfrage mit seinem Favoriten.
 
 Zwei Teile, beide auf festem Commit und mit Prüfsumme geladen — dieselbe Logik wie BeeNara
@@ -36,13 +36,14 @@ from . import beenara, config, i18n
 from .beenara import Quelle, Stand, stand_in
 
 REPO = "Kwokou/BeeNara-Big"
-#: BeeNara Big v0.4 (Hub-Commit vom 2026-10-27, Tag ``v0.4``; v0.3 war 64266f0). Ab v0.4 sortiert
-#: Big bei 3–9 Ordnern selbst ein, darüber schlägt es vor; die Buckets stehen in der Kalibrierung.
+#: BeeNara Big v0.5 (Hub-Commit vom 2026-11-15, Tag ``v0.5``; v0.4 war 575cd42, v0.3 64266f0). v0.5
+#: sortiert bei 3–49 Ordnern selbst ein (v0.4: 3–9), darüber schlägt es vor; die Schwellen und
+#: Buckets stehen in der Kalibrierung.
 #: Wer diesen Wert anhebt, prüft vorher die Laufzeit gegen das neue Modell (Paritätstest) — wie bei
 #: BeeNara.
-REVISION = "575cd4263a9750470f1326720923911d24095c8f"
+REVISION = "56f3ea77d2ed5f3b438726c54a688e4ccf2bd9d1"
 #: Der Versions-Tag dieses Commits auf dem Hub (siehe :data:`pollysort.beenara.VERSION`).
-VERSION = "v0.4"
+VERSION = "v0.5"
 BASIS_REPO = "Qwen/Qwen3.5-2B-Base"
 #: Genau die Basis, auf der Big trainiert wurde (steht auch in ``big_config.json``).
 BASIS_REVISION = "b1485b2fa6dfa1287294f269f5fb618e03d52d7c"

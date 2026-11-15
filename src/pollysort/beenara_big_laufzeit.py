@@ -2,7 +2,8 @@
 
 Kopie von ``beenara_big.py`` aus https://huggingface.co/Kwokou/BeeNara-Big (v0.3; geprüft am
 2026-10-08: auf denselben Eingaben bitgleich mit dem Trainingscode, CPU fp32; v0.4 am 2026-10-27:
-Buckets aus der Kalibrierdatei, auf CPU dieselbe Wahl wie die GPU-Bewertung). Änderungen gehören
+Buckets aus der Kalibrierdatei, auf CPU dieselbe Wahl wie die GPU-Bewertung; v0.5 am 2026-11-15:
+23 Eingaben mit 6 bis 30 Ordnern, CPU fp32, Logits bitgleich mit dem Hub-Lader). Änderungen gehören
 zuerst dorthin, mit Paritätstest, und werden dann hierher übernommen. PollySort lädt bewusst
 keinen Code vom Hub. Abweichungen vom Original:
 
@@ -260,7 +261,7 @@ class BeeNaraBig:
     def decide(self, text: str, categories: list[str], *, descriptions: dict[str, str] | None = None,
                language: str = "de", question: str | None = None, rule: str = "risk") -> Decision:
         """Wie ``BeeNara.decide``: ``category`` nur, wenn eine Risiko-Schwelle das erlaubt — in
-        v0.4 bei 3 bis 9 Ordnern, darüber nie (dann ``ask``). ``rule`` ist der Gleichförmigkeit
+        v0.5 bei 3 bis 49 Ordnern, darüber nie (dann ``ask``). ``rule`` ist der Gleichförmigkeit
         halber da; Big kennt nur die Risiko-Regel."""
         s = self.suggest(text, categories, descriptions=descriptions, language=language, question=question)
         best = max(s.distribution, key=s.distribution.get)
