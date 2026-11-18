@@ -53,7 +53,8 @@
     '\u{1F500}': 'weiche',                                           // Modellwahl
     '\u{1F5D1}': 'eimer',                                            // Modell entfernt
     '\u{1F4E6}': 'laden', '\u2B07': 'laden',                        // Paket, Download
-    '\u{1F423}': 'wabe',                                             // neue Kategorie schlüpft
+    '\u{1F423}': 'schlupf',                                          // neue Kategorie schlüpft
+    '\u{1F517}': 'kette',                                            // Waben zusammenführen
     '\u{1F30D}': 'zahnrad', '\u{1F310}': 'zahnrad', '\u{1FA7A}': 'zahnrad', // Sprache, Stock-Check
     '\u{1F578}': 'lupe',                                             // keine Treffer
     '\u{1F680}': 'blitz',                                            // Start, Tempo
@@ -71,6 +72,13 @@
 
   /** Text ohne Emojis (Pfeile, Häkchen-Zeichen und Satzzeichen bleiben). */
   const ohneEmoji = (text) => String(text == null ? '' : text).replace(PIKTOGRAMM, '').replace(/ {2,}/g, ' ').trim();
+
+  /** Fertiger Text vom Kern mit Emoji vorne (z. B. Vorschläge der Königin): Pixel-Icon + Text. */
+  const PIKTOGRAMM_VORNE = /^\s*(\p{Extended_Pictographic})/u;
+  function mitSymbol(text, art) {
+    const m = String(text == null ? '' : text).match(PIKTOGRAMM_VORNE);
+    return `${symbol(m ? m[1] : '', art)}<span>${esc(ohneEmoji(text))}</span>`;
+  }
 
   // ------------------------------------------------------------------ //
   //  Sitzungs-Token: kommt einmalig im Fragment (#t=…), dann nur noch im Speicher
@@ -216,7 +224,7 @@
   }
 
   function leer(spriteHtml, text, extra) {
-    return `<div class="leer-zustand">${spriteHtml}<p>${esc(text)}</p>${extra || ''}</div>`;
+    return `<div class="leer-zustand">${spriteHtml}<p>${esc(ohneEmoji(text))}</p>${extra || ''}</div>`;
   }
 
   function schlafendeBiene() {
@@ -235,7 +243,7 @@
     el.className = `toast ${art || ''}`;
     el.setAttribute('role', art === 'fehler' ? 'alert' : 'status');
     el.innerHTML = `<span>${icon || P.sprite(art === 'fehler' ? 'frage' : 'topf')}</span>` +
-      `<div><b>${esc(titel || '')}</b>${text ? `<span>${esc(text)}</span>` : ''}</div>` +
+      `<div><b>${esc(ohneEmoji(titel))}</b>${text ? `<span>${esc(ohneEmoji(text))}</span>` : ''}</div>` +
       `<button class="zu" type="button" aria-label="${esc(t('web.btn.close'))}">×</button>`;
     $('#hinweise').appendChild(el);
     const weg = () => el.remove();
@@ -910,7 +918,7 @@
       <p>${esc(t('web.memory.vectors', { n: g.vektoren }))}</p>
       ${g.drift ? `<p class="chip frage">${esc(t('r.mem.drift', { drift: g.drift }))}</p>` : ''}
       <div class="zeile">${g.waben.map((x) => `<span class="chip">${esc(x.name)}</span>`).join('')}</div>
-      ${g.vorschlaege.length ? `<h3 class="abstand">${esc(t('web.memory.proposals'))}</h3>${g.vorschlaege.map((v) => `<div class="regel"><span class="mit-symbol">${P.sprite('wabe', 'symbol')}<span>${esc(v.text)}</span></span>
+      ${g.vorschlaege.length ? `<h3 class="abstand">${esc(t('web.memory.proposals'))}</h3>${g.vorschlaege.map((v) => `<div class="regel"><span class="mit-symbol">${mitSymbol(v.text)}</span>
         <button class="knopf zweit klein-knopf" type="button" data-tun="gedaechtnis-ok" data-slug="${esc(v.slug)}">${esc(t('web.btn.accept_short'))}</button></div>`).join('')}` : ''}
       <div class="zeile abstand"><button class="knopf leise-knopf" type="button" data-tun="gedaechtnis-neu">${esc(t('web.btn.rebuild'))}</button></div>
       <p class="hinweis">${esc(t('help.d.memory'))}</p></section>` : '';
@@ -1042,9 +1050,9 @@
       ${bn.zeilen.map((z) => `<p class="mit-symbol ${z.art === 'ask' ? '' : 'leise'}">${symbol(z.emoji, z.art)}<span>${esc(ohneEmoji(z.text))}</span></p>`).join('')}
       <div class="zeile abstand">
         ${bnUnfertig ? `<button class="knopf" type="button" data-tun="bn-laden">${esc(t(bn.vorhanden || bn.angefangen ? 'web.btn.bn_finish' : 'web.btn.bn_pull'))}</button>` : ''}
-        ${bn.vorhanden ? `<div class="feld"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
         ${bn.vorhanden || bn.angefangen ? `<button class="knopf zweit klein-knopf" type="button" data-tun="bn-entfernen" data-mb="${esc(bn.mb)}">${esc(t('web.btn.bn_remove'))}</button>` : ''}
       </div>
+      ${bn.vorhanden ? `<div class="feld abstand"><span>${esc(t('web.bn.use'))}</span>${schalter('bn-schalten', [[true, 'nx.on'], [false, 'nx.off']], bn.an)}</div>` : ''}
       ${bn.vorhanden || bb.vorhanden ? `<div class="feld abstand"><span>${esc(t('web.bn.auto'))}</span>${schalter('bn-auto', [[true, 'nx.on'], [false, 'nx.off']], bn.auto_update)}
         <small class="leise">${esc(t('web.bn.auto.text'))}</small></div>` : ''}
       ${bigTeil}
