@@ -9,6 +9,15 @@ sichtbar ist der Produktname PollySort.
 
 ## [Unveröffentlicht]
 
+### Flugbrett: Feinschliff
+- **Werkstatt, BeeNara:** „Entfernen“ steht in der Aktionszeile unter dem Status (wie bei
+  BeeNara Big) statt schief neben dem Schalter „Beim Sortieren“.
+- **Vorschläge der Königin:** Statt der Emojis 🐣 und 🔗 zeigen die Vorschläge eigene
+  Pixel-Icons („schlupf“ für eine neue Kategorie, „kette“ fürs Zusammenführen). Der Knopf
+  „Übernehmen“ steht bündig rechts.
+- Hinweis-Kästchen und Fehlermeldungen zeigen keine Emojis mehr, auch wenn der Kern welche
+  mitschickt.
+
 ### BeeNara Big v0.5
 - **Neue Modellversion** (Hugging Face, Tag `v0.5`): PollySort lädt BeeNara Big aus
   `Kwokou/BeeNara-Big@56f3ea7`. Wer v0.4 geladen hat, bekommt die neue Version beim nächsten

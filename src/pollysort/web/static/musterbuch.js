@@ -31,6 +31,8 @@
     ['flugloch', 'Flugloch', 'Eingang & Sortieren'],
     ['frage', 'Rückfrage', 'Unsichere Fälle'],
     ['wabe', 'Wabe', 'Kategorie, Abzeichen „Erste Wabe"'],
+    ['schlupf', 'Schlupf', 'Vorschlag der Königin: neue Wabe'],
+    ['kette', 'Kette', 'Vorschlag der Königin: Waben zusammenführen'],
     ['tafel', 'Wachstafel', 'Gelernte Regeln'],
     ['kiste', 'Quarantäne', 'Aussortiertes — nichts gelöscht'],
     ['rueckflug', 'Rückflug', 'Letzte Verschiebung zurück'],

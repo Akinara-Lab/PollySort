@@ -424,6 +424,7 @@ tr[draggable="true"] { cursor: grab; }
 :root[data-theme="dark"] .wachs { background: #3A2A12; }
 .regel { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px dashed var(--linie-leise); font-size: 1.02rem; }
 .regel:last-child { border-bottom: 0; }
+.regel > .knopf { margin-left: auto; }   /* Aktion bündig rechts, auch wenn sie umbricht */
 .regel .stichwort { font-family: var(--mono); font-weight: 700; }
 .regel.geritzt { animation: ritzen .9s steps(9, end) both; }
 @keyframes ritzen { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
